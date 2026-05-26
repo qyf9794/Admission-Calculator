@@ -1,0 +1,78 @@
+{
+  "data_version": "2026.05.admissionsight-seed.v1",
+  "generated_at": "2026-05-26",
+  "sources": [
+    {
+      "id": "admissionsight_acceptance_rates",
+      "name": "AdmissionSight College Acceptance Rates",
+      "url": "https://admissionsight.com/college-acceptance-rates/",
+      "role": "Only v1 college statistics seed: school list, national university rank, class-year acceptance rates.",
+      "refresh_mode": "Manual scrape / reviewed CSV",
+      "confidence": "medium",
+      "note": "If a class-year rate is blank, the app uses the latest non-empty value and lowers data quality."
+    },
+    {
+      "id": "collegevine_reference",
+      "name": "CollegeVine",
+      "url": "https://www.collegevine.com/",
+      "role": "Reference only for student profile fields and multi-factor chancing presentation.",
+      "refresh_mode": "Methodology reference",
+      "confidence": "reference",
+      "note": "No CollegeVine proprietary model, score, or copied probability formula is used."
+    },
+    {
+      "id": "admitranking_reference",
+      "name": "AdmitRanking",
+      "url": "https://admitranking.com/",
+      "role": "Reference for China high school context dimensions.",
+      "refresh_mode": "Manual review",
+      "confidence": "low",
+      "note": "High school calibration remains a disclosed proxy when school-specific admissions outcomes are unavailable."
+    },
+    {
+      "id": "official_cds_gates",
+      "name": "Official admissions pages / Common Data Set",
+      "url": "https://nces.ed.gov/ipeds/use-the-data",
+      "role": "Preferred source for hard gates, test policies, language proof, round restrictions, and portfolio requirements.",
+      "refresh_mode": "Semi-automatic source_url refresh plus manual review",
+      "confidence": "high",
+      "note": "Official hard gates override probability math; unmet official gates return 0%."
+    },
+    {
+      "id": "sevis_proxy_future",
+      "name": "SEVIS China state proxy",
+      "url": "https://studyinthestates.dhs.gov/sevis-by-the-numbers/sevis-by-the-numbers-data",
+      "role": "Excluded from undergraduate admissions probability math unless a future source can isolate undergraduate admits.",
+      "refresh_mode": "Reference only",
+      "confidence": "proxy",
+      "note": "SEVIS active records are not undergraduate-admit counts and are not used in the current model."
+    },
+    {
+      "id": "international_student_signals",
+      "name": "International student proxy signals",
+      "url": "https://nces.ed.gov/ipeds/search",
+      "role": "Undergraduate-only nonresident share, international aid policy, and optional international-admit coefficient.",
+      "refresh_mode": "Reviewed CSV now; future IPEDS/CDS/official undergraduate admissions refresh script",
+      "confidence": "proxy",
+      "note": "International admit coefficient is used only when undergraduate international admitted count and total admitted count are both available."
+    },
+    {
+      "id": "china_undergrad_admissions",
+      "name": "China undergraduate admission counts",
+      "url": "https://www.cuilubang.com/",
+      "role": "Undergraduate China student admit-count signal by college and round.",
+      "refresh_mode": "User-provided table extraction with manual review",
+      "confidence": "proxy",
+      "note": "Used as China applicant access signal. It is not all admitted students or international admitted students unless paired with official totals."
+    },
+    {
+      "id": "academic_benchmark_proxy",
+      "name": "Academic benchmark proxy",
+      "url": "https://www.collegevine.com/admissions-calculator",
+      "role": "College-specific academic comparison layer for GPA, class rank, SAT/ACT, and course rigor.",
+      "refresh_mode": "Reviewed CSV; replace inferred rows with official CDS/class profile values when available",
+      "confidence": "proxy",
+      "note": "Uses CollegeVine-style public chancing concepts only. Current rows are inferred from selectivity/rank unless a row source says otherwise."
+    }
+  ]
+}

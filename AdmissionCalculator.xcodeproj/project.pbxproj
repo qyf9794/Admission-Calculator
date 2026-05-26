@@ -1,0 +1,506 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		14D27FACB5792812821A22AD /* AdmissionCalculatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5E927A3EAFBA28D4D0CCCF /* AdmissionCalculatorApp.swift */; };
+		2F27A009D133B31DFB317C24 /* AppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB85B5749B2C7482763F3B6B /* AppView.swift */; };
+		4158E64763319B1C1EF90E28 /* CollegePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C954FA4C29D50F0CACC323 /* CollegePickerView.swift */; };
+		8DD2D630A90FFA54850FF4CF /* ChanceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */; };
+		9C9DFB4136B101E098DCEA1E /* CalculatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B808A591F6410893EDE1951C /* CalculatorView.swift */; };
+		AA39C24F0EE21FEAAA21C517 /* HarnessValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF67FDE609FF91E042B9AEB /* HarnessValidationTests.swift */; };
+		C22C12B76B3CD556E58DCCC0 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7013D2316F417D26B1E8B3F8 /* StoreKit.framework */; };
+		D912F50D0268B294EA80613F /* ResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04B8A9A5179F237DB30FE5A /* ResultsView.swift */; };
+		E3EE81C656A959A84C7D6B35 /* AdmissionsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74F3B465C6985828AFCF8BA6 /* AdmissionsModels.swift */; };
+		E9F80842294FBC046B4A2795 /* DataSourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF79748D7FCFE25211D3BF06 /* DataSourcesView.swift */; };
+		EDE6A3A8283793C45573F8AF /* ChanceEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A049FD0AFDCFD54930C8D5 /* ChanceEngineTests.swift */; };
+		EFCF8CE252A05A56BBA4FBD5 /* AdmissionsNormalizedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B665FD180BB2A4231350DC4 /* AdmissionsNormalizedData.swift */; };
+		F7595BE886BB3F36020B2AB7 /* AdmissionsSeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 062D68FE7D248D5A00157612 /* AdmissionsSeedData.swift */; };
+		F956025F17170405EB39C324 /* ReportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081826DFD30F984BD3F60385 /* ReportService.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		104BF141361C6B69456A3F4A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 239D6D476FC7C28F45C5503C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AD373E938CB3A1B017995F04;
+			remoteInfo = AdmissionCalculator;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		062D68FE7D248D5A00157612 /* AdmissionsSeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionsSeedData.swift; sourceTree = "<group>"; };
+		081826DFD30F984BD3F60385 /* ReportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportService.swift; sourceTree = "<group>"; };
+		23A049FD0AFDCFD54930C8D5 /* ChanceEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChanceEngineTests.swift; sourceTree = "<group>"; };
+		40C954FA4C29D50F0CACC323 /* CollegePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollegePickerView.swift; sourceTree = "<group>"; };
+		7013D2316F417D26B1E8B3F8 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		74F3B465C6985828AFCF8BA6 /* AdmissionsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionsModels.swift; sourceTree = "<group>"; };
+		75BA07E3DBFD8C5A60D114AE /* AdmissionCalculatorTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AdmissionCalculatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9B665FD180BB2A4231350DC4 /* AdmissionsNormalizedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionsNormalizedData.swift; sourceTree = "<group>"; };
+		B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChanceEngine.swift; sourceTree = "<group>"; };
+		B808A591F6410893EDE1951C /* CalculatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorView.swift; sourceTree = "<group>"; };
+		BF79748D7FCFE25211D3BF06 /* DataSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSourcesView.swift; sourceTree = "<group>"; };
+		D04B8A9A5179F237DB30FE5A /* ResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultsView.swift; sourceTree = "<group>"; };
+		DB85B5749B2C7482763F3B6B /* AppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppView.swift; sourceTree = "<group>"; };
+		E71E254D5AFA3BB3751035DF /* AdmissionCalculator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AdmissionCalculator.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EAF67FDE609FF91E042B9AEB /* HarnessValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessValidationTests.swift; sourceTree = "<group>"; };
+		EB5E927A3EAFBA28D4D0CCCF /* AdmissionCalculatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionCalculatorApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0371FFC21FE2791B0030707C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C22C12B76B3CD556E58DCCC0 /* StoreKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		085FFDEDC69A349F7153EA8A /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				9B665FD180BB2A4231350DC4 /* AdmissionsNormalizedData.swift */,
+				062D68FE7D248D5A00157612 /* AdmissionsSeedData.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		149CAD7C6EFCBD3B4D80E25E /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		329A48128B73E13E1C5C52DF = {
+			isa = PBXGroup;
+			children = (
+				788BBC545E0C39237C111B80 /* AdmissionCalculator */,
+				CC9AB9B83D75B1C783D08674 /* AdmissionCalculatorTests */,
+				4E80A33EE4935B4BF174EB3F /* Frameworks */,
+				99F17153AF7F00EB3DDC35F7 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		35BE15645FAE026F87C7C46A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				EB5E927A3EAFBA28D4D0CCCF /* AdmissionCalculatorApp.swift */,
+				DB85B5749B2C7482763F3B6B /* AppView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		4E80A33EE4935B4BF174EB3F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				7013D2316F417D26B1E8B3F8 /* StoreKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		788BBC545E0C39237C111B80 /* AdmissionCalculator */ = {
+			isa = PBXGroup;
+			children = (
+				35BE15645FAE026F87C7C46A /* App */,
+				085FFDEDC69A349F7153EA8A /* Data */,
+				149CAD7C6EFCBD3B4D80E25E /* Engine */,
+				8A362A7B991EEADFE45C724E /* Models */,
+				F150A3C6AF4E9DF68C86CA23 /* Services */,
+				898ADF2307A46F94032E4397 /* Views */,
+			);
+			path = AdmissionCalculator;
+			sourceTree = "<group>";
+		};
+		898ADF2307A46F94032E4397 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B808A591F6410893EDE1951C /* CalculatorView.swift */,
+				40C954FA4C29D50F0CACC323 /* CollegePickerView.swift */,
+				BF79748D7FCFE25211D3BF06 /* DataSourcesView.swift */,
+				D04B8A9A5179F237DB30FE5A /* ResultsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		8A362A7B991EEADFE45C724E /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				74F3B465C6985828AFCF8BA6 /* AdmissionsModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		99F17153AF7F00EB3DDC35F7 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E71E254D5AFA3BB3751035DF /* AdmissionCalculator.app */,
+				75BA07E3DBFD8C5A60D114AE /* AdmissionCalculatorTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CC9AB9B83D75B1C783D08674 /* AdmissionCalculatorTests */ = {
+			isa = PBXGroup;
+			children = (
+				23A049FD0AFDCFD54930C8D5 /* ChanceEngineTests.swift */,
+				EAF67FDE609FF91E042B9AEB /* HarnessValidationTests.swift */,
+			);
+			path = AdmissionCalculatorTests;
+			sourceTree = "<group>";
+		};
+		F150A3C6AF4E9DF68C86CA23 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				081826DFD30F984BD3F60385 /* ReportService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AD373E938CB3A1B017995F04 /* AdmissionCalculator */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E8D501807AF3D5C3441469AB /* Build configuration list for PBXNativeTarget "AdmissionCalculator" */;
+			buildPhases = (
+				E6A2A5515660C9F47BBC1D5B /* Sources */,
+				0371FFC21FE2791B0030707C /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AdmissionCalculator;
+			packageProductDependencies = (
+			);
+			productName = AdmissionCalculator;
+			productReference = E71E254D5AFA3BB3751035DF /* AdmissionCalculator.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AD79064552378A5C9C0EF712 /* AdmissionCalculatorTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D82D3B9816A349790645181C /* Build configuration list for PBXNativeTarget "AdmissionCalculatorTests" */;
+			buildPhases = (
+				58FE9355217EF921A18D8C7B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A2683A2670D80870F237632F /* PBXTargetDependency */,
+			);
+			name = AdmissionCalculatorTests;
+			packageProductDependencies = (
+			);
+			productName = AdmissionCalculatorTests;
+			productReference = 75BA07E3DBFD8C5A60D114AE /* AdmissionCalculatorTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		239D6D476FC7C28F45C5503C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = 7A0DCA058D665D6E6304704A /* Build configuration list for PBXProject "AdmissionCalculator" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 329A48128B73E13E1C5C52DF;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AD373E938CB3A1B017995F04 /* AdmissionCalculator */,
+				AD79064552378A5C9C0EF712 /* AdmissionCalculatorTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		58FE9355217EF921A18D8C7B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EDE6A3A8283793C45573F8AF /* ChanceEngineTests.swift in Sources */,
+				AA39C24F0EE21FEAAA21C517 /* HarnessValidationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E6A2A5515660C9F47BBC1D5B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				14D27FACB5792812821A22AD /* AdmissionCalculatorApp.swift in Sources */,
+				E3EE81C656A959A84C7D6B35 /* AdmissionsModels.swift in Sources */,
+				EFCF8CE252A05A56BBA4FBD5 /* AdmissionsNormalizedData.swift in Sources */,
+				F7595BE886BB3F36020B2AB7 /* AdmissionsSeedData.swift in Sources */,
+				2F27A009D133B31DFB317C24 /* AppView.swift in Sources */,
+				9C9DFB4136B101E098DCEA1E /* CalculatorView.swift in Sources */,
+				8DD2D630A90FFA54850FF4CF /* ChanceEngine.swift in Sources */,
+				4158E64763319B1C1EF90E28 /* CollegePickerView.swift in Sources */,
+				E9F80842294FBC046B4A2795 /* DataSourcesView.swift in Sources */,
+				F956025F17170405EB39C324 /* ReportService.swift in Sources */,
+				D912F50D0268B294EA80613F /* ResultsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A2683A2670D80870F237632F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AD373E938CB3A1B017995F04 /* AdmissionCalculator */;
+			targetProxy = 104BF141361C6B69456A3F4A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1D7CE544CBCA2FC7F3CAEDB0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.qyf9794.AdmissionCalculatorTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AdmissionCalculator.app/AdmissionCalculator";
+			};
+			name = Debug;
+		};
+		4CB51CB090641544FDF0F317 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Admit Chance";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.qyf9794.AdmissionCalculator;
+				PRODUCT_NAME = AdmissionCalculator;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BEE14BD217FA3ECF4D4BF05D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.qyf9794.AdmissionCalculatorTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AdmissionCalculator.app/AdmissionCalculator";
+			};
+			name = Release;
+		};
+		C08000FC2F943D7E7E14E314 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Admit Chance";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.qyf9794.AdmissionCalculator;
+				PRODUCT_NAME = AdmissionCalculator;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CFC492EC59F390462D42748D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		EE4F4D0685307B11CCFC5273 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7A0DCA058D665D6E6304704A /* Build configuration list for PBXProject "AdmissionCalculator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFC492EC59F390462D42748D /* Debug */,
+				EE4F4D0685307B11CCFC5273 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D82D3B9816A349790645181C /* Build configuration list for PBXNativeTarget "AdmissionCalculatorTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1D7CE544CBCA2FC7F3CAEDB0 /* Debug */,
+				BEE14BD217FA3ECF4D4BF05D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E8D501807AF3D5C3441469AB /* Build configuration list for PBXNativeTarget "AdmissionCalculator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C08000FC2F943D7E7E14E314 /* Debug */,
+				4CB51CB090641544FDF0F317 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 239D6D476FC7C28F45C5503C /* Project object */;
+}

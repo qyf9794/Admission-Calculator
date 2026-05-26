@@ -1,0 +1,44 @@
+# Admission Calculator
+
+SwiftUI iPhone app for estimating U.S. undergraduate admission chances for Chinese applicants.
+
+The v1 model is intentionally transparent:
+
+- AdmissionSight National Universities acceptance rates are the only school statistics seed.
+- Hard gates run before probability math; failed required gates return `0%`.
+- Inferred gates are labeled and lower confidence.
+- Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with China admit-count capacity caps when applicant denominators are missing.
+- Multi-school probability uses same-tier correlation discounting.
+- The paid-report surface is wired as a StoreKit-ready placeholder and cannot modify computed probabilities.
+
+## Build
+
+```bash
+xcodegen generate
+```
+
+Open `AdmissionCalculator.xcodeproj`, or build with XcodeBuildMCP / Xcode.
+
+## Guardrails
+
+See `harness.yaml` and `HARNESS.md`.
+
+## Data Update
+
+The app consumes a generated offline Swift snapshot:
+
+```bash
+node scripts/update-admissions-data.mjs
+node scripts/update-admissions-data.mjs --check
+```
+
+Edit the reviewed source files in `data/`, then regenerate:
+
+- `data/admissionsight_colleges.csv`: only allowed school statistics seed.
+- `data/official_gate_rules.csv`: official and inferred hard gates.
+- `data/international_student_signals.csv`: undergraduate-only international data; admit coefficient is used only when undergraduate international admitted count and total admitted count are both available.
+- `data/china_undergrad_admissions.csv`: China student undergraduate admit-count signal from reviewed table data.
+- `data/china_high_schools.json`: China high school context proxy.
+- `data/source_registry.json`: source roles, confidence, and refresh notes.
+
+The script rejects schools outside the AdmissionSight seed and official gate rules without URLs.

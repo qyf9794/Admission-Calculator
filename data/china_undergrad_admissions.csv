@@ -1,0 +1,30 @@
+college_id,china_2028_early,china_2028_rd,china_2028_total,china_2029_early,china_2029_rd,china_2029_total,china_2030_early,china_2030_rd,china_2030_total,china_share_of_all_admits,data_scope,source_note,data_quality
+princeton,10,19,29,3,14,17,6,11,17,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+mit,24,12,36,7,6,13,3,6,9,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+harvard,9,29,38,1,9,10,2,9,11,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+stanford,18,33,51,21,22,43,24,33,57,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+yale,18,15,33,12,10,22,14,6,20,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+uchicago,80,11,91,42,0,42,66,2,68,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+duke,24,55,79,9,60,69,14,35,49,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+johns_hopkins,60,26,86,49,28,77,32,34,66,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+northwestern,38,24,62,34,31,65,44,30,74,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+upenn,23,53,76,22,22,44,20,27,47,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+caltech,2,4,6,5,12,17,2,9,11,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+cornell,56,90,146,73,75,148,72,63,135,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+brown,11,42,53,12,20,32,12,19,31,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+dartmouth,7,11,18,10,11,21,11,8,19,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+columbia,13,49,62,6,24,30,20,28,48,,undergraduate_china_admits,"Extracted from user-provided IMG_0740.JPG; 2028 total in image appears inconsistent, stored as early+RD",0.70
+uc_berkeley,0,202,202,0,442,442,0,447,447,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+rice,37,99,136,42,44,86,31,49,80,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+ucla,0,178,178,0,293,293,0,464,464,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+vanderbilt,43,34,77,39,19,58,26,37,63,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+cmu,59,113,172,69,81,150,103,129,232,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+umich,80,22,102,55,76,131,135,90,225,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+notre_dame,4,17,21,4,11,15,4,10,14,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+washu,77,50,127,76,102,178,137,83,220,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+emory,119,47,166,78,83,161,147,60,207,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+georgetown,5,22,27,3,37,40,3,36,39,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+uva,66,25,91,29,43,72,124,44,168,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+unc,251,153,404,219,329,548,344,211,555,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+usc,124,156,280,172,400,572,199,476,675,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78
+nyu,394,132,526,450,169,619,393,312,705,,undergraduate_china_admits,Extracted from user-provided IMG_0740.JPG; China student early+RD admits,0.78

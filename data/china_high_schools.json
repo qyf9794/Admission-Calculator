@@ -1,0 +1,107 @@
+{
+  "data_version": "2026.05.china-high-schools.v1",
+  "generated_at": "2026-05-26",
+  "source_note": "AdmitRanking-inspired proxy dimensions: resources, counseling, Top 30 track record, and transparency. Values require manual review before production use.",
+  "schools": [
+    {
+      "id": "bnu_experimental",
+      "name": "北京师范大学附属实验中学国际部",
+      "city": "北京",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 4,
+      "top30_track_record": 5,
+      "transparency": 4
+    },
+    {
+      "id": "rdfz_icc",
+      "name": "中国人民大学附属中学国际课程中心",
+      "city": "北京",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 5,
+      "top30_track_record": 5,
+      "transparency": 4
+    },
+    {
+      "id": "beijing_11",
+      "name": "北京市十一学校国际部",
+      "city": "北京",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 5,
+      "top30_track_record": 5,
+      "transparency": 4
+    },
+    {
+      "id": "starriver",
+      "name": "上海星河湾双语学校",
+      "city": "上海",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 4,
+      "top30_track_record": 5,
+      "transparency": 3
+    },
+    {
+      "id": "uwc_changshu",
+      "name": "UWC 常熟",
+      "city": "苏州",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 5,
+      "top30_track_record": 5,
+      "transparency": 4
+    },
+    {
+      "id": "world_foreign",
+      "name": "上海市世外中学",
+      "city": "上海",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 4,
+      "top30_track_record": 5,
+      "transparency": 3
+    },
+    {
+      "id": "pinghe",
+      "name": "上海市民办平和学校",
+      "city": "上海",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 4,
+      "top30_track_record": 5,
+      "transparency": 4
+    },
+    {
+      "id": "shsid",
+      "name": "上海中学国际部",
+      "city": "上海",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 5,
+      "top30_track_record": 5,
+      "transparency": 4
+    },
+    {
+      "id": "shenzhen_middle",
+      "name": "深圳中学国际部",
+      "city": "深圳",
+      "admit_ranking_band": 1,
+      "resources": 5,
+      "counseling": 4,
+      "top30_track_record": 5,
+      "transparency": 3
+    },
+    {
+      "id": "unknown",
+      "name": "其他/手动评估学校",
+      "city": "中国",
+      "admit_ranking_band": 3,
+      "resources": 3,
+      "counseling": 3,
+      "top30_track_record": 2,
+      "transparency": 2
+    }
+  ]
+}

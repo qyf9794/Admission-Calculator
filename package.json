@@ -1,0 +1,9 @@
+{
+  "name": "admission-calculator-data-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data:update": "node scripts/update-admissions-data.mjs",
+    "data:check": "node scripts/update-admissions-data.mjs --check"
+  }
+}

@@ -1,0 +1,110 @@
+version: 1
+name: admission-calculator-ios
+purpose: >
+  Guardrails for building and validating a SwiftUI iPhone app that estimates
+  U.S. undergraduate admission chances for Chinese applicants.
+
+data_sources:
+  generated_snapshot:
+    source_files:
+      - "data/admissionsight_colleges.csv"
+      - "data/official_gate_rules.csv"
+      - "data/international_student_signals.csv"
+      - "data/china_undergrad_admissions.csv"
+      - "data/academic_benchmarks.csv"
+      - "data/china_high_schools.json"
+      - "data/source_registry.json"
+    generator: "scripts/update-admissions-data.mjs"
+    output: "AdmissionCalculator/Data/AdmissionsNormalizedData.swift"
+    check_command: "node scripts/update-admissions-data.mjs --check"
+  college_statistics:
+    required_source: "AdmissionSight College Acceptance Rates"
+    url: "https://admissionsight.com/college-acceptance-rates/"
+    allowed_scope: "National Universities table only for v1"
+    missing_policy: "Use latest non-empty class-year acceptance rate and lower confidence."
+  chancing_fields:
+    reference_only: "CollegeVine"
+    url: "https://www.collegevine.com/admissions-calculator"
+    rule: "Use field categories and explainable chancing philosophy only; do not copy proprietary model weights."
+  academic_benchmarks:
+    scope: "GPA, class-rank percentile, SAT/ACT, and course-rigor comparison against school-level admitted-student benchmarks."
+    rule: "Use official CDS/class-profile values when available; otherwise mark benchmark rows as inferred and lower confidence."
+    prohibited: "Do not describe inferred benchmarks as official admitted-student averages."
+  china_high_school_context:
+    reference_source: "AdmitRanking"
+    url: "https://admitranking.com/"
+    rule: "Use school background as a calibration signal, never as a standalone guarantee."
+  hard_gates:
+    preferred_source: "Official college admissions pages or CDS"
+    fallback: "If official data is missing, infer from peer policy and mark the rule as inferred."
+    official_source_required: true
+    inferred_english_floor:
+      toefl: 90
+      ielts: 6.5
+      note: "School-specific official English requirements override this inferred floor."
+  international_student_signals:
+    allowed_sources:
+      - "IPEDS nonresident alien enrollment"
+      - "Common Data Set nonresident/international fields"
+      - "Official admissions and financial aid pages"
+    scope: "Undergraduate only"
+    rule: "Use international admit coefficient only when undergraduate international admitted count and total admitted count are both available. Do not use graduate or all-level SEVIS data in probability math."
+  china_undergrad_admissions:
+    scope: "Undergraduate China student admits only"
+    rule: "May adjust China applicant estimates as an admit-count signal. Do not present as share of all admits unless all-admit denominator is available."
+
+model_constraints:
+  hard_gate_first: true
+  hard_gate_failure_probability: 0
+  probability_range: [0, 1]
+  no_machine_learning_v1: true
+  arts_profile_weighting:
+    lower_academic_weight: true
+    portfolio_gate_required: true
+    rule: "Arts applicants should not be evaluated with the same academic-heavy weighting as STEM/business applicants."
+  academic_benchmark_adjustment:
+    rule: "After hard gates pass, compare GPA, rank, standardized testing, and rigor to the target school's benchmark. Keep this school-specific correction bounded so it cannot override hard gates or dominate holistic factors."
+    arts_rule: "Arts applicants receive a reduced academic-benchmark correction because portfolio and creative fit carry more weight."
+  required_outputs:
+    - individual_school_probability
+    - selected_school_at_least_one_probability
+    - t10_at_least_one_probability
+    - t30_at_least_one_probability
+    - t50_at_least_one_probability
+    - confidence_label
+    - failed_gate_reasons
+    - missing_data_warnings
+  multi_school_correlation:
+    rule: "Do not multiply all independent probabilities directly; apply same-tier correlation discount."
+  ai_report:
+    may_generate:
+      - selection_strategy
+      - risk_explanation
+      - improvement_advice
+      - data_limitations_summary
+    forbidden:
+      - "Changing computed probabilities"
+      - "Adding schools outside the dataset"
+      - "Guaranteeing admission"
+
+validation_tests:
+  - id: official_gate_zero
+    description: "A school with an unmet official required rule must return 0 probability."
+  - id: weak_but_eligible_nonzero
+    description: "A weak applicant who satisfies gates may receive a low but non-zero probability."
+  - id: inferred_gate_disclosure
+    description: "Inferred hard gates must be labeled and reduce confidence."
+  - id: portfolio_bounds
+    description: "At-least-one probability must be >= max individual and <= sum individual probabilities."
+  - id: dataset_scope
+    description: "All calculated colleges must appear in the AdmissionSight seed dataset."
+  - id: generated_snapshot_current
+    description: "Generated Swift data snapshot must match reviewed source files."
+  - id: international_proxy_disclosure
+    description: "International student signals must be undergraduate-only, with missing admit coefficients disclosed."
+  - id: china_admit_count_denominator
+    description: "China student admit counts must not be converted into all-admit share without total admitted denominator."
+  - id: arts_weighting_path
+    description: "Arts applicants with portfolio should use lower academic emphasis; arts applicants without portfolio remain blocked."
+  - id: academic_benchmark_disclosure
+    description: "Academic benchmark rows must cover the AdmissionSight dataset, disclose inferred rows, and affect probability directionally."
