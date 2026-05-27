@@ -248,6 +248,20 @@ struct DataSourceRecord: Identifiable, Hashable, Codable {
     let refreshMode: String
     let confidence: String
     let note: String
+
+    func matchesSourceQuery(_ query: String) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return true
+        }
+
+        return name.localizedCaseInsensitiveContains(trimmed) ||
+            role.localizedCaseInsensitiveContains(trimmed) ||
+            refreshMode.localizedCaseInsensitiveContains(trimmed) ||
+            confidence.localizedCaseInsensitiveContains(trimmed) ||
+            note.localizedCaseInsensitiveContains(trimmed) ||
+            url.absoluteString.localizedCaseInsensitiveContains(trimmed)
+    }
 }
 
 struct HighSchoolContext: Identifiable, Hashable, Codable {

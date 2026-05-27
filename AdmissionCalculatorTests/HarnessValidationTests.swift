@@ -12,6 +12,16 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(AdmissionsSeedData.sourceRecords.contains { $0.id == "academic_benchmark_proxy" })
     }
 
+    func testDataSourceSearchMatchesRoleNoteConfidenceAndURL() {
+        let source = AdmissionsSeedData.sourceRecords.first { $0.id == "admissionsight_acceptance_rates" }!
+
+        XCTAssertTrue(source.matchesSourceQuery("AdmissionSight"))
+        XCTAssertTrue(source.matchesSourceQuery("statistics"))
+        XCTAssertTrue(source.matchesSourceQuery(source.confidence))
+        XCTAssertTrue(source.matchesSourceQuery("college-acceptance-rates"))
+        XCTAssertFalse(source.matchesSourceQuery("not-a-source"))
+    }
+
     func testAdmissionSightDatasetHasLatestAvailableRates() {
         for college in AdmissionsSeedData.colleges {
             XCTAssertGreaterThan(college.latestAvailableRate, 0, college.name)
