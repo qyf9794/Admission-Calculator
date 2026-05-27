@@ -36,6 +36,7 @@ The result is an explainable estimate, not a promise of admission.
 - Arts applicants use a separate profile-weighting path with lower academic/standardized-test weight and higher portfolio-adjacent soft-signal weight; missing portfolio remains a blocking gate.
 - School-specific academic benchmarks may adjust probability only after hard gates pass. Inferred GPA/rank/test/rigor benchmarks must be labeled and cannot be presented as official admitted-student averages.
 - Curriculum selection must expose curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) and those inputs must affect academic readiness and school-specific fit.
+- Curriculum-specific achievement inputs must not award performance credit without evidence: for example, AP average score is ignored when AP course count is 0.
 - Percent, 4.0 GPA, 5.0 GPA, and letter-grade inputs may be normalized only into an internal academic index. The UI, warnings, and report language must not present that index as a true cross-system percentage conversion.
 
 ## Probability Path

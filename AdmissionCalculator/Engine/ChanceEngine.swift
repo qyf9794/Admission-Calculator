@@ -346,6 +346,7 @@ struct ChanceEngine {
         if profile.gradeScale != .percent || (profile.curriculum == .chinese && profile.curriculumGradeScale != .percent) {
             items.append("绩点或等级制成绩已转换为内部学术指数；该指数用于相对比较，不等同于真实百分制成绩。")
         }
+        items.append(contentsOf: curriculumEvidenceWarnings(profile))
         if isTestFreeForAdmissions(college), profile.sat != nil || profile.act != nil || profile.testOptional {
             items.append("该 UC 校区为 test-free：SAT/ACT 不进入录取概率或奖学金判断；语言成绩、AP/IB/A-Level 等仍可作为门槛或课程表现信号。")
         }
@@ -371,6 +372,17 @@ struct ChanceEngine {
             }
         }
         return items
+    }
+
+    private func curriculumEvidenceWarnings(_ profile: StudentProfile) -> [String] {
+        switch profile.curriculum {
+        case .ap where profile.apCourseCount == 0:
+            return ["AP 体系课程门数为 0，AP 平均分未作为课程体系成绩证据使用。"]
+        case .alevel where profile.aLevelAStarCount + profile.aLevelACount + profile.aLevelBCount == 0:
+            return ["A-Level 科目数为 0，课程体系成绩按缺少科目证据保守处理。"]
+        default:
+            return []
+        }
     }
 
     private func confidence(college: College, profile: StudentProfile, gate: GateResult, internationalSignal: InternationalSignal, chinaSignal: ChinaUndergradAdmissionSignal, benchmark: AcademicBenchmark) -> ConfidenceLabel {
@@ -602,6 +614,9 @@ struct ChanceEngine {
                 letterGrade: profile.chineseCurriculumLetterGrade
             )
         case .ap:
+            guard profile.apCourseCount > 0 else {
+                return 0
+            }
             let scoreComponent = piecewiseScore(
                 Double(profile.apAverageScore),
                 points: [(1.0, 12), (2.0, 24), (3.0, 40), (4.0, 58), (4.5, 68), (5.0, 76)]

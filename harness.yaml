@@ -31,6 +31,8 @@ data_sources:
     scope: "GPA, class-rank percentile, SAT/ACT, and course-rigor comparison against school-level admitted-student benchmarks."
     rule: "Use official CDS/class-profile values when available; otherwise mark benchmark rows as inferred and lower confidence."
     prohibited: "Do not describe inferred benchmarks as official admitted-student averages."
+  curriculum_performance:
+    rule: "Curriculum-specific achievement inputs may affect readiness only when the related course/exam evidence exists; AP average score is ignored when AP course count is 0."
   china_high_school_context:
     reference_source: "AdmitRanking"
     url: "https://admitranking.com/"
@@ -126,3 +128,5 @@ validation_tests:
     description: "When both SAT and ACT are submitted, gates and benchmark fit must use the strongest SAT-equivalent score."
   - id: english_input_coverage
     description: "The form must expose both TOEFL and IELTS fields because the English gate accepts either proof route."
+  - id: curriculum_evidence_required
+    description: "AP average score and similar curriculum performance inputs must not add credit when the related course count is 0."

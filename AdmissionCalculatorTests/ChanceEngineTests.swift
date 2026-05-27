@@ -216,6 +216,27 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(strong.factors.contains { $0.label == "目标校学术匹配" && $0.detail.contains("AP 体系内成绩指数") })
     }
 
+    func testZeroAPCoursesDoNotReceiveAverageScoreCredit() {
+        var noAP = StudentProfile.sample
+        noAP.major = .humanities
+        noAP.curriculum = .ap
+        noAP.apCourseCount = 0
+        noAP.apAverageScore = 5.0
+
+        var someAP = noAP
+        someAP.apCourseCount = 2
+        someAP.apAverageScore = 3.0
+
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        let noAPResult = engine.chance(for: bu, profile: noAP)
+        let someAPResult = engine.chance(for: bu, profile: someAP)
+
+        XCTAssertGreaterThan(engine.studentScore(someAP), engine.studentScore(noAP))
+        XCTAssertGreaterThan(someAPResult.adjustedProbability, noAPResult.adjustedProbability)
+        XCTAssertTrue(noAPResult.warnings.contains { $0.contains("AP 体系课程门数为 0") })
+        XCTAssertTrue(noAPResult.factors.contains { $0.label == "目标校学术匹配" && $0.value < 0 })
+    }
+
     func testIBCurriculumScoreChangesAcademicReadiness() {
         var lowerIB = StudentProfile.sample
         lowerIB.major = .humanities

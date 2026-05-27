@@ -134,8 +134,14 @@ private struct CurriculumPerformanceInputs: View {
             LabeledContent("AP / 高级课程门数") {
                 Stepper("\(profile.apCourseCount)", value: $profile.apCourseCount, in: 0...12)
             }
-            LabeledContent("AP 平均分") {
-                Stepper(String(format: "%.1f", profile.apAverageScore), value: $profile.apAverageScore, in: 1...5, step: 0.5)
+            if profile.apCourseCount > 0 {
+                LabeledContent("AP 平均分") {
+                    Stepper(String(format: "%.1f", profile.apAverageScore), value: $profile.apAverageScore, in: 1...5, step: 0.5)
+                }
+            } else {
+                Text("AP 课程门数为 0 时，AP 平均分不会计入课程体系成绩。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         case .ib:
             LabeledContent("IB 预估总分") {
