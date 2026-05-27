@@ -28,7 +28,7 @@ flowchart TD
     O --> T["汇总逐校结果"]
     S --> T
     T --> U["计算组合至少一所概率"]
-    U --> V["输出概率、置信度、警告和来源审计"]
+    U --> V["输出至少一所概率、置信度、警告和来源审计"]
 ```
 
 ## 逐校概率路径
@@ -55,7 +55,7 @@ flowchart TD
 
 | 信息 | 影响路径 | 缺失处理 |
 | --- | --- | --- |
-| 目标学校组合 | 组合概率、结果页、AI 报告 | 空组合不隐式自动推荐 |
+| 目标学校组合 | 至少一所录取概率、结果页、AI 报告 | 空组合不隐式自动推荐 |
 | TOEFL 或 IELTS | 国际生英语硬门槛 | 可能阻断或降低置信度 |
 | SAT 或 ACT / Test Optional | 标化硬门槛、画像分、学术匹配 | 选择不提交时忽略残留分数 |
 | 课程体系成绩 | 学术画像、目标校学术匹配 | 只转换为内部学术指数，不宣称等同百分制 |
@@ -89,4 +89,3 @@ flowchart TD
 - `AdmissionCalculatorTests/ChanceEngineTests.swift`
 - `AdmissionCalculatorTests/HarnessValidationTests.swift`
 - `harness.yaml` 与 `HARNESS.md`
-

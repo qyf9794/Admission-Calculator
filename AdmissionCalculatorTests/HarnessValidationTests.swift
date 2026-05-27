@@ -294,10 +294,11 @@ final class HarnessValidationTests: XCTestCase {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
         let report = ReportService.makeReport(result: result)
 
-        XCTAssertTrue(report.contains("T10（当前组合 0 所）：0%"))
-        XCTAssertTrue(report.contains("T30（当前组合 0 所）：0%"))
-        XCTAssertTrue(report.contains("T50（当前组合 1 所）"))
-        XCTAssertTrue(report.contains("当前组合（1 所）"))
+        XCTAssertTrue(report.contains("当前选择学校中至少被一所录取的估算概率"))
+        XCTAssertTrue(report.contains("T10 至少一所（当前组合 0 所）：0%"))
+        XCTAssertTrue(report.contains("T30 至少一所（当前组合 0 所）：0%"))
+        XCTAssertTrue(report.contains("T50 至少一所（当前组合 1 所）"))
+        XCTAssertTrue(report.contains("全部已选至少一所（1 所）"))
     }
 
     func testReportDisclosesGeneratedSnapshotTime() {

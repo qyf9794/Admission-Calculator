@@ -64,10 +64,10 @@ private struct ResultsHero: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text("当前组合至少一所录取估算")
+                Text("当前选择学校中，至少被一所录取的估算概率")
                     .font(.headline)
                     .foregroundStyle(.white)
-                Text("这是用于规划的区间判断，不是录取承诺；硬门槛、置信度和数据来源仍需逐校查看。")
+                Text("这是当前组合的至少一所概率，不是单校概率或录取承诺；硬门槛、置信度和数据来源仍需逐校查看。")
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.84))
                     .fixedSize(horizontal: false, vertical: true)
@@ -211,14 +211,14 @@ private struct SummaryBand: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("组合概率概览", systemImage: "chart.pie.fill")
+            Label("至少一所录取概率概览", systemImage: "chart.pie.fill")
                 .font(.headline)
                 .foregroundStyle(.blue)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCell(title: "T10", value: result.t10AtLeastOne, count: tierCount(maxRank: 10), tint: .purple)
                 MetricCell(title: "T30", value: result.t30AtLeastOne, count: tierCount(maxRank: 30), tint: .blue)
                 MetricCell(title: "T50", value: result.t50AtLeastOne, count: tierCount(maxRank: 50), tint: .teal)
-                MetricCell(title: "当前组合", value: result.selectedAtLeastOne, count: result.schoolResults.count, tint: .green)
+                MetricCell(title: "全部已选", value: result.selectedAtLeastOne, count: result.schoolResults.count, tint: .green)
             }
             Text("组合来源：\(result.selectionSource.rawValue)。")
                 .font(.footnote)
@@ -239,7 +239,7 @@ private struct SummaryBand: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            Text("总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。T10/T30/T50 仅统计当前组合内学校，多校概率已使用同层相关性折扣。")
+            Text("上述数值均表示当前选择范围内至少被一所学校录取的估算概率。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。T10/T30/T50 仅统计当前组合内学校，多校概率已使用同层相关性折扣。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

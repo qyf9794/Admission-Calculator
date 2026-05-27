@@ -24,7 +24,7 @@ The v1 model is intentionally transparent:
 - School-specific round data separates allowed rounds from explicit probability advantages, so an allowed early round does not automatically create a boost.
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
 - International financial-aid need is shown as a separate factor and does not penalize domestic/U.S. citizen applicants.
-- Portfolio-level T10/T30/T50 probabilities are scoped to the currently selected or auto-recommended school set.
+- Portfolio-level T10/T30/T50 and overall probabilities mean the chance of being admitted to at least one school within the currently selected or auto-recommended set.
 - Selected schools outside the v1 dataset are excluded from probability math and disclosed as portfolio warnings.
 - Recommendation buckets use conservative planning thresholds: `争取` below 20%, `目标` 20%-60%, and `保底` at least 60%; `保底` is still not a guarantee.
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.
