@@ -38,6 +38,7 @@ data_sources:
     preferred_source: "Official college admissions pages or CDS"
     fallback: "If official data is missing, infer from peer policy and mark the rule as inferred."
     official_source_required: true
+    ui_english_inputs_required: "The app form must expose both TOEFL and IELTS inputs because either can satisfy the English proof gate."
     inferred_english_floor:
       toefl: 90
       ielts: 6.5
@@ -120,3 +121,5 @@ validation_tests:
     description: "Academic benchmark rows must cover the AdmissionSight dataset, disclose inferred rows, and affect probability directionally."
   - id: best_testing_equivalent
     description: "When both SAT and ACT are submitted, gates and benchmark fit must use the strongest SAT-equivalent score."
+  - id: english_input_coverage
+    description: "The form must expose both TOEFL and IELTS fields because the English gate accepts either proof route."

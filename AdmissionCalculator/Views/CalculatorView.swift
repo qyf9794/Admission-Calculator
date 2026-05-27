@@ -50,6 +50,7 @@ struct CalculatorView: View {
                 ScoreField(title: "SAT", value: $profile.sat, range: 900...1600, disabled: profile.testOptional)
                 ScoreField(title: "ACT", value: $profile.act, range: 18...36, disabled: profile.testOptional)
                 ScoreField(title: "TOEFL", value: $profile.toefl, range: 70...120, disabled: false)
+                DecimalScoreField(title: "IELTS", value: $profile.ielts, range: 5.5...9.0, step: 0.5)
                 if !profile.applicantStatus.requiresEnglishProof {
                     Text("当前申请身份通常不触发国际生英语硬门槛；语言成绩仍可作为学术证明。")
                         .font(.caption)
@@ -213,6 +214,31 @@ private struct ScoreField: View {
                     set: { value = $0 }
                 ), in: range, step: title == "SAT" ? 10 : 1)
                 .disabled(disabled)
+            }
+        }
+    }
+}
+
+private struct DecimalScoreField: View {
+    let title: String
+    @Binding var value: Double?
+    let range: ClosedRange<Double>
+    let step: Double
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack {
+                Button {
+                    value = nil
+                } label: {
+                    Image(systemName: "xmark.circle")
+                }
+                .disabled(value == nil)
+
+                Stepper(value.map { String(format: "%.1f", $0) } ?? "未填写", value: Binding(
+                    get: { value ?? range.lowerBound },
+                    set: { value = $0 }
+                ), in: range, step: step)
             }
         }
     }
