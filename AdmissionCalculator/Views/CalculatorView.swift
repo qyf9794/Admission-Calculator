@@ -13,9 +13,14 @@ struct CalculatorView: View {
                         Text(item.rawValue).tag(item)
                     }
                 }
-                LabeledContent("GPA / 均分") {
-                    Stepper("\(Int(profile.gpaPercent))", value: $profile.gpaPercent, in: 60...100, step: 1)
-                }
+                GradeScaleInputs(
+                    title: "GPA / 校内成绩",
+                    scale: $profile.gradeScale,
+                    percent: $profile.gpaPercent,
+                    fourPoint: $profile.gpaFourPoint,
+                    fivePoint: $profile.gpaFivePoint,
+                    letterGrade: $profile.letterGrade
+                )
                 LabeledContent("年级排名百分位") {
                     Stepper("前 \(Int(profile.classRankPercentile))%", value: $profile.classRankPercentile, in: 1...80, step: 1)
                 }
@@ -101,9 +106,14 @@ private struct CurriculumPerformanceInputs: View {
     var body: some View {
         switch profile.curriculum {
         case .chinese:
-            LabeledContent("核心课程均分") {
-                Stepper("\(Int(profile.chineseCurriculumScore))", value: $profile.chineseCurriculumScore, in: 60...100, step: 1)
-            }
+            GradeScaleInputs(
+                title: "核心课程成绩",
+                scale: $profile.curriculumGradeScale,
+                percent: $profile.chineseCurriculumScore,
+                fourPoint: $profile.chineseCurriculumGPAFourPoint,
+                fivePoint: $profile.chineseCurriculumGPAFivePoint,
+                letterGrade: $profile.chineseCurriculumLetterGrade
+            )
         case .ap:
             LabeledContent("AP / 高级课程门数") {
                 Stepper("\(profile.apCourseCount)", value: $profile.apCourseCount, in: 0...12)
@@ -121,6 +131,47 @@ private struct CurriculumPerformanceInputs: View {
             }
             LabeledContent("A-Level A 科目") {
                 Stepper("\(profile.aLevelACount)", value: $profile.aLevelACount, in: 0...5)
+            }
+            LabeledContent("A-Level B 科目") {
+                Stepper("\(profile.aLevelBCount)", value: $profile.aLevelBCount, in: 0...5)
+            }
+        }
+    }
+}
+
+private struct GradeScaleInputs: View {
+    let title: String
+    @Binding var scale: GradeScale
+    @Binding var percent: Double
+    @Binding var fourPoint: Double
+    @Binding var fivePoint: Double
+    @Binding var letterGrade: LetterGradeBand
+
+    var body: some View {
+        Picker("\(title)方式", selection: $scale) {
+            ForEach(GradeScale.allCases) { item in
+                Text(item.rawValue).tag(item)
+            }
+        }
+
+        switch scale {
+        case .percent:
+            LabeledContent(title) {
+                Stepper("\(Int(percent))", value: $percent, in: 60...100, step: 1)
+            }
+        case .fourPoint:
+            LabeledContent(title) {
+                Stepper(String(format: "%.1f", fourPoint), value: $fourPoint, in: 0...4, step: 0.1)
+            }
+        case .fivePoint:
+            LabeledContent(title) {
+                Stepper(String(format: "%.1f", fivePoint), value: $fivePoint, in: 0...5, step: 0.1)
+            }
+        case .letter:
+            Picker(title, selection: $letterGrade) {
+                ForEach(LetterGradeBand.allCases) { item in
+                    Text(item.rawValue).tag(item)
+                }
             }
         }
     }

@@ -9,6 +9,28 @@ enum CurriculumType: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 }
 
+enum GradeScale: String, CaseIterable, Identifiable, Codable {
+    case percent = "百分制"
+    case fourPoint = "4.0 GPA"
+    case fivePoint = "5.0 GPA"
+    case letter = "等级制"
+
+    var id: String { rawValue }
+}
+
+enum LetterGradeBand: String, CaseIterable, Identifiable, Codable {
+    case aPlus = "A+"
+    case a = "A"
+    case aMinus = "A-"
+    case bPlus = "B+"
+    case b = "B"
+    case bMinus = "B-"
+    case cPlus = "C+"
+    case cOrBelow = "C 或以下"
+
+    var id: String { rawValue }
+}
+
 enum ApplicationRound: String, CaseIterable, Identifiable, Codable {
     case earlyAction = "EA"
     case earlyDecision = "ED"
@@ -224,16 +246,25 @@ struct HighSchoolContext: Identifiable, Hashable, Codable {
 
 struct StudentProfile: Hashable, Codable {
     var applicantStatus: ApplicantStatus
+    var gradeScale: GradeScale
     var gpaPercent: Double
+    var gpaFourPoint: Double
+    var gpaFivePoint: Double
+    var letterGrade: LetterGradeBand
     var classRankPercentile: Double
     var curriculum: CurriculumType
     var rigor: Int
+    var curriculumGradeScale: GradeScale
     var apCourseCount: Int
     var apAverageScore: Double
     var ibPredictedScore: Int
     var aLevelAStarCount: Int
     var aLevelACount: Int
+    var aLevelBCount: Int
     var chineseCurriculumScore: Double
+    var chineseCurriculumGPAFourPoint: Double
+    var chineseCurriculumGPAFivePoint: Double
+    var chineseCurriculumLetterGrade: LetterGradeBand
     var sat: Int?
     var act: Int?
     var toefl: Int?
@@ -253,16 +284,25 @@ struct StudentProfile: Hashable, Codable {
 
     static let sample = StudentProfile(
         applicantStatus: .chineseInternational,
+        gradeScale: .percent,
         gpaPercent: 92,
+        gpaFourPoint: 3.7,
+        gpaFivePoint: 4.5,
+        letterGrade: .aMinus,
         classRankPercentile: 12,
         curriculum: .ap,
         rigor: 4,
+        curriculumGradeScale: .percent,
         apCourseCount: 6,
         apAverageScore: 4.5,
         ibPredictedScore: 40,
         aLevelAStarCount: 2,
         aLevelACount: 2,
+        aLevelBCount: 0,
         chineseCurriculumScore: 92,
+        chineseCurriculumGPAFourPoint: 3.7,
+        chineseCurriculumGPAFivePoint: 4.5,
+        chineseCurriculumLetterGrade: .aMinus,
         sat: 1510,
         act: nil,
         toefl: 108,

@@ -37,7 +37,11 @@ function columnName(index) {
 }
 
 const profileRows = [
-  ["基础", "GPA / 均分", "gpaPercent", "数字 60-100", "必填", "学生输入", "学术基础评分", "按百分制归一，权重进入总分"],
+  ["基础", "GPA / 校内成绩方式", "gradeScale", "百分制 / 4.0 GPA / 5.0 GPA / 等级制", "必填", "学生输入", "学术基础评分", "决定读取哪个成绩字段"],
+  ["基础", "百分制 GPA / 均分", "gpaPercent", "数字 60-100", "条件显示", "学生输入", "学术基础评分", "百分制直接作为内部学术指数"],
+  ["基础", "4.0 GPA", "gpaFourPoint", "0.0-4.0", "条件显示", "学生输入", "学术基础评分", "按分段表转换为内部学术指数"],
+  ["基础", "5.0 GPA", "gpaFivePoint", "0.0-5.0", "条件显示", "学生输入", "学术基础评分", "按分段表转换为内部学术指数"],
+  ["基础", "等级制成绩", "letterGrade", "A+ 到 C 或以下", "条件显示", "学生输入", "学术基础评分", "按等级区间转换为内部学术指数"],
   ["基础", "年级排名百分位", "classRankPercentile", "前 1%-80%", "必填", "学生输入", "学术基础评分", "数值越小越强，模型使用 100 - 百分位"],
   ["基础", "课程体系", "curriculum", "Chinese / AP / IB / A-Level", "必填", "学生输入", "课程匹配、硬门槛", "用于高中课程背景和部分门槛解释"],
   ["基础", "AP 课程门数", "apCourseCount", "0-12", "AP 条件显示", "学生输入", "课程体系成绩评分", "AP 体系下与 AP 平均分共同影响画像分"],
@@ -45,7 +49,12 @@ const profileRows = [
   ["基础", "IB 预估总分", "ibPredictedScore", "24-45", "IB 条件显示", "学生输入", "课程体系成绩评分", "IB 体系下影响画像分和学术匹配"],
   ["基础", "A-Level A* 科目", "aLevelAStarCount", "0-5", "A-Level 条件显示", "学生输入", "课程体系成绩评分", "A-Level 体系下影响画像分和学术匹配"],
   ["基础", "A-Level A 科目", "aLevelACount", "0-5", "A-Level 条件显示", "学生输入", "课程体系成绩评分", "A-Level 体系下影响画像分和学术匹配"],
-  ["基础", "中国课程核心均分", "chineseCurriculumScore", "60-100", "Chinese 条件显示", "学生输入", "课程体系成绩评分", "中国课程体系下影响画像分和学术匹配"],
+  ["基础", "A-Level B 科目", "aLevelBCount", "0-5", "A-Level 条件显示", "学生输入", "课程体系成绩评分", "B 等级纳入但弱于 A/A*"],
+  ["基础", "中国课程成绩方式", "curriculumGradeScale", "百分制 / 4.0 GPA / 5.0 GPA / 等级制", "Chinese 条件显示", "学生输入", "课程体系成绩评分", "决定读取中国课程核心成绩字段"],
+  ["基础", "中国课程核心百分制成绩", "chineseCurriculumScore", "60-100", "Chinese 条件显示", "学生输入", "课程体系成绩评分", "只作为内部指数输入，不代表跨体系等价"],
+  ["基础", "中国课程核心 4.0 GPA", "chineseCurriculumGPAFourPoint", "0.0-4.0", "Chinese 条件显示", "学生输入", "课程体系成绩评分", "按分段表转换为内部指数"],
+  ["基础", "中国课程核心 5.0 GPA", "chineseCurriculumGPAFivePoint", "0.0-5.0", "Chinese 条件显示", "学生输入", "课程体系成绩评分", "按分段表转换为内部指数"],
+  ["基础", "中国课程核心等级", "chineseCurriculumLetterGrade", "A+ 到 C 或以下", "Chinese 条件显示", "学生输入", "课程体系成绩评分", "按等级区间转换为内部指数"],
   ["基础", "目标专业", "major", "CS/Engineering/Business 等", "必填", "学生输入", "专业竞争修正、硬门槛", "STEM/艺术类触发课程或作品集推断门槛"],
   ["基础", "申请轮次", "round", "EA / ED / RD", "必填", "学生输入", "申请策略修正、轮次门槛", "ED/EA 可增加策略信号，具体学校限制走 gate"],
   ["基础", "是否申请资助", "needsAid", "是/否", "必填", "学生输入", "申请策略修正", "need-aware 学校可能降低概率"],
@@ -84,7 +93,7 @@ const probabilityRows = [
   ["失败规则", "failedRules", "未满足的官方或推断硬门槛", "列表", "解释 0% 原因", "Gate rules", "官方规则和推断规则分开标注"],
   ["推断规则", "inferredRules", "缺官方数据时按同类学校推断", "列表", "降低置信度", "同类学校政策推断", "必须显示 inferred"],
   ["画像总分", "profileScore", "学术、排名、课程、标化、活动等加权", "0-100", "调整普通申请池先验", "学生输入", "当前实现使用透明固定权重"],
-  ["课程体系成绩", "curriculumPerformance", "AP/IB/A-Level/中国课程成绩转 0-100", "画像分 + 学术匹配修正", "课程体系强度结果", "学生输入", "与课程难度不同，表示该体系内的实际成绩表现"],
+  ["课程体系成绩", "curriculumPerformance", "AP/IB/A-Level/中国课程成绩按分段表转内部指数", "画像分 + 学术匹配修正", "课程体系强度结果", "学生输入", "与课程难度不同，表示该体系内的实际成绩表现；非真实百分制换算"],
   ["高中背景修正", "highSchoolDelta", "AdmitRanking 风格资源/顾问/升学/透明度", "logit 修正", "中国学校背景校准", "AdmitRanking 参考", "不能单独保证录取"],
   ["专业竞争修正", "majorDelta", "CS/Engineering/Business 等专业竞争", "logit 修正", "按专业调节", "模型规则", "CS/工程更保守"],
   ["轮次修正", "roundDelta", "ED/EA/RD", "logit 修正", "申请策略调节", "学生输入 + 学校规则", "轮次限制仍由 gate 管"],
@@ -150,10 +159,10 @@ const weightStart = methodRows.length + 7;
 sheets.method.getRange(`A${weightStart}:F${weightStart}`).values = [["画像分权重表", "", "", "", "", ""]];
 sheets.method.getRange(`A${weightStart + 1}:F${weightStart + 1}`).values = [["组件", "权重", "输入字段", "评分方式", "说明", "可调性"]];
 sheets.method.getRange(`A${weightStart + 2}:F${weightStart + 12}`).values = [
-  ["GPA/均分", 0.18, "gpaPercent", "百分制", "学术基础", "可调"],
+  ["GPA/校内成绩", 0.18, "gradeScale + GPA fields", "按记录方式分段归一", "学术基础；非百分输入只转内部指数", "可调"],
   ["年级排名", 0.10, "classRankPercentile", "100 - 百分位", "相对竞争环境", "可调"],
   ["课程难度", 0.10, "rigor", "1-5 转 20-100", "课程挑战度", "可调"],
-  ["课程体系成绩", 0.08, "AP/IB/A-Level/Chinese scores", "按体系转 0-100", "课程体系内成绩表现", "可调"],
+  ["课程体系成绩", 0.08, "AP/IB/A-Level/Chinese scores", "按体系分段转内部指数", "课程体系内成绩表现", "可调"],
   ["标化/语言", 0.11, "SAT/ACT/TOEFL/IELTS", "分段归一", "可比硬指标", "可调"],
   ["高中背景", 0.08, "highSchoolID", "资源/顾问/升学/透明度", "中国校背景", "可调"],
   ["活动", 0.12, "activities", "1-5 转 20-100", "影响力", "可调"],

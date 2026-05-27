@@ -165,10 +165,10 @@ struct ChanceEngine {
     }
 
     func studentScore(_ profile: StudentProfile) -> Double {
-        let gpa = clamp(profile.gpaPercent, min: 0, max: 100)
+        let gpa = normalizedGPAScore(profile)
         let rank = clamp(100 - profile.classRankPercentile, min: 30, max: 100)
         let rigor = band(profile.rigor)
-        let curriculumPerformance = curriculumPerformanceScore(profile)
+        let curriculumPerformance = curriculumPerformanceIndex(profile)
         let testing = testingScore(profile)
         let activities = band(profile.activities)
         let research = band(profile.research)
@@ -254,6 +254,9 @@ struct ChanceEngine {
         }
         if benchmark.dataQuality < 0.5 {
             items.append("目标校学术基准置信度较低，建议后续补官方 CDS 或 class profile。")
+        }
+        if profile.gradeScale != .percent || (profile.curriculum == .chinese && profile.curriculumGradeScale != .percent) {
+            items.append("绩点或等级制成绩已转换为内部学术指数；该指数用于相对比较，不等同于真实百分制成绩。")
         }
         if profile.applicantStatus.isInternational {
             items.append("国际生数据仅使用本科口径；录取系数只有在本科国际生 admitted 数和总 admitted 数同时可用时才参与计算。")
@@ -406,7 +409,7 @@ struct ChanceEngine {
 
     private func academicBenchmarkAdjustment(profile: StudentProfile, college: College, benchmark: AcademicBenchmark) -> Double {
         let gpaDelta = benchmark.gpaPercentBenchmark.map { target in
-            clamp((profile.gpaPercent - target) / 10 * 0.16, min: -0.12, max: 0.12)
+            clamp((normalizedGPAScore(profile) - target) / 10 * 0.16, min: -0.12, max: 0.12)
         } ?? 0
 
         let rankDelta = benchmark.classRankPercentileBenchmark.map { target in
@@ -428,7 +431,7 @@ struct ChanceEngine {
         } ?? 0
 
         let curriculumDelta = benchmark.rigorBenchmark.map { target in
-            clamp((curriculumPerformanceScore(profile) - Double(target * 20)) / 50 * 0.10, min: -0.08, max: 0.08)
+            clamp((curriculumPerformanceIndex(profile) - Double(target * 20)) / 50 * 0.10, min: -0.08, max: 0.08)
         } ?? 0
 
         let raw = gpaDelta + rankDelta + testDelta + rigorDelta + curriculumDelta
@@ -443,24 +446,101 @@ struct ChanceEngine {
         let act = benchmark.actBenchmark.map(String.init) ?? "不使用"
         let rigor = benchmark.rigorBenchmark.map(String.init) ?? "缺失"
         let applicantSAT = (profile.sat ?? actToSat(profile.act)).map(String.init) ?? (profile.testOptional ? "Test optional" : "缺失")
-        let curriculumScore = curriculumPerformanceScore(profile)
+        let gpaScore = normalizedGPAScore(profile)
+        let curriculumScore = curriculumPerformanceIndex(profile)
         let inferred = benchmark.isInferred ? "推断基准" : "官方/核验基准"
-        return "\(inferred)：GPA \(gpa)，排名 \(rank)，SAT \(sat)，ACT \(act)，课程难度 \(rigor)/5；申请者 GPA \(String(format: "%.0f", profile.gpaPercent))，排名前\(String(format: "%.0f", profile.classRankPercentile))%，SAT等效 \(applicantSAT)，课程难度 \(profile.rigor)/5，\(profile.curriculum.rawValue) 成绩分 \(String(format: "%.0f", curriculumScore))/100。"
+        return "\(inferred)：GPA \(gpa)，排名 \(rank)，SAT \(sat)，ACT \(act)，课程难度 \(rigor)/5；申请者 \(profile.gradeScale.rawValue) 学术指数 \(String(format: "%.0f", gpaScore))/100，排名前\(String(format: "%.0f", profile.classRankPercentile))%，SAT等效 \(applicantSAT)，课程难度 \(profile.rigor)/5，\(profile.curriculum.rawValue) 体系内成绩指数 \(String(format: "%.0f", curriculumScore))/100。"
     }
 
-    private func curriculumPerformanceScore(_ profile: StudentProfile) -> Double {
+    private func curriculumPerformanceIndex(_ profile: StudentProfile) -> Double {
         switch profile.curriculum {
         case .chinese:
-            return clamp(profile.chineseCurriculumScore, min: 0, max: 100)
+            return gradeScaleScore(
+                scale: profile.curriculumGradeScale,
+                percent: profile.chineseCurriculumScore,
+                fourPoint: profile.chineseCurriculumGPAFourPoint,
+                fivePoint: profile.chineseCurriculumGPAFivePoint,
+                letterGrade: profile.chineseCurriculumLetterGrade
+            )
         case .ap:
-            let scoreComponent = clamp((profile.apAverageScore - 3.0) / 2.0 * 70 + 30, min: 0, max: 100)
-            let courseBonus = Double(min(profile.apCourseCount, 8)) * 3
+            let scoreComponent = piecewiseScore(
+                Double(profile.apAverageScore),
+                points: [(1.0, 12), (2.0, 24), (3.0, 40), (4.0, 58), (4.5, 68), (5.0, 76)]
+            )
+            let firstFive = min(profile.apCourseCount, 5) * 4
+            let nextThree = max(0, min(profile.apCourseCount - 5, 3)) * 2
+            let finalTwo = max(0, min(profile.apCourseCount - 8, 2))
+            let courseBonus = Double(firstFive + nextThree + finalTwo)
             return clamp(scoreComponent + courseBonus, min: 0, max: 100)
         case .ib:
-            return clamp((Double(profile.ibPredictedScore) - 28) / 17 * 100, min: 0, max: 100)
+            return piecewiseScore(
+                Double(profile.ibPredictedScore),
+                points: [(24, 36), (28, 46), (30, 55), (34, 68), (38, 82), (42, 94), (45, 100)]
+            )
         case .alevel:
-            return clamp(Double(profile.aLevelAStarCount) * 25 + Double(profile.aLevelACount) * 16, min: 0, max: 100)
+            let courseCount = profile.aLevelAStarCount + profile.aLevelACount + profile.aLevelBCount
+            let raw = Double(profile.aLevelAStarCount) * 32 + Double(profile.aLevelACount) * 24 + Double(profile.aLevelBCount) * 14
+            let coursePenalty = max(0, 3 - courseCount) * 12
+            return clamp(raw - Double(coursePenalty), min: 0, max: 100)
         }
+    }
+
+    private func normalizedGPAScore(_ profile: StudentProfile) -> Double {
+        gradeScaleScore(
+            scale: profile.gradeScale,
+            percent: profile.gpaPercent,
+            fourPoint: profile.gpaFourPoint,
+            fivePoint: profile.gpaFivePoint,
+            letterGrade: profile.letterGrade
+        )
+    }
+
+    private func gradeScaleScore(scale: GradeScale, percent: Double, fourPoint: Double, fivePoint: Double, letterGrade: LetterGradeBand) -> Double {
+        switch scale {
+        case .percent:
+            return clamp(percent, min: 0, max: 100)
+        case .fourPoint:
+            return piecewiseScore(
+                fourPoint,
+                points: [(0, 55), (2.0, 70), (2.7, 78), (3.0, 82), (3.3, 87), (3.5, 90), (3.7, 93), (3.9, 97), (4.0, 100)]
+            )
+        case .fivePoint:
+            return piecewiseScore(
+                fivePoint,
+                points: [(0, 55), (2.5, 68), (3.0, 74), (3.5, 80), (3.7, 83), (4.0, 87), (4.2, 90), (4.5, 93), (4.7, 96), (5.0, 100)]
+            )
+        case .letter:
+            switch letterGrade {
+            case .aPlus: return 98
+            case .a: return 95
+            case .aMinus: return 91
+            case .bPlus: return 87
+            case .b: return 83
+            case .bMinus: return 79
+            case .cPlus: return 74
+            case .cOrBelow: return 68
+            }
+        }
+    }
+
+    private func piecewiseScore(_ value: Double, points: [(Double, Double)]) -> Double {
+        guard let first = points.first else {
+            return 0
+        }
+        if value <= first.0 {
+            return first.1
+        }
+
+        for index in 1..<points.count {
+            let lower = points[index - 1]
+            let upper = points[index]
+            if value <= upper.0 {
+                let progress = (value - lower.0) / (upper.0 - lower.0)
+                return lower.1 + progress * (upper.1 - lower.1)
+            }
+        }
+
+        return points.last?.1 ?? first.1
     }
 
     private func internationalSignal(for college: College) -> InternationalSignal {

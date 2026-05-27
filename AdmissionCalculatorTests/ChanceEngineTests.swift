@@ -182,7 +182,7 @@ final class ChanceEngineTests: XCTestCase {
 
         XCTAssertGreaterThan(engine.studentScore(strongAP), engine.studentScore(weakAP))
         XCTAssertGreaterThan(strong.adjustedProbability, weak.adjustedProbability)
-        XCTAssertTrue(strong.factors.contains { $0.label == "目标校学术匹配" && $0.detail.contains("AP 成绩分") })
+        XCTAssertTrue(strong.factors.contains { $0.label == "目标校学术匹配" && $0.detail.contains("AP 体系内成绩指数") })
     }
 
     func testIBCurriculumScoreChangesAcademicReadiness() {
@@ -195,6 +195,52 @@ final class ChanceEngineTests: XCTestCase {
         higherIB.ibPredictedScore = 43
 
         XCTAssertGreaterThan(engine.studentScore(higherIB), engine.studentScore(lowerIB))
+    }
+
+    func testGpaScaleAffectsAcademicReadiness() {
+        var lowerGPA = StudentProfile.sample
+        lowerGPA.major = .humanities
+        lowerGPA.gradeScale = .fourPoint
+        lowerGPA.gpaFourPoint = 3.0
+
+        var higherGPA = lowerGPA
+        higherGPA.gpaFourPoint = 3.9
+
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        let lower = engine.chance(for: bu, profile: lowerGPA)
+        let higher = engine.chance(for: bu, profile: higherGPA)
+
+        XCTAssertGreaterThan(engine.studentScore(higherGPA), engine.studentScore(lowerGPA))
+        XCTAssertGreaterThan(higher.adjustedProbability, lower.adjustedProbability)
+        XCTAssertTrue(higher.warnings.contains { $0.contains("内部学术指数") })
+    }
+
+    func testChineseCurriculumSupportsGpaScale() {
+        var lowerCore = StudentProfile.sample
+        lowerCore.major = .humanities
+        lowerCore.curriculum = .chinese
+        lowerCore.curriculumGradeScale = .fourPoint
+        lowerCore.chineseCurriculumGPAFourPoint = 3.0
+
+        var higherCore = lowerCore
+        higherCore.chineseCurriculumGPAFourPoint = 3.9
+
+        XCTAssertGreaterThan(engine.studentScore(higherCore), engine.studentScore(lowerCore))
+    }
+
+    func testALevelBGradesAreWeakerThanAGrades() {
+        var bGrades = StudentProfile.sample
+        bGrades.major = .humanities
+        bGrades.curriculum = .alevel
+        bGrades.aLevelAStarCount = 0
+        bGrades.aLevelACount = 0
+        bGrades.aLevelBCount = 3
+
+        var aGrades = bGrades
+        aGrades.aLevelACount = 3
+        aGrades.aLevelBCount = 0
+
+        XCTAssertGreaterThan(engine.studentScore(aGrades), engine.studentScore(bGrades))
     }
 
     func testLowChinaCapacityIvyPlusSchoolIsConservativelyCapped() {
