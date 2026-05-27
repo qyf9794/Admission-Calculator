@@ -18,9 +18,11 @@ enum ReportService {
     static func makeReport(result: PortfolioResult) -> String {
         let profile = result.profileSnapshot
         let blocked = result.schoolResults.filter { !$0.gateResult.passed }
-        let top = result.schoolResults.prefix(5)
-        let probabilities = top.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)）" }.joined(separator: "\n")
-        let academicFit = top.map { school in
+        let schoolResults = result.schoolResults
+        let probabilities = schoolResults.isEmpty
+            ? "尚未选择学校。"
+            : schoolResults.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)）" }.joined(separator: "\n")
+        let academicFit = schoolResults.isEmpty ? "尚未选择学校。" : schoolResults.map { school in
             let factor = school.factors.first { $0.label == "目标校学术匹配" }
             let value = factor.map { Self.signed($0.value) } ?? "缺失"
             return "\(school.college.name)：\(value)"

@@ -160,7 +160,7 @@ const methodRows = [
   ["9", "结果分档", "按概率给中文 bucket", "0=硬门槛；>0 且 <20%=争取；20%-60%=目标；>=60%=保底", "结果页展示", "分档只做规划参考，保底不代表录取保证"],
   ["10", "自动推荐组合", "用户点击按钮后按保底/目标/争取数量抽取学校", "likely/target/reach buckets by probability", "写入 selectedCollegeIDs", "空选校不再隐式推荐；某档不足时不跨档硬凑；手动组合不显示自动推荐缺口结论"],
   ["11", "组合概率", "按 tier 分组，同层学校依次折扣", "failure *= (1 - probability × 0.72^index)", "至少一所录取概率", "避免简单独立相乘高估"],
-  ["12", "报告生成", "AI 基于结构化结果生成策略和建议，并汇总组合级与逐校 warnings / 数据限制", "report(input = profile + computedResults + warnings)", "付费报告", "AI 不得改概率、加学校或承诺录取；不得用通用建议替代已计算警告"],
+  ["12", "报告生成", "AI 基于结构化结果生成策略和建议，并汇总组合级与逐校 probability / academic fit / warnings / 数据限制", "report(input = profile + computedResults + warnings)", "付费报告", "AI 不得改概率、加学校或承诺录取；不得只展示前几所学校或用通用建议替代已计算警告"],
   ["13", "逐校来源审计", "数据页按学校展示概率所用关键数据的 source note、URL 和推断标记", "acceptance + international + China admits + benchmark + gates", "数据透明度", "不能只展示总来源表；用户需能追溯单校代理数据"]
 ];
 

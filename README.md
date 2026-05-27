@@ -24,6 +24,7 @@ The v1 model is intentionally transparent:
 - Recommendation buckets use conservative planning thresholds: `争取` below 20%, `目标` 20%-60%, and `保底` at least 60%; `保底` is still not a guarantee.
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.
 - Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation bucket shortages.
+- AI reports include every selected or auto-recommended school's probability and academic-fit adjustment.
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.
 - AI reports include computed portfolio warnings and per-school data limitations instead of replacing them with generic advice.
 - Results and AI reports are tied to the submitted profile snapshot; if the live form changes afterward, the app flags the displayed result as stale.

@@ -166,6 +166,19 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("目标校学术基准为推断值"))
     }
 
+    func testReportIncludesEverySelectedSchoolProbabilityAndFit() {
+        let selected = Set(["princeton", "mit", "harvard", "stanford", "yale", "bu"])
+        let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: selected, selectionSource: .manual)
+        let report = ReportService.makeReport(result: result)
+
+        for school in result.schoolResults {
+            XCTAssertTrue(report.contains("\(school.college.name)：\(school.adjustedProbability.formatted(.percent.precision(.fractionLength(0))))"))
+            XCTAssertTrue(report.contains("\(school.college.name)："))
+        }
+        XCTAssertEqual(result.schoolResults.count, selected.count)
+        XCTAssertTrue(report.contains("Boston University"))
+    }
+
     private func assertChinaTotal(_ early: Int?, _ rd: Int?, _ total: Int?, _ collegeID: String) {
         guard let early, let rd, let total else {
             return

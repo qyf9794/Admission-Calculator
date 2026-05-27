@@ -27,6 +27,7 @@ The result is an explainable estimate, not a promise of admission.
 - Recommendation buckets must use conservative planning thresholds: `争取` below 20%, `目标` from 20% to below 60%, and `保底` at 60% or higher. The UI and AI report must disclose that `保底` is not a guarantee.
 - Automatic school recommendations must be triggered by an explicit user action and must respect user-requested likely / target / reach counts as far as eligible schools are available. If a bucket has too few eligible schools, do not silently fill it from another bucket. An empty selected-school set must not silently become an auto-recommended portfolio.
 - Results and AI reports must disclose the current portfolio's likely / target / reach / blocked composition, and must warn when the auto-recommendation pool cannot satisfy a requested bucket count.
+- AI reports must include probability and academic-fit lines for every school in the current selected or auto-recommended portfolio, not only a shortened preview.
 - Auto-recommendation shortage warnings must be shown only for an auto-recommended portfolio, not for a manually selected school list.
 - AI reports must include computed portfolio-level warnings and per-school warnings/data limitations; generic advice is not enough to satisfy disclosure.
 - Result pages and AI reports must use the submitted profile snapshot that produced the probabilities. If the live form or selected schools change after calculation, the results view must disclose that the displayed probabilities are stale until recalculated.

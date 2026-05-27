@@ -101,6 +101,7 @@ model_constraints:
       - "Computed portfolio selection warnings"
       - "Auto-recommendation shortage warnings when selectionSource is automatic"
       - "Per-school warnings and data limitations already produced by the chance engine"
+      - "Every selected or auto-recommended school's probability and academic-fit adjustment"
     forbidden:
       - "Changing computed probabilities"
       - "Adding schools outside the dataset"
@@ -151,3 +152,5 @@ validation_tests:
     description: "If testOptional is true, residual SAT/ACT values must not improve readiness or academic benchmark fit, and the UI should clear or disclose ignored scores."
   - id: aid_policy_factor_disclosure
     description: "Financial-aid need adjustments must be a separate disclosed factor, apply only to relevant international applicants, and show no penalty for need-blind or domestic cases."
+  - id: report_covers_all_selected_schools
+    description: "AI reports must include probability and academic-fit lines for every school in the current selected or auto-recommended portfolio, not only the first few rows."
