@@ -379,6 +379,7 @@ struct PortfolioResult: Hashable {
     let recommendedSchools: [College]
     let selectionSource: PortfolioSelectionSource
     let selectedBucketCounts: PortfolioBucketCounts
+    let selectionWarnings: [String]
     let recommendationWarnings: [String]
     let t10AtLeastOne: Double
     let t30AtLeastOne: Double

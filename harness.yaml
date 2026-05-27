@@ -78,6 +78,9 @@ model_constraints:
     - missing_data_warnings
   multi_school_correlation:
     rule: "Do not multiply all independent probabilities directly; apply same-tier correlation discount."
+  portfolio_selection:
+    dataset_scope_rule: "Selected schools outside the approved AdmissionSight v1 dataset must be excluded from calculations and disclosed in portfolio warnings."
+    recommendation_scope_rule: "Auto-recommendation shortage messages may appear only when the current portfolio was produced by explicit automatic recommendation."
   ai_report:
     may_generate:
       - selection_strategy
@@ -102,6 +105,8 @@ validation_tests:
     description: "At-least-one probability must be >= max individual and <= sum individual probabilities."
   - id: dataset_scope
     description: "All calculated colleges must appear in the AdmissionSight seed dataset."
+  - id: invalid_selected_school_disclosure
+    description: "Selected school IDs outside the AdmissionSight seed dataset must be excluded from probability math and disclosed."
   - id: generated_snapshot_current
     description: "Generated Swift data snapshot must match reviewed source files."
   - id: international_proxy_disclosure

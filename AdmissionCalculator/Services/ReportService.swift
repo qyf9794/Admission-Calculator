@@ -28,9 +28,20 @@ enum ReportService {
         let gates = blocked.isEmpty
             ? "未发现已选学校的硬门槛失败项。"
             : blocked.map { "\($0.college.name)：\($0.gateResult.failedRules.map(\.title).joined(separator: "、"))" }.joined(separator: "\n")
-        let recommendationNotes = result.recommendationWarnings.isEmpty
-            ? "自动推荐三档数量可满足当前请求。"
-            : result.recommendationWarnings.joined(separator: "\n")
+        let selectionNotes = result.selectionWarnings.isEmpty
+            ? "当前组合内学校均来自 v1 数据集。"
+            : result.selectionWarnings.joined(separator: "\n")
+        let recommendationNotes: String
+        switch result.selectionSource {
+        case .automatic:
+            recommendationNotes = result.recommendationWarnings.isEmpty
+                ? "自动推荐三档数量可满足当前请求。"
+                : result.recommendationWarnings.joined(separator: "\n")
+        case .manual:
+            recommendationNotes = "当前为手动选校，未触发自动推荐缺口判断。"
+        case .none:
+            recommendationNotes = "尚未选择学校，未触发自动推荐。"
+        }
         return """
         综合选校报告
 
@@ -45,6 +56,7 @@ enum ReportService {
         当前组合结构：
         来源：\(result.selectionSource.rawValue)。
         保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。
+        \(selectionNotes)
 
         自动推荐提示：
         \(recommendationNotes)

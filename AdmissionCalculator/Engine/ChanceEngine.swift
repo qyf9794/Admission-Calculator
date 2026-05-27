@@ -31,6 +31,7 @@ struct ChanceEngine {
     ) -> PortfolioResult {
         let profileScore = studentScore(profile)
         let selected = colleges.filter { selectedCollegeIDs.contains($0.id) }
+        let resolvedSelectedIDs = Set(selected.map(\.id))
         let resolvedSource: PortfolioSelectionSource = selectedCollegeIDs.isEmpty ? .none : selectionSource
         let recommended = recommendedColleges(
             for: profile,
@@ -49,6 +50,7 @@ struct ChanceEngine {
             recommendedSchools: recommended,
             selectionSource: resolvedSource,
             selectedBucketCounts: bucketCounts(for: schoolResults),
+            selectionWarnings: selectionWarnings(requestedIDs: selectedCollegeIDs, resolvedIDs: resolvedSelectedIDs),
             recommendationWarnings: resolvedSource == .automatic ? recommendationWarnings(profile: profile, recommendedResults: recommendedResults) : [],
             t10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 10 }),
             t30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 30 }),
@@ -299,6 +301,14 @@ struct ChanceEngine {
             reach: results.filter { $0.bucket == .reach }.count,
             blocked: results.filter { $0.bucket == .blocked }.count
         )
+    }
+
+    private func selectionWarnings(requestedIDs: Set<String>, resolvedIDs: Set<String>) -> [String] {
+        let unknownCount = requestedIDs.subtracting(resolvedIDs).count
+        guard unknownCount > 0 else {
+            return []
+        }
+        return ["选校列表包含 \(unknownCount) 个不在 AdmissionSight v1 数据集内的学校，已从概率计算中排除。"]
     }
 
     private func recommendationWarnings(profile: StudentProfile, recommendedResults: [ChanceResult]) -> [String] {

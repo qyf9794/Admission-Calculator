@@ -321,6 +321,16 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.selectedBucketCounts.total, 1)
         XCTAssertEqual(result.profileSnapshot, .sample)
         XCTAssertEqual(result.selectedCollegeIDs, Set(["bu"]))
+        XCTAssertTrue(result.selectionWarnings.isEmpty)
+    }
+
+    func testUnknownSelectedCollegeIDsAreDisclosedAndExcluded() {
+        let result = engine.evaluate(profile: .sample, selectedCollegeIDs: Set(["bu", "outside_dataset"]))
+
+        XCTAssertEqual(result.schoolResults.map(\.college.id), ["bu"])
+        XCTAssertEqual(result.selectedBucketCounts.total, 1)
+        XCTAssertEqual(result.selectedCollegeIDs, Set(["bu", "outside_dataset"]))
+        XCTAssertTrue(result.selectionWarnings.contains { $0.contains("不在 AdmissionSight v1 数据集内") })
     }
 
     func testPortfolioKeepsSubmittedProfileSnapshotForReports() {
@@ -414,6 +424,8 @@ final class ChanceEngineTests: XCTestCase {
 
         XCTAssertEqual(result.selectionSource, .manual)
         XCTAssertTrue(result.recommendationWarnings.isEmpty)
+        XCTAssertTrue(ReportService.makeReport(result: result).contains("当前为手动选校，未触发自动推荐缺口判断"))
+        XCTAssertFalse(ReportService.makeReport(result: result).contains("自动推荐三档数量可满足当前请求"))
     }
 
     func testChinaCapacityUsesApplicationRoundSpecificCount() {

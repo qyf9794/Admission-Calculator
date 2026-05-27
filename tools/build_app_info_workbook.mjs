@@ -98,6 +98,7 @@ const probabilityRows = [
   ["画像总分", "profileScore", "学术、排名、课程、标化、活动等加权；test-free/test-blind 学校按校级政策排除 SAT/ACT", "0-100", "调整普通申请池先验", "学生输入 + 学校政策", "当前实现使用透明固定权重，单校概率使用学校感知画像分"],
   ["提交画像快照", "profileSnapshot", "计算时的 StudentProfile 副本", "结构化数据", "报告、结果一致性", "计算引擎", "报告必须使用快照，避免新画像搭配旧概率"],
   ["提交选校快照", "selectedCollegeIDs", "计算时的学校 ID 集合", "集合", "结果一致性、过期提示", "计算引擎", "实时选校变化后需提示结果过期"],
+  ["组合警告", "selectionWarnings", "无效学校 ID 或组合层面的数据范围问题", "列表", "结果展示、报告", "计算引擎", "不在 AdmissionSight v1 数据集内的学校必须排除并披露"],
   ["课程体系成绩", "curriculumPerformance", "AP/IB/A-Level/中国课程成绩按分段表转内部指数", "画像分 + 学术匹配修正", "课程体系强度结果", "学生输入", "与课程难度不同，表示该体系内的实际成绩表现；非真实百分制换算"],
   ["高中背景修正", "highSchoolDelta", "AdmitRanking 风格资源/顾问/升学/透明度", "logit 修正", "中国学校背景校准", "AdmitRanking 参考", "不能单独保证录取"],
   ["专业竞争修正", "majorDelta", "CS/Engineering/Business 等专业竞争", "logit 修正", "按专业调节", "模型规则", "CS/工程更保守"],
@@ -146,7 +147,7 @@ writeSheet(
 );
 
 const methodRows = [
-  ["1", "数据范围校验", "确认学校在 AdmissionSight National Universities 种子表中", "collegeID in approvedDataset", "不通过则不计算", "防止引入未授权数据"],
+  ["1", "数据范围校验", "确认学校在 AdmissionSight National Universities 种子表中", "collegeID in approvedDataset", "不通过则从组合概率排除并写入 selectionWarnings", "防止引入未授权数据"],
   ["2", "硬门槛检查", "先过滤适用于该身份/专业的规则，再检查 required 标化、英语、课程、作品集、轮次", "if failedRules.count > 0 then probability = 0", "输出 0% 和失败原因", "官方规则优先；推断规则必须标注；不相关规则不扣置信度"],
   ["3", "学校感知画像分计算", "把学生输入压缩为 0-100 分，并按学校 test-free/test-blind 政策排除 SAT/ACT", "profileScore(college) = Σ(componentScore × weight)", "进入 logit 调整", "当前权重见下方权重表；UC 等学校不吃 SAT/ACT 加减分"],
   ["4", "学校先验", "使用最新非空 AdmissionSight 录取率", "baseRate = latestNonNullAcceptanceRate", "单校基础概率", "N/A 年份降低数据质量"],
@@ -155,7 +156,7 @@ const methodRows = [
   ["7", "修正项叠加", "学校感知画像、高中、专业、轮次、资助、学术匹配、数据缺口、中国趋势", "adjustedLogit = logitPrior + deltas", "个性化概率", "所有 deltas 必须可解释"],
   ["8", "概率还原与封顶", "用 logistic 还原为 0-1 概率，并按当前轮次中国录取容量 cap", "probability = min(cap, 1/(1+EXP(-adjustedLogit)))", "单校概率", "gate 失败始终覆盖为 0"],
   ["9", "结果分档", "按概率给中文 bucket", "0=硬门槛；<15%=争取；<35%=目标；其他=保底", "结果页展示", "分档只做规划参考"],
-  ["10", "自动推荐组合", "用户点击按钮后按保底/目标/争取数量抽取学校", "likely/target/reach buckets by probability", "写入 selectedCollegeIDs", "空选校不再隐式推荐；某档不足时不跨档硬凑"],
+  ["10", "自动推荐组合", "用户点击按钮后按保底/目标/争取数量抽取学校", "likely/target/reach buckets by probability", "写入 selectedCollegeIDs", "空选校不再隐式推荐；某档不足时不跨档硬凑；手动组合不显示自动推荐缺口结论"],
   ["11", "组合概率", "按 tier 分组，同层学校依次折扣", "failure *= (1 - probability × 0.72^index)", "至少一所录取概率", "避免简单独立相乘高估"],
   ["12", "报告生成", "AI 基于结构化结果生成策略和建议", "report(input = profile + computedResults + warnings)", "付费报告", "AI 不得改概率、加学校或承诺录取"]
 ];
