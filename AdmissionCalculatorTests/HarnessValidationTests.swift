@@ -316,6 +316,20 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("后续修改表单或选校后需要重新计算"))
     }
 
+    func testOpenAIReportPromptRequiresDetailedPaidReportWithoutChangingProbabilities() {
+        let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu", "mit"]), selectionSource: .manual)
+        let prompt = ReportService.makeOpenAIReportPrompt(result: result)
+
+        XCTAssertTrue(prompt.contains("逐校概率与风险表"))
+        XCTAssertTrue(prompt.contains("差距分析"))
+        XCTAssertTrue(prompt.contains("提高概率的努力方向"))
+        XCTAssertTrue(prompt.contains("选校组合策略"))
+        XCTAssertTrue(prompt.contains("不得修改、重算、覆盖或美化"))
+        XCTAssertTrue(prompt.contains("Massachusetts Institute of Technology"))
+        XCTAssertTrue(prompt.contains("Boston University"))
+        XCTAssertTrue(prompt.contains("当前选择学校中至少被一所录取的估算概率"))
+    }
+
     func testReportSourceAuditIncludesStructuredRoundPolicy() {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["mit"]), selectionSource: .manual)
         let report = ReportService.makeReport(result: result)

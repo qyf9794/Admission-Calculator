@@ -27,7 +27,7 @@ struct AppView: View {
             }
 
             NavigationStack {
-                ResultsView(result: latestResult, purchaseState: purchaseState, isStale: resultIsStale)
+                ResultsView(result: latestResult, isStale: resultIsStale)
                     .navigationTitle("结果")
             }
             .tabItem {
@@ -35,11 +35,11 @@ struct AppView: View {
             }
 
             NavigationStack {
-                DataSourcesView()
-                    .navigationTitle("数据")
+                ReportView(result: latestResult, purchaseState: purchaseState, isStale: resultIsStale)
+                    .navigationTitle("报告")
             }
             .tabItem {
-                Label("数据", systemImage: "tablecells")
+                Label("报告", systemImage: "doc.text.magnifyingglass")
             }
         }
     }

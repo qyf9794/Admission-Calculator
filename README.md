@@ -5,7 +5,7 @@ SwiftUI iPhone app for estimating U.S. undergraduate admission chances for Chine
 The v1 model is intentionally transparent:
 
 - AdmissionSight National Universities acceptance rates are the only school statistics seed.
-- The data tab includes per-school source audit notes for the major inputs used in probability math.
+- The report tab exposes per-school source audit notes in a data-source sheet for the major inputs used in probability math.
 - Source audit includes structured round-policy fields such as allowed rounds and explicit EA/ED adjustments.
 - Hard gates run before probability math; failed required gates return `0%`.
 - Hard-gate failures show the rule, official/inferred status, explanation, and source when available.
@@ -30,11 +30,12 @@ The v1 model is intentionally transparent:
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.
 - Manual and empty portfolio results do not carry hidden auto-recommendation school lists.
 - Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation bucket shortages.
-- AI reports include every selected or auto-recommended school's probability and academic-fit adjustment.
+- Paid AI reports are generated from a dedicated report page and include every selected or auto-recommended school's probability and academic-fit adjustment.
 - AI reports include each selected school's confidence label next to its probability.
 - AI reports include a per-school source audit summary for the data used in probability math.
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.
 - AI reports include computed portfolio warnings and per-school data limitations instead of replacing them with generic advice.
+- Report generation is wired to the OpenAI Responses API; Debug builds need an `OPENAI_API_KEY` environment variable, while production should use a server-side proxy rather than embedding secrets in the app.
 - Results and AI reports are tied to the submitted profile snapshot; if the live form changes afterward, the app flags the displayed result as stale.
 - Multi-school probability uses same-tier correlation discounting.
 - The paid-report surface is wired as a StoreKit-ready placeholder and cannot modify computed probabilities.

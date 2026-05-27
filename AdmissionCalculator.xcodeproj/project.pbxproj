@@ -13,6 +13,7 @@
 		8DD2D630A90FFA54850FF4CF /* ChanceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */; };
 		9C9DFB4136B101E098DCEA1E /* CalculatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B808A591F6410893EDE1951C /* CalculatorView.swift */; };
 		AA39C24F0EE21FEAAA21C517 /* HarnessValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF67FDE609FF91E042B9AEB /* HarnessValidationTests.swift */; };
+		B98EBB0D454635EA0062EBE3 /* ReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C014D23311F5D20F3E5C4CA6 /* ReportView.swift */; };
 		C22C12B76B3CD556E58DCCC0 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7013D2316F417D26B1E8B3F8 /* StoreKit.framework */; };
 		D912F50D0268B294EA80613F /* ResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04B8A9A5179F237DB30FE5A /* ResultsView.swift */; };
 		E3EE81C656A959A84C7D6B35 /* AdmissionsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74F3B465C6985828AFCF8BA6 /* AdmissionsModels.swift */; };
@@ -45,6 +46,7 @@
 		B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChanceEngine.swift; sourceTree = "<group>"; };
 		B808A591F6410893EDE1951C /* CalculatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorView.swift; sourceTree = "<group>"; };
 		BF79748D7FCFE25211D3BF06 /* DataSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSourcesView.swift; sourceTree = "<group>"; };
+		C014D23311F5D20F3E5C4CA6 /* ReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportView.swift; sourceTree = "<group>"; };
 		D04B8A9A5179F237DB30FE5A /* ResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultsView.swift; sourceTree = "<group>"; };
 		DB85B5749B2C7482763F3B6B /* AppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppView.swift; sourceTree = "<group>"; };
 		E71E254D5AFA3BB3751035DF /* AdmissionCalculator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AdmissionCalculator.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -127,6 +129,7 @@
 				B808A591F6410893EDE1951C /* CalculatorView.swift */,
 				40C954FA4C29D50F0CACC323 /* CollegePickerView.swift */,
 				BF79748D7FCFE25211D3BF06 /* DataSourcesView.swift */,
+				C014D23311F5D20F3E5C4CA6 /* ReportView.swift */,
 				D04B8A9A5179F237DB30FE5A /* ResultsView.swift */,
 			);
 			path = Views;
@@ -258,6 +261,7 @@
 				4158E64763319B1C1EF90E28 /* CollegePickerView.swift in Sources */,
 				E9F80842294FBC046B4A2795 /* DataSourcesView.swift in Sources */,
 				F956025F17170405EB39C324 /* ReportService.swift in Sources */,
+				B98EBB0D454635EA0062EBE3 /* ReportView.swift in Sources */,
 				D912F50D0268B294EA80613F /* ResultsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

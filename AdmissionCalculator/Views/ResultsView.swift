@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ResultsView: View {
     let result: PortfolioResult?
-    @ObservedObject var purchaseState: ReportPurchaseState
     let isStale: Bool
 
     var body: some View {
@@ -24,12 +23,6 @@ struct ResultsView: View {
                     MissingInputCard(
                         prompts: result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.calculatedCollegeIDs)
                     )
-                    SchoolResultsList(
-                        results: result.schoolResults,
-                        selectionSource: result.selectionSource,
-                        recommendationWarnings: result.recommendationWarnings
-                    )
-                    ReportPanel(result: result, purchaseState: purchaseState, isStale: isStale)
                 }
                 .padding()
             } else {
@@ -499,46 +492,5 @@ private struct SchoolResultsList: View {
         case .likely: .green
         case .blocked: .red
         }
-    }
-}
-
-private struct ReportPanel: View {
-    let result: PortfolioResult
-    @ObservedObject var purchaseState: ReportPurchaseState
-    let isStale: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("AI 综合报告", systemImage: "doc.text.magnifyingglass")
-                .font(.headline)
-                .foregroundStyle(.purple)
-            if isStale {
-                Label("当前结果已过期；请先重新计算，再解锁或使用报告。", systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-            }
-            if purchaseState.isUnlocked {
-                Text(ReportService.makeReport(result: result))
-                    .font(.callout)
-                    .textSelection(.enabled)
-            } else {
-                Text("报告会解释选校策略、硬门槛、概率与提升建议。AI 只能解释结果，不能改写概率。")
-                    .foregroundStyle(.secondary)
-                Button {
-                    purchaseState.unlockForPrototype()
-                } label: {
-                    Label("解锁报告预览", systemImage: "lock.open")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!purchaseState.canUnlockReport(isStale: isStale))
-            }
-        }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.purple.opacity(0.16), lineWidth: 1)
-        )
     }
 }
