@@ -14,6 +14,14 @@ final class ReportPurchaseState: ObservableObject {
     }
 }
 
+enum GateRuleDisplay {
+    static func failureSummary(_ rule: CollegeGateRule) -> String {
+        let source = rule.isOfficial ? "官方" : "推断"
+        let url = rule.sourceURL.map { " 来源：\($0.absoluteString)" } ?? ""
+        return "\(source) \(rule.title)：\(rule.detail)\(url)"
+    }
+}
+
 enum ReportService {
     static func makeReport(result: PortfolioResult) -> String {
         let profile = result.profileSnapshot
@@ -100,9 +108,7 @@ enum ReportService {
     }
 
     private static func gateRuleSummary(_ rule: CollegeGateRule) -> String {
-        let source = rule.isOfficial ? "官方" : "推断"
-        let url = rule.sourceURL.map { " 来源：\($0.absoluteString)" } ?? ""
-        return "\(source) \(rule.title)：\(rule.detail)\(url)"
+        GateRuleDisplay.failureSummary(rule)
     }
 
     private static func sourceAuditSummary(for schoolResults: [ChanceResult]) -> String {

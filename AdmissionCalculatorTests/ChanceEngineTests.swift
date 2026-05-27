@@ -41,6 +41,33 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertLessThan(result.adjustedProbability, 0.35)
     }
 
+    func testProfileCompletionPromptsIdentifyDecisionCriticalMissingDetails() {
+        var profile = StudentProfile.sample
+        profile.toefl = nil
+        profile.ielts = nil
+        profile.sat = nil
+        profile.act = nil
+        profile.apCourseCount = 0
+
+        let prompts = profile.completionPrompts(selectedCollegeIDs: [])
+        let ids = Set(prompts.map(\.id))
+
+        XCTAssertTrue(ids.contains("selected-schools"))
+        XCTAssertTrue(ids.contains("english-proof"))
+        XCTAssertTrue(ids.contains("standardized-test"))
+        XCTAssertTrue(ids.contains("high-school-context"))
+        XCTAssertTrue(ids.contains("ap-evidence"))
+    }
+
+    func testProfileCompletionPromptsClearWhenCoreInputsArePresent() {
+        var profile = StudentProfile.sample
+        profile.highSchoolID = "rdfz_icc"
+
+        let prompts = profile.completionPrompts(selectedCollegeIDs: Set(["bu"]))
+
+        XCTAssertTrue(prompts.isEmpty)
+    }
+
     func testInferredGateIsDisclosedAndCanBlock() {
         var profile = StudentProfile.sample
         profile.major = .arts

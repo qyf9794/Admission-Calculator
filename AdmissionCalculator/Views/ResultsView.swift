@@ -144,7 +144,7 @@ private struct SchoolResultsList: View {
                     if !result.gateResult.failedRules.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(result.gateResult.failedRules) { rule in
-                                Label(gateRuleSummary(rule), systemImage: "exclamationmark.triangle.fill")
+                                Label(GateRuleDisplay.failureSummary(rule), systemImage: "exclamationmark.triangle.fill")
                             }
                         }
                         .font(.footnote)
@@ -188,10 +188,6 @@ private struct SchoolResultsList: View {
         }
         let sign = factor.value >= 0 ? "+" : ""
         return "\(sign)\(factor.value.formatted(.number.precision(.fractionLength(2))))"
-    }
-
-    private func gateRuleSummary(_ rule: CollegeGateRule) -> String {
-        "\(rule.isOfficial ? "官方" : "推断") \(rule.title)：\(rule.detail)"
     }
 
     private func bucketColor(_ bucket: RecommendationBucket) -> Color {

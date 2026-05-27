@@ -8,13 +8,23 @@ struct CalculatorView: View {
     let onEvaluate: () -> Void
 
     var body: some View {
-        Form {
-            Section("学生画像") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                CalculatorHero(
+                    selectedCount: selectedCollegeIDs.count,
+                    promptCount: completionPrompts.count,
+                    requestedTotal: requestedRecommendationTotal
+                )
+
+                ProfileReadinessCard(prompts: completionPrompts)
+
+                CardSection(title: "学生画像", subtitle: "先确定身份、成绩口径、课程体系和申请方向。", systemImage: "person.text.rectangle", tint: .indigo) {
                 Picker("申请身份", selection: $profile.applicantStatus) {
                     ForEach(ApplicantStatus.allCases) { item in
                         Text(item.rawValue).tag(item)
                     }
                 }
+                .pickerStyle(.menu)
                 GradeScaleInputs(
                     title: "GPA / 校内成绩",
                     scale: $profile.gradeScale,
@@ -31,21 +41,24 @@ struct CalculatorView: View {
                         Text(item.rawValue).tag(item)
                     }
                 }
+                .pickerStyle(.menu)
                 CurriculumPerformanceInputs(profile: $profile)
                 Picker("目标专业", selection: $profile.major) {
                     ForEach(MajorCategory.allCases) { item in
                         Text(item.rawValue).tag(item)
                     }
                 }
+                .pickerStyle(.menu)
                 Picker("申请轮次", selection: $profile.round) {
                     ForEach(ApplicationRound.allCases) { item in
                         Text(item.rawValue).tag(item)
                     }
                 }
+                .pickerStyle(.segmented)
                 Toggle("申请资助", isOn: $profile.needsAid)
             }
 
-            Section("硬指标") {
+                CardSection(title: "硬指标", subtitle: "标化和语言成绩会先经过硬门槛，再进入概率修正。", systemImage: "target", tint: .teal) {
                 Toggle("Test Optional / 不提交标化", isOn: testOptionalBinding)
                 ScoreField(title: "SAT", value: $profile.sat, range: 900...1600, disabled: profile.testOptional)
                 ScoreField(title: "ACT", value: $profile.act, range: 18...36, disabled: profile.testOptional)
@@ -61,7 +74,7 @@ struct CalculatorView: View {
                 }
             }
 
-            Section("软实力") {
+                CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", tint: .pink) {
                 BandStepper(title: "活动影响力", value: $profile.activities)
                 BandStepper(title: "科研 / 夏校", value: $profile.research)
                 BandStepper(title: "奖项区分度", value: $profile.honors)
@@ -70,25 +83,26 @@ struct CalculatorView: View {
                 Toggle("艺术作品集已准备", isOn: $profile.hasPortfolio)
             }
 
-            Section("中国高中背景") {
+                CardSection(title: "中国高中背景", subtitle: "高中背景只是代理校准，不是个人录取证明。", systemImage: "graduationcap.fill", tint: .orange) {
                 Picker("高中学校", selection: $profile.highSchoolID) {
                     ForEach(AdmissionsSeedData.highSchools) { school in
                         Text("\(school.name) · \(school.city)").tag(school.id)
                     }
                 }
+                .pickerStyle(.menu)
                 Text("高中背景仅作为 AdmitRanking 风格代理校准；不确定时请选择“其他/手动评估学校”，避免默认名校背景抬高估算。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("自动推荐数量") {
+                CardSection(title: "自动推荐数量", subtitle: "先设定三档数量，再用单独按钮生成组合。", systemImage: "slider.horizontal.3", tint: .blue) {
                 Stepper("保底 \(profile.requestedLikelyCount) 所", value: $profile.requestedLikelyCount, in: 0...10)
                 Stepper("目标 \(profile.requestedTargetCount) 所", value: $profile.requestedTargetCount, in: 0...12)
                 Stepper("争取 \(profile.requestedReachCount) 所", value: $profile.requestedReachCount, in: 0...12)
                 LabeledContent("计划数量", value: "\(requestedRecommendationTotal) 所")
             }
 
-            Section("自动推荐组合") {
+                CardSection(title: "选校动作", subtitle: "自动推荐不会悄悄触发；手动选校会切换为手动组合。", systemImage: "rectangle.stack.badge.plus", tint: .green) {
                 Button {
                     profile.requestedSchoolCount = requestedRecommendationTotal
                     onAutoRecommend()
@@ -97,40 +111,48 @@ struct CalculatorView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(.green)
                 .disabled(requestedRecommendationTotal == 0)
                 if selectionSource == .automatic {
                     Label("已自动推荐 \(selectedCollegeIDs.count) 所学校", systemImage: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-            }
-
-            Section("手动选校") {
                 NavigationLink {
                     CollegePickerView(selectedCollegeIDs: $selectedCollegeIDs, selectionSource: $selectionSource)
                 } label: {
                     Label(selectedCollegeIDs.isEmpty ? "尚未选择学校" : "已选择 \(selectedCollegeIDs.count) 所", systemImage: "building.columns")
                 }
+                .buttonStyle(.bordered)
                 if !selectedCollegeIDs.isEmpty {
                     Button("清空已选学校") {
                         selectedCollegeIDs.removeAll()
                         selectionSource = .none
                     }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
                 }
             }
 
-            Section {
                 Button(action: onEvaluate) {
                     Label("重新计算", systemImage: "arrow.clockwise")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(.indigo)
             }
+            .padding(16)
         }
+        .background(Color(.systemGroupedBackground))
     }
 
     private var requestedRecommendationTotal: Int {
         profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount
+    }
+
+    private var completionPrompts: [ProfileCompletionPrompt] {
+        profile.completionPrompts(selectedCollegeIDs: selectedCollegeIDs)
     }
 
     private var testOptionalBinding: Binding<Bool> {
@@ -143,6 +165,170 @@ struct CalculatorView: View {
                     profile.act = nil
                 }
             }
+        )
+    }
+}
+
+private struct CalculatorHero: View {
+    let selectedCount: Int
+    let promptCount: Int
+    let requestedTotal: Int
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color(red: 0.08, green: 0.18, blue: 0.32)
+            HStack(alignment: .bottom, spacing: 8) {
+                ForEach(0..<9, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(heroBlockColor(index))
+                        .frame(width: 18, height: CGFloat(34 + index % 4 * 20))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .opacity(0.55)
+            .padding(.trailing, 18)
+
+            VStack(alignment: .leading, spacing: 14) {
+                Label("中国学生美本录取概率规划", systemImage: "sparkle.magnifyingglass")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+                Text("Admit Chance")
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(.white)
+                Text("用硬门槛、学术匹配、国际生数据和中国本科录取容量，生成可解释的选校估算。")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.86))
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    HeroMetric(title: "已选", value: "\(selectedCount)")
+                    HeroMetric(title: "待补", value: "\(promptCount)")
+                    HeroMetric(title: "计划", value: "\(requestedTotal)")
+                }
+            }
+            .padding(18)
+        }
+        .frame(maxWidth: .infinity, minHeight: 238)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func heroBlockColor(_ index: Int) -> Color {
+        let colors: [Color] = [.cyan, .mint, .yellow, .orange, .pink, .purple, .blue, .green, .red]
+        return colors[index % colors.count]
+    }
+}
+
+private struct HeroMetric: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.white.opacity(0.72))
+            Text(value)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+        }
+        .frame(minWidth: 56, alignment: .leading)
+    }
+}
+
+private struct ProfileReadinessCard: View {
+    let prompts: [ProfileCompletionPrompt]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: prompts.isEmpty ? "checkmark.seal.fill" : "exclamationmark.bubble.fill")
+                    .foregroundStyle(prompts.isEmpty ? .green : .orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(prompts.isEmpty ? "关键资料已就绪" : "需要补充的关键信息")
+                        .font(.headline)
+                    Text(prompts.isEmpty ? "可以直接计算，也可以继续微调选校组合。" : "这些信息会影响硬门槛、置信度或推荐组合。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if prompts.isEmpty {
+                Text("系统仍会在结果页披露数据缺口、推断基准和来源审计。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(prompts.prefix(4)) { prompt in
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(prompt.title)
+                                .font(.subheadline.weight(.semibold))
+                            Text(prompt.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: prompt.systemImage)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                if prompts.count > 4 {
+                    Text("还有 \(prompts.count - 4) 项可补充信息会在后续细化中影响判断。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke((prompts.isEmpty ? Color.green : Color.orange).opacity(0.22), lineWidth: 1)
+        )
+    }
+}
+
+private struct CardSection<Content: View>: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let tint: Color
+    private let content: Content
+
+    init(title: String, subtitle: String, systemImage: String, tint: Color, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self.tint = tint
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.headline)
+                    .foregroundStyle(tint)
+                    .frame(width: 28, height: 28)
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.headline)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                content
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(tint.opacity(0.18), lineWidth: 1)
         )
     }
 }

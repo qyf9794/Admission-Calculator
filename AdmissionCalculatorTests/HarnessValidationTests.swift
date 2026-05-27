@@ -222,6 +222,15 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
     }
 
+    func testFailedGateDisplaySummaryIncludesSourceURL() {
+        let rule = AdmissionsSeedData.gateRules.first { $0.id == "mit_sat" }!
+        let summary = GateRuleDisplay.failureSummary(rule)
+
+        XCTAssertTrue(summary.contains("官方 Required standardized testing"))
+        XCTAssertTrue(summary.contains("MIT requires SAT/ACT"))
+        XCTAssertTrue(summary.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
+    }
+
     func testReportIncludesSelectedSchoolSourceAudit() {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
         let report = ReportService.makeReport(result: result)
