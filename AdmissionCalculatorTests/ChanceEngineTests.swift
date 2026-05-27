@@ -318,6 +318,23 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(higher.warnings.contains { $0.contains("内部学术指数") })
     }
 
+    func testZeroGpaDoesNotReceiveArtificialReadinessFloor() {
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        var zeroGPA = StudentProfile.sample
+        zeroGPA.major = .humanities
+        zeroGPA.gradeScale = .fourPoint
+        zeroGPA.gpaFourPoint = 0
+
+        var twoPointGPA = zeroGPA
+        twoPointGPA.gpaFourPoint = 2.0
+
+        XCTAssertLessThan(engine.studentScore(zeroGPA, college: bu), engine.studentScore(twoPointGPA, college: bu) - 5)
+        XCTAssertLessThan(
+            engine.chance(for: bu, profile: zeroGPA).adjustedProbability,
+            engine.chance(for: bu, profile: twoPointGPA).adjustedProbability
+        )
+    }
+
     func testChineseCurriculumSupportsGpaScale() {
         var lowerCore = StudentProfile.sample
         lowerCore.major = .humanities
