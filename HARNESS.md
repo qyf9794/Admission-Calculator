@@ -18,6 +18,7 @@ The result is an explainable estimate, not a promise of admission.
 - The generated Swift snapshot must remain reproducible with `node scripts/update-admissions-data.mjs --check`.
 - Source data validation must reject out-of-range rates, ranks, proxy shares, data-quality scores, and China early/RD counts that do not reconcile to totals.
 - The data UI must expose per-school source audit notes for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules.
+- Per-school source audit must disclose structured round policy fields, including allowed rounds and any explicit EA/ED probability adjustments.
 - International student fields must be undergraduate-only. Never use graduate or all-level international data in probability math.
 - International admit coefficient may be used only when undergraduate international admitted count and total admitted count are both present.
 - International financial-aid policy may affect international applicants who request aid, but it must be a separate disclosed factor and must not penalize domestic/U.S. citizen applicants.

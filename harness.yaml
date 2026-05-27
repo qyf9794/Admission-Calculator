@@ -173,3 +173,5 @@ validation_tests:
     description: "Hard-gate failures must disclose the rule title, official/inferred status, explanatory detail, and source when available."
   - id: report_includes_source_audit
     description: "AI reports must include each selected school's source-audit summary for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules."
+  - id: source_audit_discloses_round_policy
+    description: "Per-school source audit must disclose structured round policy fields, including allowed rounds and any explicit EA/ED probability adjustments."

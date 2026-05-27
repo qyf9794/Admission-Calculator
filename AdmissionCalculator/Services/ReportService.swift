@@ -126,9 +126,27 @@ enum ReportService {
         let benchmarkNote = benchmark.map { "\(benchmarkSourceLabel($0))：\($0.sourceNote)" } ?? "缺失：当前没有学术基准行。"
         let gateNote = schoolRules.isEmpty
             ? "未配置学校专属硬门槛；仍按适用身份/专业检查全局推断门槛。"
-            : schoolRules.map { "\($0.title)（\($0.isOfficial ? "官方" : "推断")）" }.joined(separator: "、")
+            : schoolRules.map(gateSourceAuditSummary).joined(separator: "、")
 
         return "\(college.name)：录取率 \(college.latestAvailableClassYear) 届，AdmissionSight National Universities 表；国际生 \(internationalNote)；中国本科 \(chinaNote)；学术基准 \(benchmarkNote)；硬门槛 \(gateNote)"
+    }
+
+    private static func gateSourceAuditSummary(_ rule: CollegeGateRule) -> String {
+        let status = rule.isOfficial ? "官方" : "推断"
+        guard rule.type == .round else {
+            return "\(rule.title)（\(status)）"
+        }
+
+        let allowed = rule.allowedRounds.isEmpty
+            ? "未列"
+            : rule.allowedRounds.map(\.rawValue).joined(separator: "/")
+        let ea = roundAdjustmentText(rule.earlyActionAdjustment)
+        let ed = roundAdjustmentText(rule.earlyDecisionAdjustment)
+        return "\(rule.title)（\(status)，允许轮次 \(allowed)，EA加分 \(ea)，ED加分 \(ed)）"
+    }
+
+    private static func roundAdjustmentText(_ value: Double?) -> String {
+        value.map { signed($0) } ?? "无明确数据"
     }
 
     private static func benchmarkSourceLabel(_ benchmark: AcademicBenchmark) -> String {

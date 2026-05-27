@@ -235,6 +235,16 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("硬门槛"))
     }
 
+    func testReportSourceAuditIncludesStructuredRoundPolicy() {
+        let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["mit"]), selectionSource: .manual)
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(report.contains("First-year application rounds"))
+        XCTAssertTrue(report.contains("允许轮次 EA/RD"))
+        XCTAssertTrue(report.contains("EA加分 +0.00"))
+        XCTAssertTrue(report.contains("ED加分 无明确数据"))
+    }
+
     private func assertChinaTotal(_ early: Int?, _ rd: Int?, _ total: Int?, _ collegeID: String) {
         guard let early, let rd, let total else {
             return

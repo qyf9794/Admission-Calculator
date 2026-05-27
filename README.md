@@ -6,6 +6,7 @@ The v1 model is intentionally transparent:
 
 - AdmissionSight National Universities acceptance rates are the only school statistics seed.
 - The data tab includes per-school source audit notes for the major inputs used in probability math.
+- Source audit includes structured round-policy fields such as allowed rounds and explicit EA/ED adjustments.
 - Hard gates run before probability math; failed required gates return `0%`.
 - Hard-gate failures show the rule, official/inferred status, explanation, and source when available.
 - Inferred gates are labeled and lower confidence.

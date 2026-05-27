@@ -152,8 +152,8 @@ private struct CollegeSourceAudit: View {
                 ForEach(schoolRules) { rule in
                     SourceAuditRow(
                         title: "该校硬门槛",
-                        value: "\(rule.title) · \(rule.isOfficial ? "官方" : "推断")",
-                        note: rule.detail,
+                        value: gateRuleValue(rule),
+                        note: gateRuleNote(rule),
                         url: rule.sourceURL
                     )
                 }
@@ -187,6 +187,34 @@ private struct CollegeSourceAudit: View {
         let sat = benchmark.satBenchmark.map(String.init) ?? "不使用/缺失"
         let rigor = benchmark.rigorBenchmark.map { "\($0)/5" } ?? "缺失"
         return "GPA \(gpa)，排名 \(rank)，SAT \(sat)，课程难度 \(rigor)"
+    }
+
+    private func gateRuleValue(_ rule: CollegeGateRule) -> String {
+        let status = rule.isOfficial ? "官方" : "推断"
+        guard rule.type == .round else {
+            return "\(rule.title) · \(status)"
+        }
+
+        let allowed = rule.allowedRounds.isEmpty
+            ? "未列"
+            : rule.allowedRounds.map(\.rawValue).joined(separator: "/")
+        return "\(rule.title) · \(status) · 允许轮次 \(allowed)"
+    }
+
+    private func gateRuleNote(_ rule: CollegeGateRule) -> String {
+        guard rule.type == .round else {
+            return rule.detail
+        }
+
+        return "\(rule.detail) EA加分 \(roundAdjustmentText(rule.earlyActionAdjustment))；ED加分 \(roundAdjustmentText(rule.earlyDecisionAdjustment))。"
+    }
+
+    private func roundAdjustmentText(_ value: Double?) -> String {
+        guard let value else {
+            return "无明确数据"
+        }
+        let sign = value >= 0 ? "+" : ""
+        return "\(sign)\(value.formatted(.number.precision(.fractionLength(2))))"
     }
 
     private func benchmarkSourceLabel(_ benchmark: AcademicBenchmark) -> String {
