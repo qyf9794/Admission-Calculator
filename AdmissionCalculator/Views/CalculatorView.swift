@@ -78,20 +78,28 @@ struct CalculatorView: View {
                 }
             }
 
-            Section("选校") {
+            Section("自动推荐组合") {
                 Stepper("保底 \(profile.requestedLikelyCount) 所", value: $profile.requestedLikelyCount, in: 0...10)
                 Stepper("目标 \(profile.requestedTargetCount) 所", value: $profile.requestedTargetCount, in: 0...12)
                 Stepper("争取 \(profile.requestedReachCount) 所", value: $profile.requestedReachCount, in: 0...12)
+                LabeledContent("计划数量", value: "\(requestedRecommendationTotal) 所")
                 Button {
-                    profile.requestedSchoolCount = profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount
+                    profile.requestedSchoolCount = requestedRecommendationTotal
                     onAutoRecommend()
                 } label: {
-                    Label("自动推荐组合", systemImage: "wand.and.stars")
+                    Label("按三档生成组合", systemImage: "wand.and.stars")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .disabled(profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount == 0)
+                .buttonStyle(.borderedProminent)
+                .disabled(requestedRecommendationTotal == 0)
+                if selectionSource == .automatic {
+                    Label("已自动推荐 \(selectedCollegeIDs.count) 所学校", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
+            Section("手动选校") {
                 NavigationLink {
                     CollegePickerView(selectedCollegeIDs: $selectedCollegeIDs, selectionSource: $selectionSource)
                 } label: {
@@ -113,6 +121,10 @@ struct CalculatorView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+    }
+
+    private var requestedRecommendationTotal: Int {
+        profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount
     }
 }
 
