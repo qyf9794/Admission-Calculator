@@ -240,22 +240,7 @@ struct ChanceEngine {
         let targetCount = max(1, Int(Double(count) * 0.45))
         let likelyCount = count == 1 ? 0 : max(1, Int(Double(count) * 0.30))
         let reachCount = max(0, count - targetCount - likelyCount)
-        var picked = recommendedColleges(for: profile, reachCount: reachCount, targetCount: targetCount, likelyCount: likelyCount)
-        if picked.count < count {
-            let pickedIDs = Set(picked.map(\.id))
-            let fallbackResults = colleges.map { chance(for: $0, profile: profile) }
-            let eligibleFallbackResults = fallbackResults.filter { result in
-                result.gateResult.passed && !pickedIDs.contains(result.college.id)
-            }
-            let sortedFallbackResults = eligibleFallbackResults.sorted { lhs, rhs in
-                lhs.adjustedProbability == rhs.adjustedProbability
-                    ? lhs.college.rank < rhs.college.rank
-                    : lhs.adjustedProbability > rhs.adjustedProbability
-            }
-            let fallback = sortedFallbackResults.map(\.college)
-            picked.append(contentsOf: fallback.prefix(count - picked.count))
-        }
-        return Array(picked.prefix(count))
+        return recommendedColleges(for: profile, reachCount: reachCount, targetCount: targetCount, likelyCount: likelyCount)
     }
 
     func recommendedColleges(for profile: StudentProfile, reachCount: Int, targetCount: Int, likelyCount: Int) -> [College] {

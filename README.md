@@ -51,6 +51,10 @@ Open `AdmissionCalculator.xcodeproj`, or build with XcodeBuildMCP / Xcode.
 
 See `harness.yaml` and `HARNESS.md`.
 
+## Calculation Flow
+
+See `docs/calculation-flow.md` for the maintained Mermaid flowchart covering hard gates, school-level probability adjustments, automatic recommendation buckets, and user-supplied fields that materially affect the result.
+
 ## Data Update
 
 The app consumes a generated offline Swift snapshot:

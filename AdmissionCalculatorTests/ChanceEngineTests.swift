@@ -426,9 +426,21 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(report.contains("高中背景"))
     }
 
-    func testLegacyRecommendationCountHonorsRequestedCount() {
+    func testLegacyRecommendationCountDoesNotSilentlyBackfillBuckets() {
         XCTAssertTrue(engine.recommendedColleges(for: .sample, count: 0).isEmpty)
-        XCTAssertEqual(engine.recommendedColleges(for: .sample, count: 1).count, 1)
+        XCTAssertLessThanOrEqual(engine.recommendedColleges(for: .sample, count: 1).count, 1)
+
+        let count = 40
+        let recommended = engine.recommendedColleges(for: .sample, count: count)
+        let results = recommended.map { engine.chance(for: $0, profile: .sample) }
+        let targetCount = max(1, Int(Double(count) * 0.45))
+        let likelyCount = max(1, Int(Double(count) * 0.30))
+        let reachCount = max(0, count - targetCount - likelyCount)
+
+        XCTAssertLessThanOrEqual(recommended.count, count)
+        XCTAssertLessThanOrEqual(results.filter { $0.bucket == .likely }.count, likelyCount)
+        XCTAssertLessThanOrEqual(results.filter { $0.bucket == .target }.count, targetCount)
+        XCTAssertLessThanOrEqual(results.filter { $0.bucket == .reach }.count, reachCount)
     }
 
     func testACTUsesConcordanceForProfileScoring() {
