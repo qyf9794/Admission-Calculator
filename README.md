@@ -16,6 +16,7 @@ The v1 model is intentionally transparent:
 - Transcript and Chinese-curriculum grades can be entered as percent scores, 4.0 GPA, 5.0 GPA, or letter grades; non-percent inputs are converted only to an internal academic index.
 - School-specific test-free/test-blind policies, such as UC's SAT/ACT policy, are applied to both readiness scoring and target-school academic fit.
 - SAT/ACT comparisons use the strongest submitted SAT-equivalent score through the official ACT/SAT concordance.
+- Test Optional / 不提交标化 clears SAT/ACT in the form and ignores residual SAT/ACT values in readiness and academic fit.
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
 - Portfolio-level T10/T30/T50 probabilities are scoped to the currently selected or auto-recommended school set.
 - Selected schools outside the v1 dataset are excluded from probability math and disclosed as portfolio warnings.

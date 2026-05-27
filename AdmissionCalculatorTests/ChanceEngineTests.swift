@@ -546,6 +546,27 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertGreaterThan(submittedFit, optionalFit)
     }
 
+    func testTestOptionalIgnoresResidualSatActScoresForBenchmarkFit() {
+        let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
+        var cleanOptional = strongChineseInternationalProfile
+        cleanOptional.testOptional = true
+        cleanOptional.sat = nil
+        cleanOptional.act = nil
+
+        var residualScores = cleanOptional
+        residualScores.sat = 1580
+        residualScores.act = 36
+
+        let clean = engine.chance(for: yale, profile: cleanOptional)
+        let residual = engine.chance(for: yale, profile: residualScores)
+        let cleanFit = clean.factors.first { $0.label == "目标校学术匹配" }?.value ?? 0
+        let residualFit = residual.factors.first { $0.label == "目标校学术匹配" }?.value ?? 0
+
+        XCTAssertEqual(engine.studentScore(cleanOptional, college: yale), engine.studentScore(residualScores, college: yale), accuracy: 0.0001)
+        XCTAssertEqual(cleanFit, residualFit, accuracy: 0.0001)
+        XCTAssertTrue(residual.warnings.contains { $0.contains("已选择不提交标化") })
+    }
+
     func testUCTestFreePolicyIgnoresSatActForProbability() {
         let ucla = AdmissionsSeedData.colleges.first { $0.id == "ucla" }!
         var noScore = strongChineseInternationalProfile

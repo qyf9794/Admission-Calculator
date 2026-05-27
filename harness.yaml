@@ -73,6 +73,7 @@ model_constraints:
     arts_rule: "Arts applicants receive a reduced academic-benchmark correction because portfolio and creative fit carry more weight."
     test_free_rule: "If a school is officially test-free or test-blind for admissions, SAT/ACT must be excluded from both readiness scoring and academic benchmark adjustment for that school."
     best_testing_rule: "When both SAT and ACT are present, standardized-test gates, readiness scoring, and academic benchmark fit use the strongest SAT-equivalent submitted score."
+    test_optional_rule: "When the applicant chooses test optional / not submitting scores, stored SAT/ACT values must be ignored for readiness scoring and academic benchmark fit unless an official test-required gate blocks the school."
   required_outputs:
     - individual_school_probability
     - selected_school_at_least_one_probability
@@ -145,3 +146,5 @@ validation_tests:
     description: "The data UI must expose per-school source notes for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules."
   - id: conservative_high_school_default
     description: "Sample/default profiles must use the unknown high-school proxy, and UI/report/warnings must disclose that high-school context is a proxy calibration."
+  - id: test_optional_ignores_residual_scores
+    description: "If testOptional is true, residual SAT/ACT values must not improve readiness or academic benchmark fit, and the UI should clear or disclose ignored scores."

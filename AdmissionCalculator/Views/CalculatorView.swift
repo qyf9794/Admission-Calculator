@@ -46,7 +46,7 @@ struct CalculatorView: View {
             }
 
             Section("硬指标") {
-                Toggle("Test Optional / 不提交标化", isOn: $profile.testOptional)
+                Toggle("Test Optional / 不提交标化", isOn: testOptionalBinding)
                 ScoreField(title: "SAT", value: $profile.sat, range: 900...1600, disabled: profile.testOptional)
                 ScoreField(title: "ACT", value: $profile.act, range: 18...36, disabled: profile.testOptional)
                 ScoreField(title: "TOEFL", value: $profile.toefl, range: 70...120, disabled: false)
@@ -128,6 +128,19 @@ struct CalculatorView: View {
 
     private var requestedRecommendationTotal: Int {
         profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount
+    }
+
+    private var testOptionalBinding: Binding<Bool> {
+        Binding(
+            get: { profile.testOptional },
+            set: { isOptional in
+                profile.testOptional = isOptional
+                if isOptional {
+                    profile.sat = nil
+                    profile.act = nil
+                }
+            }
+        )
     }
 }
 
