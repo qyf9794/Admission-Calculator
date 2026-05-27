@@ -58,7 +58,11 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(florida.matchesPickerQuery("T50"))
         XCTAssertFalse(florida.matchesPickerQuery("T10"))
         XCTAssertTrue(caseWestern.matchesPickerQuery("Listed"))
+        XCTAssertTrue(caseWestern.matchesPickerQuery("50+"))
+        XCTAssertTrue(caseWestern.matchesPickerQuery("T50+"))
+        XCTAssertTrue(caseWestern.matchesPickerQuery("综合大学 50+"))
         XCTAssertFalse(caseWestern.matchesPickerQuery("T50"))
+        XCTAssertFalse(mit.matchesPickerQuery("50+"))
         XCTAssertFalse(mit.matchesPickerQuery("not-a-school"))
     }
 

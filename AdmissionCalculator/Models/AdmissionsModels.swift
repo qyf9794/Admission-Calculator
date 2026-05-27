@@ -173,7 +173,7 @@ struct College: Identifiable, Hashable, Codable {
             return rank <= 30
         case "T50", "TOP50", "TOP 50":
             return rank <= 50
-        case "LISTED":
+        case "LISTED", "50+", "T50+", "TOP50+", "TOP 50+", "综合大学 50+", "NATIONAL UNIVERSITIES 50+", "NU 50+":
             return rank > 50
         default:
             break
