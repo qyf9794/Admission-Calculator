@@ -173,6 +173,9 @@ struct ChanceEngine {
                 if let required = rule.requiredRound, required != profile.round {
                     failed.append(rule)
                 }
+                if !rule.allowedRounds.isEmpty, !rule.allowedRounds.contains(profile.round) {
+                    failed.append(rule)
+                }
             }
         }
 
@@ -466,7 +469,10 @@ struct ChanceEngine {
         if round != .regularDecision && !hasSchoolSpecificRoundPolicy(college) {
             return "该校缺少学校级 \(round.rawValue) 政策数据，当前不泛化早申加分；请以官方招生轮次为准。"
         }
-        return "\(round.rawValue) 轮次策略修正；学校官方轮次限制仍由硬门槛先检查。"
+        if round != .regularDecision, roundAdjustment(round, college: college) == 0 {
+            return "该校有学校级 \(round.rawValue) 政策数据，但没有明确概率加分；学校官方轮次限制仍由硬门槛先检查。"
+        }
+        return "\(round.rawValue) 轮次策略修正；仅使用学校级明确轮次优势数据，学校官方轮次限制仍由硬门槛先检查。"
     }
 
     private func aidDetail(profile: StudentProfile, signal: InternationalSignal) -> String {
@@ -561,6 +567,9 @@ struct ChanceEngine {
             minimumSAT: nil,
             minimumTOEFL: nil,
             requiredRound: .regularDecision,
+            allowedRounds: [.regularDecision],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
             affectedMajor: nil,
             minimumStrengthBand: nil
         )
@@ -1018,21 +1027,22 @@ struct ChanceEngine {
         if isUCCampus(college) {
             return 0
         }
-        guard hasSchoolSpecificRoundPolicy(college) else {
-            return 0
-        }
 
         switch round {
         case .earlyDecision:
-            return college.rank <= 20 ? 0.12 : 0.14
+            return roundPolicyRules(for: college).compactMap(\.earlyDecisionAdjustment).first ?? 0
         case .earlyAction:
-            return college.rank <= 20 ? 0.03 : 0.05
+            return roundPolicyRules(for: college).compactMap(\.earlyActionAdjustment).first ?? 0
         case .regularDecision: return 0
         }
     }
 
     private func hasSchoolSpecificRoundPolicy(_ college: College) -> Bool {
-        gateRules.contains { $0.collegeID == college.id && $0.type == .round }
+        !roundPolicyRules(for: college).isEmpty
+    }
+
+    private func roundPolicyRules(for college: College) -> [CollegeGateRule] {
+        gateRules.filter { $0.collegeID == college.id && $0.type == .round }
     }
 
     private func bucket(_ probability: Double) -> RecommendationBucket {

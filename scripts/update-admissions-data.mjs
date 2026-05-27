@@ -107,6 +107,15 @@ function swiftOptionalEnum(value, mapping) {
   return trimmed ? mapping[trimmed] ?? fail(`Unsupported enum value: ${trimmed}`) : "nil";
 }
 
+function swiftEnumArray(value, mapping, label) {
+  return String(value ?? "")
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => mapping[item] ?? fail(`Unsupported ${label}: ${item}`))
+    .join(", ");
+}
+
 function fail(message) {
   throw new Error(message);
 }
@@ -189,6 +198,8 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     if (gate.is_official === "true" && !gate.source_url) {
       fail(`Official gate ${gate.id} must include source_url.`);
     }
+    requireRange(optionalNumber(gate, "early_action_adjustment", `Gate ${gate.id} early_action_adjustment`), -1, 1, `Gate ${gate.id} early_action_adjustment`);
+    requireRange(optionalNumber(gate, "early_decision_adjustment", `Gate ${gate.id} early_decision_adjustment`), -1, 1, `Gate ${gate.id} early_decision_adjustment`);
   }
 
   const signalIDs = new Set();
@@ -431,7 +442,9 @@ function renderGateRules(gates) {
     Arts: ".arts",
   };
 
-  return gates.map((gate) => `        CollegeGateRule(
+  return gates.map((gate) => {
+    const allowedRounds = swiftEnumArray(gate.allowed_rounds, roundMap, `allowed round for ${gate.id}`);
+    return `        CollegeGateRule(
             id: ${swiftString(gate.id)},
             collegeID: ${swiftString(gate.college_id)},
             type: ${typeMap[gate.type] ?? fail(`Unsupported gate type: ${gate.type}`)},
@@ -442,9 +455,13 @@ function renderGateRules(gates) {
             minimumSAT: ${swiftOptionalInt(gate.minimum_sat)},
             minimumTOEFL: ${swiftOptionalInt(gate.minimum_toefl)},
             requiredRound: ${swiftOptionalEnum(gate.required_round, roundMap)},
+            allowedRounds: [${allowedRounds}],
+            earlyActionAdjustment: ${swiftOptionalDouble(gate.early_action_adjustment)},
+            earlyDecisionAdjustment: ${swiftOptionalDouble(gate.early_decision_adjustment)},
             affectedMajor: ${swiftOptionalEnum(gate.affected_major, majorMap)},
             minimumStrengthBand: ${swiftOptionalInt(gate.minimum_strength_band)}
-        )`).join(",\n");
+        )`;
+  }).join(",\n");
 }
 
 function renderSwift({ registry, colleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks }) {

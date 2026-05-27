@@ -220,6 +220,9 @@ struct CollegeGateRule: Identifiable, Hashable, Codable {
     let minimumSAT: Int?
     let minimumTOEFL: Int?
     let requiredRound: ApplicationRound?
+    let allowedRounds: [ApplicationRound]
+    let earlyActionAdjustment: Double?
+    let earlyDecisionAdjustment: Double?
     let affectedMajor: MajorCategory?
     let minimumStrengthBand: Int?
 }

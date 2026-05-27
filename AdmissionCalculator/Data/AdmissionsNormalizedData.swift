@@ -2395,6 +2395,26 @@ enum AdmissionsNormalizedData {
             minimumSAT: 1500,
             minimumTOEFL: nil,
             requiredRound: nil,
+            allowedRounds: [],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
+            affectedMajor: nil,
+            minimumStrengthBand: nil
+        ),
+        CollegeGateRule(
+            id: "mit_rounds",
+            collegeID: "mit",
+            type: .round,
+            title: "First-year application rounds",
+            detail: "MIT has Early Action and Regular Action; Early Action is non-binding and uses the same review process and criteria as Regular Action.",
+            isOfficial: true,
+            sourceURL: URL(string: "https://mitadmissions.org/apply/firstyear/early-vs-regular/"),
+            minimumSAT: nil,
+            minimumTOEFL: nil,
+            requiredRound: nil,
+            allowedRounds: [.earlyAction, .regularDecision],
+            earlyActionAdjustment: 0,
+            earlyDecisionAdjustment: nil,
             affectedMajor: nil,
             minimumStrengthBand: nil
         ),
@@ -2409,6 +2429,9 @@ enum AdmissionsNormalizedData {
             minimumSAT: 1500,
             minimumTOEFL: nil,
             requiredRound: nil,
+            allowedRounds: [],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
             affectedMajor: nil,
             minimumStrengthBand: nil
         ),
@@ -2423,6 +2446,9 @@ enum AdmissionsNormalizedData {
             minimumSAT: 1450,
             minimumTOEFL: nil,
             requiredRound: nil,
+            allowedRounds: [],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
             affectedMajor: nil,
             minimumStrengthBand: nil
         ),
@@ -2437,6 +2463,9 @@ enum AdmissionsNormalizedData {
             minimumSAT: 1450,
             minimumTOEFL: nil,
             requiredRound: nil,
+            allowedRounds: [],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
             affectedMajor: nil,
             minimumStrengthBand: nil
         ),
@@ -2451,6 +2480,9 @@ enum AdmissionsNormalizedData {
             minimumSAT: 1420,
             minimumTOEFL: nil,
             requiredRound: nil,
+            allowedRounds: [],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
             affectedMajor: nil,
             minimumStrengthBand: nil
         ),
@@ -2465,6 +2497,9 @@ enum AdmissionsNormalizedData {
             minimumSAT: nil,
             minimumTOEFL: 90,
             requiredRound: nil,
+            allowedRounds: [],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
             affectedMajor: nil,
             minimumStrengthBand: nil
         ),
@@ -2479,6 +2514,9 @@ enum AdmissionsNormalizedData {
             minimumSAT: nil,
             minimumTOEFL: nil,
             requiredRound: nil,
+            allowedRounds: [],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
             affectedMajor: nil,
             minimumStrengthBand: 3
         ),
@@ -2493,6 +2531,9 @@ enum AdmissionsNormalizedData {
             minimumSAT: nil,
             minimumTOEFL: nil,
             requiredRound: nil,
+            allowedRounds: [],
+            earlyActionAdjustment: nil,
+            earlyDecisionAdjustment: nil,
             affectedMajor: .arts,
             minimumStrengthBand: nil
         )
