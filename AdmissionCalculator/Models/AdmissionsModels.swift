@@ -154,10 +154,22 @@ struct College: Identifiable, Hashable, Codable {
         guard !trimmed.isEmpty else {
             return true
         }
+        let normalized = trimmed.uppercased()
+        switch normalized {
+        case "T10", "TOP10", "TOP 10":
+            return rank <= 10
+        case "T30", "TOP30", "TOP 30":
+            return rank <= 30
+        case "T50", "TOP50", "TOP 50":
+            return rank <= 50
+        case "LISTED":
+            return rank > 50
+        default:
+            break
+        }
 
         return name.localizedCaseInsensitiveContains(trimmed) ||
             id.localizedCaseInsensitiveContains(trimmed) ||
-            tierName.localizedCaseInsensitiveContains(trimmed) ||
             "#\(rank)".localizedCaseInsensitiveContains(trimmed) ||
             String(rank).localizedCaseInsensitiveContains(trimmed)
     }

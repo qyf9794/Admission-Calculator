@@ -42,11 +42,21 @@ final class HarnessValidationTests: XCTestCase {
 
     func testCollegePickerSearchMatchesNameRankIDAndTier() {
         let mit = AdmissionsSeedData.colleges.first { $0.id == "mit" }!
+        let florida = AdmissionsSeedData.colleges.first { $0.id == "uf" }!
+        let caseWestern = AdmissionsSeedData.colleges.first { $0.id == "case" }!
 
         XCTAssertTrue(mit.matchesPickerQuery("MIT"))
         XCTAssertTrue(mit.matchesPickerQuery("mit"))
         XCTAssertTrue(mit.matchesPickerQuery("#2"))
         XCTAssertTrue(mit.matchesPickerQuery("T10"))
+        XCTAssertTrue(mit.matchesPickerQuery("T30"))
+        XCTAssertTrue(mit.matchesPickerQuery("T50"))
+        XCTAssertFalse(mit.matchesPickerQuery("Listed"))
+        XCTAssertTrue(florida.matchesPickerQuery("T30"))
+        XCTAssertTrue(florida.matchesPickerQuery("T50"))
+        XCTAssertFalse(florida.matchesPickerQuery("T10"))
+        XCTAssertTrue(caseWestern.matchesPickerQuery("Listed"))
+        XCTAssertFalse(caseWestern.matchesPickerQuery("T50"))
         XCTAssertFalse(mit.matchesPickerQuery("not-a-school"))
     }
 
