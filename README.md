@@ -9,7 +9,8 @@ The v1 model is intentionally transparent:
 - Inferred gates are labeled and lower confidence.
 - Curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) affect academic readiness and school fit.
 - Transcript and Chinese-curriculum grades can be entered as percent scores, 4.0 GPA, 5.0 GPA, or letter grades; non-percent inputs are converted only to an internal academic index.
-- Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with China admit-count capacity caps when applicant denominators are missing.
+- Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
+- Portfolio-level T10/T30/T50 probabilities are scoped to the currently selected or auto-recommended school set.
 - Multi-school probability uses same-tier correlation discounting.
 - The paid-report surface is wired as a StoreKit-ready placeholder and cannot modify computed probabilities.
 

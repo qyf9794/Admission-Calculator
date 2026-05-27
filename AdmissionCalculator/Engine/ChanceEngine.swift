@@ -32,14 +32,12 @@ struct ChanceEngine {
 
         let schoolResults = selected.map { chance(for: $0, profile: profile, profileScore: profileScore) }
             .sorted { $0.adjustedProbability > $1.adjustedProbability }
-        let allResults = colleges.map { chance(for: $0, profile: profile, profileScore: profileScore) }
-
         return PortfolioResult(
             schoolResults: schoolResults,
             recommendedSchools: selectedCollegeIDs.isEmpty ? selected : recommendedColleges(for: profile, count: min(6, profile.requestedSchoolCount)),
-            t10AtLeastOne: atLeastOneProbability(allResults.filter { $0.college.rank <= 10 }),
-            t30AtLeastOne: atLeastOneProbability(allResults.filter { $0.college.rank <= 30 }),
-            t50AtLeastOne: atLeastOneProbability(allResults.filter { $0.college.rank <= 50 }),
+            t10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 10 }),
+            t30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 30 }),
+            t50AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 50 }),
             selectedAtLeastOne: atLeastOneProbability(schoolResults),
             profileScore: profileScore,
             generatedAt: Date()
@@ -152,6 +150,10 @@ struct ChanceEngine {
                     failed.append(rule)
                 }
             }
+        }
+
+        if isUCCampus(college), profile.round != .regularDecision {
+            failed.append(Self.ucSingleFilingPeriodRule(collegeID: college.id))
         }
 
         let inferredPenalty = Double(inferred.count) * -0.025
@@ -275,8 +277,8 @@ struct ChanceEngine {
             if chinaSignal.total2030 == nil {
                 items.append("该校缺少中国学生本科录取人数，未使用中国录取修正。")
             }
-            if let total2030 = chinaSignal.total2030, total2030 < 50 {
-                items.append("该校中国学生录取容量很小，最终概率已按小容量学校保守封顶。")
+            if let roundCapacity = chinaCapacityCount(for: chinaSignal, college: college, round: profile.round), roundCapacity < 50 {
+                items.append("该校当前申请轮次中国学生录取容量很小，最终概率已按小容量学校保守封顶。")
             }
         }
         return items
@@ -339,7 +341,31 @@ struct ChanceEngine {
 
     private func actToSat(_ act: Int?) -> Int? {
         guard let act else { return nil }
-        return Int(Double(act - 21) / 15.0 * 550.0 + 1050.0)
+        let concordance = [
+            36: 1590, 35: 1540, 34: 1500, 33: 1460, 32: 1430, 31: 1400,
+            30: 1370, 29: 1340, 28: 1310, 27: 1280, 26: 1240, 25: 1210,
+            24: 1180, 23: 1140, 22: 1110, 21: 1080, 20: 1040, 19: 1010,
+            18: 970, 17: 930, 16: 890, 15: 850, 14: 800, 13: 760,
+            12: 710, 11: 670, 10: 630, 9: 590
+        ]
+        return concordance[act] ?? concordance[min(36, max(9, act))]
+    }
+
+    private static func ucSingleFilingPeriodRule(collegeID: String) -> CollegeGateRule {
+        CollegeGateRule(
+            id: "\(collegeID)_uc_regular_round",
+            collegeID: collegeID,
+            type: .round,
+            title: "UC single filing period",
+            detail: "University of California campuses use one first-year application filing period rather than EA or ED.",
+            isOfficial: true,
+            sourceURL: URL(string: "https://admission.universityofcalifornia.edu/how-to-apply/applying-as-a-freshman/dates-and-deadlines.html"),
+            minimumSAT: nil,
+            minimumTOEFL: nil,
+            requiredRound: .regularDecision,
+            affectedMajor: nil,
+            minimumStrengthBand: nil
+        )
     }
 
     private func band(_ value: Int) -> Double {
@@ -421,7 +447,14 @@ struct ChanceEngine {
         if let satBenchmark = benchmark.satBenchmark, let satEquivalent {
             testDelta = clamp((Double(satEquivalent - satBenchmark)) / 200 * 0.14, min: -0.12, max: 0.12)
         } else if benchmark.satBenchmark != nil && profile.testOptional {
-            testDelta = college.rank <= 20 ? -0.08 : -0.05
+            switch college.rank {
+            case ...20:
+                testDelta = -0.12
+            case 21...50:
+                testDelta = -0.08
+            default:
+                testDelta = -0.05
+            }
         } else {
             testDelta = 0
         }
@@ -581,10 +614,10 @@ struct ChanceEngine {
 
     private func aidAdjustment(profile: StudentProfile, signal: InternationalSignal) -> Double {
         guard profile.needsAid else {
-            return 0.02
+            return 0
         }
         guard profile.applicantStatus.isInternational else {
-            return -0.04
+            return 0
         }
         switch signal.internationalAidPolicy {
         case .needBlind:
@@ -632,7 +665,7 @@ struct ChanceEngine {
 
         if profile.applicantStatus.usesChinaProxy {
             prior *= unhookedSeatMultiplier(for: college)
-            prior *= chinaCapacityMultiplier(for: chinaSignal)
+            prior *= chinaCapacityMultiplier(for: chinaSignal, college: college, round: profile.round)
         }
 
         return clamp(prior, min: 0.001, max: college.latestAvailableRate)
@@ -644,8 +677,9 @@ struct ChanceEngine {
             return "使用学校整体录取率并按国际生数据可得性做保守校准：\(prior.formatted(.percent.precision(.fractionLength(1))))。"
         }
 
-        let chinaTotal = chinaSignal.total2030.map(String.init) ?? "缺失"
-        return "从整体录取率 \(college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1)))) 下调为普通中国籍国际生先验 \(prior.formatted(.percent.precision(.fractionLength(1))))；2030 届中国录取人数 \(chinaTotal)，并扣除顶尖校特殊通道容量影响。"
+        let roundCapacity = chinaCapacityCount(for: chinaSignal, college: college, round: profile.round).map(String.init) ?? "缺失"
+        let total = chinaSignal.total2030.map(String.init) ?? "缺失"
+        return "从整体录取率 \(college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1)))) 下调为普通中国籍国际生先验 \(prior.formatted(.percent.precision(.fractionLength(1))))；2030 届中国总录取 \(total) 人，当前轮次容量 \(roundCapacity)，并扣除顶尖校特殊通道容量影响。"
     }
 
     private func internationalPoolMultiplier(for signal: InternationalSignal) -> Double {
@@ -674,12 +708,12 @@ struct ChanceEngine {
         }
     }
 
-    private func chinaCapacityMultiplier(for signal: ChinaUndergradAdmissionSignal) -> Double {
-        guard let total2030 = signal.total2030 else {
+    private func chinaCapacityMultiplier(for signal: ChinaUndergradAdmissionSignal, college: College, round: ApplicationRound) -> Double {
+        guard let capacity = chinaCapacityCount(for: signal, college: college, round: round) else {
             return 0.72
         }
 
-        switch total2030 {
+        switch capacity {
         case 0..<12:
             return 0.34
         case 12..<25:
@@ -701,7 +735,7 @@ struct ChanceEngine {
         }
 
         let capacityCap: Double
-        switch chinaSignal.total2030 {
+        switch chinaCapacityCount(for: chinaSignal, college: college, round: profile.round) {
         case .some(0..<12):
             capacityCap = 0.025
         case .some(12..<25):
@@ -719,6 +753,19 @@ struct ChanceEngine {
         }
 
         return min(0.82, capacityCap)
+    }
+
+    private func chinaCapacityCount(for signal: ChinaUndergradAdmissionSignal, college: College, round: ApplicationRound) -> Int? {
+        if isUCCampus(college) {
+            return signal.total2030
+        }
+
+        switch round {
+        case .earlyAction, .earlyDecision:
+            return signal.early2030 ?? signal.total2030
+        case .regularDecision:
+            return signal.rd2030 ?? signal.total2030
+        }
     }
 
     private func chinaAdmissionAdjustment(profile: StudentProfile, signal: ChinaUndergradAdmissionSignal) -> Double {
@@ -756,7 +803,7 @@ struct ChanceEngine {
     }
 
     private func roundAdjustment(_ round: ApplicationRound, college: College) -> Double {
-        if college.id.hasPrefix("uc_") {
+        if isUCCampus(college) {
             return 0
         }
 
@@ -786,6 +833,10 @@ struct ChanceEngine {
 
     private func clamp(_ value: Double, min minValue: Double, max maxValue: Double) -> Double {
         Swift.min(maxValue, Swift.max(minValue, value))
+    }
+
+    private func isUCCampus(_ college: College) -> Bool {
+        ["uc_berkeley", "ucla", "ucsd", "uc_davis", "uc_irvine"].contains(college.id)
     }
 }
 

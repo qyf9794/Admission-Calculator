@@ -281,6 +281,94 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertLessThanOrEqual(result.selectedAtLeastOne, min(1, probabilities.reduce(0, +)) + 0.0001)
     }
 
+    func testTierProbabilitiesAreScopedToSelectedSchools() {
+        let result = engine.evaluate(profile: .sample, selectedCollegeIDs: Set(["bu"]))
+
+        XCTAssertEqual(result.t10AtLeastOne, 0)
+        XCTAssertEqual(result.t30AtLeastOne, 0)
+        XCTAssertEqual(result.schoolResults.map(\.college.id), ["bu"])
+    }
+
+    func testChinaCapacityUsesApplicationRoundSpecificCount() {
+        let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
+        var rdProfile = strongChineseInternationalProfile
+        rdProfile.round = .regularDecision
+        rdProfile.testOptional = false
+        rdProfile.sat = 1580
+
+        var edProfile = rdProfile
+        edProfile.round = .earlyDecision
+
+        let rd = engine.chance(for: yale, profile: rdProfile)
+        let ed = engine.chance(for: yale, profile: edProfile)
+
+        XCTAssertLessThanOrEqual(rd.adjustedProbability, 0.025)
+        XCTAssertGreaterThan(ed.adjustedProbability, rd.adjustedProbability)
+        XCTAssertTrue(rd.warnings.contains { $0.contains("当前申请轮次中国学生录取容量很小") })
+    }
+
+    func testNeedBlindAidDoesNotChangeStrategyDelta() {
+        let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
+        var noAid = strongChineseInternationalProfile
+        noAid.needsAid = false
+
+        var needsAid = noAid
+        needsAid.needsAid = true
+
+        let noAidStrategy = engine.chance(for: yale, profile: noAid).factors.first { $0.label == "申请策略" }?.value
+        let needsAidStrategy = engine.chance(for: yale, profile: needsAid).factors.first { $0.label == "申请策略" }?.value
+
+        XCTAssertEqual(noAidStrategy, needsAidStrategy)
+    }
+
+    func testSubmittedStrongTestScoreBeatsTestOptionalAtSelectiveSchool() {
+        let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
+        var optional = strongChineseInternationalProfile
+        optional.testOptional = true
+        optional.sat = nil
+        optional.act = nil
+
+        var submitted = optional
+        submitted.testOptional = false
+        submitted.sat = 1580
+
+        let optionalFit = engine.chance(for: yale, profile: optional).factors.first { $0.label == "目标校学术匹配" }?.value ?? 0
+        let submittedFit = engine.chance(for: yale, profile: submitted).factors.first { $0.label == "目标校学术匹配" }?.value ?? 0
+
+        XCTAssertGreaterThan(submittedFit, optionalFit)
+    }
+
+    func testUCCampusesBlockEarlyRounds() {
+        let ucla = AdmissionsSeedData.colleges.first { $0.id == "ucla" }!
+        var profile = strongChineseInternationalProfile
+        profile.round = .earlyDecision
+
+        let result = engine.chance(for: ucla, profile: profile)
+
+        XCTAssertEqual(result.adjustedProbability, 0)
+        XCTAssertTrue(result.gateResult.failedRules.contains { $0.type == .round && $0.isOfficial })
+    }
+
+    func testACTConcordanceUsesOfficialMidpointsForGateChecks() {
+        let georgetown = AdmissionsSeedData.colleges.first { $0.id == "georgetown" }!
+        var act32 = StudentProfile.sample
+        act32.major = .humanities
+        act32.sat = nil
+        act32.act = 32
+        act32.testOptional = false
+        act32.toefl = 110
+
+        var act33 = act32
+        act33.act = 33
+
+        let lower = engine.chance(for: georgetown, profile: act32)
+        let higher = engine.chance(for: georgetown, profile: act33)
+
+        XCTAssertEqual(lower.adjustedProbability, 0)
+        XCTAssertTrue(lower.gateResult.failedRules.contains { $0.type == .standardizedTest })
+        XCTAssertTrue(higher.gateResult.passed)
+    }
+
     func testDatasetIsAdmissionSightScoped() {
         let source = AdmissionsSeedData.admissionsSightURL.absoluteString
         XCTAssertFalse(AdmissionsSeedData.colleges.isEmpty)

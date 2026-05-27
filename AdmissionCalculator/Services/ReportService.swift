@@ -32,7 +32,7 @@ enum ReportService {
 
         画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)。模型画像分 \(Int(result.profileScore))/100。
 
-        至少一所录取概率：
+        当前组合内至少一所录取概率：
         T10：\(percent(result.t10AtLeastOne))
         T30：\(percent(result.t30AtLeastOne))
         T50：\(percent(result.t50AtLeastOne))

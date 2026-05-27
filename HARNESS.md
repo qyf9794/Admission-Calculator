@@ -16,8 +16,11 @@ The result is an explainable estimate, not a promise of admission.
 - International student fields must be undergraduate-only. Never use graduate or all-level international data in probability math.
 - International admit coefficient may be used only when undergraduate international admitted count and total admitted count are both present.
 - China student admit-count data may adjust China applicant estimates, but may not be labeled as a share of all admits unless all-admit totals are present.
-- For Chinese international applicants, the model must not use the raw overall school admit rate as the final prior. It must apply ordinary-applicant calibration for international status, hooked-seat dilution at highly selective schools, and China admit-count capacity caps when China applicant denominators are missing.
+- For Chinese international applicants, the model must not use the raw overall school admit rate as the final prior. It must apply ordinary-applicant calibration for international status, hooked-seat dilution at highly selective schools, and round-specific China admit-count capacity caps when China applicant denominators are missing.
+- T10/T30/T50 portfolio probabilities must describe only the currently selected or auto-recommended application portfolio. Do not display all-dataset tier probabilities as if the applicant planned to apply to every school in that tier.
 - Global inferred English floor is TOEFL 90 or IELTS 6.5 unless an official school-specific rule says otherwise.
+- ACT scores must be converted with the official ACT/College Board 2018 ACT/SAT concordance midpoint table, not a linear approximation.
+- UC campuses must not accept EA or ED as valid first-year rounds; they use the UC first-year filing period and should be treated as the regular application round in this app.
 - Arts applicants use a separate profile-weighting path with lower academic/standardized-test weight and higher portfolio-adjacent soft-signal weight; missing portfolio remains a blocking gate.
 - School-specific academic benchmarks may adjust probability only after hard gates pass. Inferred GPA/rank/test/rigor benchmarks must be labeled and cannot be presented as official admitted-student averages.
 - Curriculum selection must expose curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) and those inputs must affect academic readiness and school-specific fit.
@@ -29,7 +32,7 @@ The result is an explainable estimate, not a promise of admission.
 2. Run the hard-gate checker against official and inferred requirements.
 3. If any required gate fails, return `0%` and show the failed rules.
 4. If gates pass, compute a student readiness score from hard, soft, school-context, and strategy signals.
-5. Convert the school's latest available acceptance rate into an ordinary-applicant prior. For Chinese international applicants, discount this prior for international data availability, highly selective hooked-seat dilution, and China admit-count capacity.
+5. Convert the school's latest available acceptance rate into an ordinary-applicant prior. For Chinese international applicants, discount this prior for international data availability, highly selective hooked-seat dilution, and round-specific China admit-count capacity.
 6. Adjust the prior using readiness, school-specific academic benchmark fit, high-school context, applicant status, undergraduate international signals, major competition, round, aid, and China trend signals.
 7. Compute at-least-one probabilities with same-tier correlation discounting.
 8. Display confidence, warnings, and data-source notes.
