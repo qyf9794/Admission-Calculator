@@ -20,6 +20,7 @@ The result is an explainable estimate, not a promise of admission.
 - Global inferred English floor is TOEFL 90 or IELTS 6.5 unless an official school-specific rule says otherwise.
 - Arts applicants use a separate profile-weighting path with lower academic/standardized-test weight and higher portfolio-adjacent soft-signal weight; missing portfolio remains a blocking gate.
 - School-specific academic benchmarks may adjust probability only after hard gates pass. Inferred GPA/rank/test/rigor benchmarks must be labeled and cannot be presented as official admitted-student averages.
+- Curriculum selection must expose curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) and those inputs must affect academic readiness and school-specific fit.
 
 ## Probability Path
 

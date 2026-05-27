@@ -228,6 +228,12 @@ struct StudentProfile: Hashable, Codable {
     var classRankPercentile: Double
     var curriculum: CurriculumType
     var rigor: Int
+    var apCourseCount: Int
+    var apAverageScore: Double
+    var ibPredictedScore: Int
+    var aLevelAStarCount: Int
+    var aLevelACount: Int
+    var chineseCurriculumScore: Double
     var sat: Int?
     var act: Int?
     var toefl: Int?
@@ -251,6 +257,12 @@ struct StudentProfile: Hashable, Codable {
         classRankPercentile: 12,
         curriculum: .ap,
         rigor: 4,
+        apCourseCount: 6,
+        apAverageScore: 4.5,
+        ibPredictedScore: 40,
+        aLevelAStarCount: 2,
+        aLevelACount: 2,
+        chineseCurriculumScore: 92,
         sat: 1510,
         act: nil,
         toefl: 108,

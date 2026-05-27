@@ -168,6 +168,7 @@ struct ChanceEngine {
         let gpa = clamp(profile.gpaPercent, min: 0, max: 100)
         let rank = clamp(100 - profile.classRankPercentile, min: 30, max: 100)
         let rigor = band(profile.rigor)
+        let curriculumPerformance = curriculumPerformanceScore(profile)
         let testing = testingScore(profile)
         let activities = band(profile.activities)
         let research = band(profile.research)
@@ -183,6 +184,7 @@ struct ChanceEngine {
             gpa * weights.gpa +
             rank * weights.rank +
             rigor * weights.rigor +
+            curriculumPerformance * weights.curriculumPerformance +
             testing * weights.testing +
             schoolScore * weights.school +
             activities * weights.activities +
@@ -359,28 +361,30 @@ struct ChanceEngine {
             return StudentScoreWeights(
                 gpa: 0.14,
                 rank: 0.06,
-                rigor: 0.07,
-                testing: 0.07,
+                rigor: 0.06,
+                curriculumPerformance: 0.08,
+                testing: 0.06,
                 school: 0.08,
                 activities: 0.18,
                 research: 0.05,
                 honors: 0.13,
-                essay: 0.12,
-                recommendations: 0.10
+                essay: 0.10,
+                recommendations: 0.08
             )
         }
 
         return StudentScoreWeights(
-            gpa: 0.20,
+            gpa: 0.18,
             rank: 0.10,
-            rigor: 0.12,
-            testing: 0.13,
+            rigor: 0.10,
+            curriculumPerformance: 0.08,
+            testing: 0.11,
             school: 0.08,
             activities: 0.12,
             research: 0.07,
             honors: 0.08,
-            essay: 0.05,
-            recommendations: 0.05
+            essay: 0.04,
+            recommendations: 0.04
         )
     }
 
@@ -423,7 +427,11 @@ struct ChanceEngine {
             clamp(Double(profile.rigor - target) * 0.04, min: -0.08, max: 0.08)
         } ?? 0
 
-        let raw = gpaDelta + rankDelta + testDelta + rigorDelta
+        let curriculumDelta = benchmark.rigorBenchmark.map { target in
+            clamp((curriculumPerformanceScore(profile) - Double(target * 20)) / 50 * 0.10, min: -0.08, max: 0.08)
+        } ?? 0
+
+        let raw = gpaDelta + rankDelta + testDelta + rigorDelta + curriculumDelta
         let majorScale = profile.major == .arts ? 0.55 : 1
         return clamp(raw * majorScale, min: -0.25, max: 0.25)
     }
@@ -435,8 +443,24 @@ struct ChanceEngine {
         let act = benchmark.actBenchmark.map(String.init) ?? "不使用"
         let rigor = benchmark.rigorBenchmark.map(String.init) ?? "缺失"
         let applicantSAT = (profile.sat ?? actToSat(profile.act)).map(String.init) ?? (profile.testOptional ? "Test optional" : "缺失")
+        let curriculumScore = curriculumPerformanceScore(profile)
         let inferred = benchmark.isInferred ? "推断基准" : "官方/核验基准"
-        return "\(inferred)：GPA \(gpa)，排名 \(rank)，SAT \(sat)，ACT \(act)，课程难度 \(rigor)/5；申请者 GPA \(String(format: "%.0f", profile.gpaPercent))，排名前\(String(format: "%.0f", profile.classRankPercentile))%，SAT等效 \(applicantSAT)，课程难度 \(profile.rigor)/5。"
+        return "\(inferred)：GPA \(gpa)，排名 \(rank)，SAT \(sat)，ACT \(act)，课程难度 \(rigor)/5；申请者 GPA \(String(format: "%.0f", profile.gpaPercent))，排名前\(String(format: "%.0f", profile.classRankPercentile))%，SAT等效 \(applicantSAT)，课程难度 \(profile.rigor)/5，\(profile.curriculum.rawValue) 成绩分 \(String(format: "%.0f", curriculumScore))/100。"
+    }
+
+    private func curriculumPerformanceScore(_ profile: StudentProfile) -> Double {
+        switch profile.curriculum {
+        case .chinese:
+            return clamp(profile.chineseCurriculumScore, min: 0, max: 100)
+        case .ap:
+            let scoreComponent = clamp((profile.apAverageScore - 3.0) / 2.0 * 70 + 30, min: 0, max: 100)
+            let courseBonus = Double(min(profile.apCourseCount, 8)) * 3
+            return clamp(scoreComponent + courseBonus, min: 0, max: 100)
+        case .ib:
+            return clamp((Double(profile.ibPredictedScore) - 28) / 17 * 100, min: 0, max: 100)
+        case .alevel:
+            return clamp(Double(profile.aLevelAStarCount) * 25 + Double(profile.aLevelACount) * 16, min: 0, max: 100)
+        }
     }
 
     private func internationalSignal(for college: College) -> InternationalSignal {
@@ -689,6 +713,7 @@ private struct StudentScoreWeights {
     let gpa: Double
     let rank: Double
     let rigor: Double
+    let curriculumPerformance: Double
     let testing: Double
     let school: Double
     let activities: Double

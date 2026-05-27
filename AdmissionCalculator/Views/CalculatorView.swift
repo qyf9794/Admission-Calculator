@@ -24,6 +24,7 @@ struct CalculatorView: View {
                         Text(item.rawValue).tag(item)
                     }
                 }
+                CurriculumPerformanceInputs(profile: $profile)
                 Picker("目标专业", selection: $profile.major) {
                     ForEach(MajorCategory.allCases) { item in
                         Text(item.rawValue).tag(item)
@@ -89,6 +90,37 @@ struct CalculatorView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+}
+
+private struct CurriculumPerformanceInputs: View {
+    @Binding var profile: StudentProfile
+
+    var body: some View {
+        switch profile.curriculum {
+        case .chinese:
+            LabeledContent("核心课程均分") {
+                Stepper("\(Int(profile.chineseCurriculumScore))", value: $profile.chineseCurriculumScore, in: 60...100, step: 1)
+            }
+        case .ap:
+            LabeledContent("AP / 高级课程门数") {
+                Stepper("\(profile.apCourseCount)", value: $profile.apCourseCount, in: 0...12)
+            }
+            LabeledContent("AP 平均分") {
+                Stepper(String(format: "%.1f", profile.apAverageScore), value: $profile.apAverageScore, in: 1...5, step: 0.5)
+            }
+        case .ib:
+            LabeledContent("IB 预估总分") {
+                Stepper("\(profile.ibPredictedScore)", value: $profile.ibPredictedScore, in: 24...45)
+            }
+        case .alevel:
+            LabeledContent("A-Level A* 科目") {
+                Stepper("\(profile.aLevelAStarCount)", value: $profile.aLevelAStarCount, in: 0...5)
+            }
+            LabeledContent("A-Level A 科目") {
+                Stepper("\(profile.aLevelACount)", value: $profile.aLevelACount, in: 0...5)
             }
         }
     }

@@ -7,6 +7,7 @@ The v1 model is intentionally transparent:
 - AdmissionSight National Universities acceptance rates are the only school statistics seed.
 - Hard gates run before probability math; failed required gates return `0%`.
 - Inferred gates are labeled and lower confidence.
+- Curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) affect academic readiness and school fit.
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with China admit-count capacity caps when applicant denominators are missing.
 - Multi-school probability uses same-tier correlation discounting.
 - The paid-report surface is wired as a StoreKit-ready placeholder and cannot modify computed probabilities.

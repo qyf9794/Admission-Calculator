@@ -165,6 +165,38 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(below.factors.contains { $0.label == "目标校学术匹配" && $0.value < 0 })
     }
 
+    func testCurriculumPerformanceAffectsProfileScoreAndProbability() {
+        var weakAP = StudentProfile.sample
+        weakAP.major = .humanities
+        weakAP.curriculum = .ap
+        weakAP.apCourseCount = 2
+        weakAP.apAverageScore = 3.0
+
+        var strongAP = weakAP
+        strongAP.apCourseCount = 8
+        strongAP.apAverageScore = 5.0
+
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        let weak = engine.chance(for: bu, profile: weakAP)
+        let strong = engine.chance(for: bu, profile: strongAP)
+
+        XCTAssertGreaterThan(engine.studentScore(strongAP), engine.studentScore(weakAP))
+        XCTAssertGreaterThan(strong.adjustedProbability, weak.adjustedProbability)
+        XCTAssertTrue(strong.factors.contains { $0.label == "目标校学术匹配" && $0.detail.contains("AP 成绩分") })
+    }
+
+    func testIBCurriculumScoreChangesAcademicReadiness() {
+        var lowerIB = StudentProfile.sample
+        lowerIB.major = .humanities
+        lowerIB.curriculum = .ib
+        lowerIB.ibPredictedScore = 32
+
+        var higherIB = lowerIB
+        higherIB.ibPredictedScore = 43
+
+        XCTAssertGreaterThan(engine.studentScore(higherIB), engine.studentScore(lowerIB))
+    }
+
     func testLowChinaCapacityIvyPlusSchoolIsConservativelyCapped() {
         let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
         let result = engine.chance(for: yale, profile: strongChineseInternationalProfile)
@@ -216,6 +248,8 @@ final class ChanceEngineTests: XCTestCase {
         profile.classRankPercentile = 5
         profile.curriculum = .ap
         profile.rigor = 5
+        profile.apCourseCount = 8
+        profile.apAverageScore = 5.0
         profile.sat = nil
         profile.act = nil
         profile.testOptional = true
