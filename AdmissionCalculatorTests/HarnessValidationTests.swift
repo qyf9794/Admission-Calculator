@@ -46,6 +46,7 @@ final class HarnessValidationTests: XCTestCase {
         let caseWestern = AdmissionsSeedData.colleges.first { $0.id == "case" }!
 
         XCTAssertEqual(mit.tierDisplayName, "综合大学 T10")
+        XCTAssertEqual(caseWestern.tierDisplayName, "综合大学 50+")
         XCTAssertTrue(mit.matchesPickerQuery("MIT"))
         XCTAssertTrue(mit.matchesPickerQuery("mit"))
         XCTAssertTrue(mit.matchesPickerQuery("#2"))

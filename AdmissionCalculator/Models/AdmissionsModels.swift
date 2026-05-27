@@ -157,7 +157,7 @@ struct College: Identifiable, Hashable, Codable {
     }
 
     var tierDisplayName: String {
-        "综合大学 \(tierName)"
+        tierName == "Listed" ? "综合大学 50+" : "综合大学 \(tierName)"
     }
 
     func matchesPickerQuery(_ query: String) -> Bool {
