@@ -7,6 +7,7 @@ The v1 model is intentionally transparent:
 - AdmissionSight National Universities acceptance rates are the only school statistics seed.
 - Hard gates run before probability math; failed required gates return `0%`.
 - Inferred gates are labeled and lower confidence.
+- Global gate rules are filtered by applicant status and major before they can block, warn, or lower confidence.
 - Curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) affect academic readiness and school fit.
 - Transcript and Chinese-curriculum grades can be entered as percent scores, 4.0 GPA, 5.0 GPA, or letter grades; non-percent inputs are converted only to an internal academic index.
 - School-specific test-free/test-blind policies, such as UC's SAT/ACT policy, are applied to both readiness scoring and target-school academic fit.

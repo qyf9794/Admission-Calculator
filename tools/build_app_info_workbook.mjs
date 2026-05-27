@@ -92,9 +92,9 @@ writeSheet(
 const probabilityRows = [
   ["学校基础率", "baseRate", "AdmissionSight 最新非空录取率", "Class of 2029 优先，N/A 用最近非空年份", "学校整体率展示", "AdmissionSight", "不直接等同普通中国申请者先验"],
   ["普通申请池先验", "ordinaryPrior", "整体率 × 国际生校准 × 特殊通道扣除 × 当前轮次中国录取容量", "logit 前先验", "普通中国国际生先验", "计算引擎", "缺中国申请人数分母时使用容量约束"],
-  ["硬门槛结果", "gateResult.passed", "逐校检查 standardized test / English / curriculum / portfolio / round", "失败则 probability = 0", "概率计算前置条件", "Official/CDS/推断规则", "失败原因必须展示"],
-  ["失败规则", "failedRules", "未满足的官方或推断硬门槛", "列表", "解释 0% 原因", "Gate rules", "官方规则和推断规则分开标注"],
-  ["推断规则", "inferredRules", "缺官方数据时按同类学校推断", "列表", "降低置信度", "同类学校政策推断", "必须显示 inferred"],
+  ["硬门槛结果", "gateResult.passed", "先按学生身份/专业过滤，再逐校检查 standardized test / English / curriculum / portfolio / round", "失败则 probability = 0", "概率计算前置条件", "Official/CDS/推断规则", "失败原因必须展示"],
+  ["失败规则", "failedRules", "未满足且适用于该学生的官方或推断硬门槛", "列表", "解释 0% 原因", "Gate rules", "官方规则和推断规则分开标注"],
+  ["推断规则", "inferredRules", "缺官方数据时按同类学校推断，但只披露适用于该学生的规则", "列表", "降低置信度", "同类学校政策推断", "不相关全局规则不得扣置信度"],
   ["画像总分", "profileScore", "学术、排名、课程、标化、活动等加权；test-free/test-blind 学校按校级政策排除 SAT/ACT", "0-100", "调整普通申请池先验", "学生输入 + 学校政策", "当前实现使用透明固定权重，单校概率使用学校感知画像分"],
   ["提交画像快照", "profileSnapshot", "计算时的 StudentProfile 副本", "结构化数据", "报告、结果一致性", "计算引擎", "报告必须使用快照，避免新画像搭配旧概率"],
   ["提交选校快照", "selectedCollegeIDs", "计算时的学校 ID 集合", "集合", "结果一致性、过期提示", "计算引擎", "实时选校变化后需提示结果过期"],
@@ -147,7 +147,7 @@ writeSheet(
 
 const methodRows = [
   ["1", "数据范围校验", "确认学校在 AdmissionSight National Universities 种子表中", "collegeID in approvedDataset", "不通过则不计算", "防止引入未授权数据"],
-  ["2", "硬门槛检查", "检查 required 标化、英语、课程、作品集、轮次", "if failedRules.count > 0 then probability = 0", "输出 0% 和失败原因", "官方规则优先；推断规则必须标注"],
+  ["2", "硬门槛检查", "先过滤适用于该身份/专业的规则，再检查 required 标化、英语、课程、作品集、轮次", "if failedRules.count > 0 then probability = 0", "输出 0% 和失败原因", "官方规则优先；推断规则必须标注；不相关规则不扣置信度"],
   ["3", "学校感知画像分计算", "把学生输入压缩为 0-100 分，并按学校 test-free/test-blind 政策排除 SAT/ACT", "profileScore(college) = Σ(componentScore × weight)", "进入 logit 调整", "当前权重见下方权重表；UC 等学校不吃 SAT/ACT 加减分"],
   ["4", "学校先验", "使用最新非空 AdmissionSight 录取率", "baseRate = latestNonNullAcceptanceRate", "单校基础概率", "N/A 年份降低数据质量"],
   ["5", "普通申请池先验", "把基础率按国际生、当前轮次中国容量和特殊通道扣除校准", "ordinaryPrior = baseRate × multipliers", "避免把整体录取率当普通中国申请者概率", "容量数据缺分母时保守处理"],

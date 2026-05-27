@@ -136,6 +136,10 @@ struct ChanceEngine {
         var inferred: [CollegeGateRule] = []
 
         for rule in applicable {
+            guard ruleApplies(rule, to: profile) else {
+                continue
+            }
+
             if !rule.isOfficial {
                 inferred.append(rule)
             }
@@ -153,11 +157,11 @@ struct ChanceEngine {
                     failed.append(rule)
                 }
             case .curriculum:
-                if profile.major.isSTEM, let minimum = rule.minimumStrengthBand, profile.rigor < minimum {
+                if let minimum = rule.minimumStrengthBand, profile.rigor < minimum {
                     failed.append(rule)
                 }
             case .portfolio:
-                if profile.major == .arts && !profile.hasPortfolio {
+                if !profile.hasPortfolio {
                     failed.append(rule)
                 }
             case .round:
@@ -179,6 +183,23 @@ struct ChanceEngine {
             inferredRules: inferred,
             confidenceImpact: inferredPenalty + missingOfficialPenalty
         )
+    }
+
+    private func ruleApplies(_ rule: CollegeGateRule, to profile: StudentProfile) -> Bool {
+        if let affectedMajor = rule.affectedMajor, affectedMajor != profile.major {
+            return false
+        }
+
+        switch rule.type {
+        case .english:
+            return profile.applicantStatus.requiresEnglishProof
+        case .curriculum:
+            return rule.affectedMajor != nil || profile.major.isSTEM
+        case .portfolio:
+            return rule.affectedMajor != nil || profile.major == .arts
+        case .standardizedTest, .round:
+            return true
+        }
     }
 
     func studentScore(_ profile: StudentProfile, college: College? = nil) -> Double {

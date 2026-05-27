@@ -56,6 +56,7 @@ data_sources:
 model_constraints:
   hard_gate_first: true
   hard_gate_failure_probability: 0
+  gate_applicability_rule: "A gate rule must apply to the applicant's status, major, and school before it can block probability, appear as an inferred warning, or reduce confidence."
   probability_range: [0, 1]
   no_machine_learning_v1: true
   arts_profile_weighting:
@@ -95,6 +96,8 @@ validation_tests:
     description: "A weak applicant who satisfies gates may receive a low but non-zero probability."
   - id: inferred_gate_disclosure
     description: "Inferred hard gates must be labeled and reduce confidence."
+  - id: irrelevant_gate_no_penalty
+    description: "Inferred global gates that do not apply to the applicant must not be disclosed or reduce confidence."
   - id: portfolio_bounds
     description: "At-least-one probability must be >= max individual and <= sum individual probabilities."
   - id: dataset_scope

@@ -10,6 +10,7 @@ The result is an explainable estimate, not a promise of admission.
 - Use AdmitRanking-style Chinese high-school context only as a calibration signal.
 - Run hard gates before probability math. If a required rule is not met, the school result is `0%`.
 - Clearly mark inferred gate rules and lower confidence when official sources are missing.
+- Only applicable gate rules may be checked, disclosed, or used to lower confidence; irrelevant global rules must not penalize unrelated applicants.
 - AI reports may explain and advise, but may not modify computed probabilities or add schools.
 - App data must be generated from reviewed source files in `data/` using `scripts/update-admissions-data.mjs`.
 - The generated Swift snapshot must remain reproducible with `node scripts/update-admissions-data.mjs --check`.

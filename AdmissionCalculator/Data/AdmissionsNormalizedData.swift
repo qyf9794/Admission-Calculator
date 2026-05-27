@@ -2479,7 +2479,7 @@ enum AdmissionsNormalizedData {
             minimumSAT: nil,
             minimumTOEFL: nil,
             requiredRound: nil,
-            affectedMajor: .engineering,
+            affectedMajor: nil,
             minimumStrengthBand: 3
         ),
         CollegeGateRule(

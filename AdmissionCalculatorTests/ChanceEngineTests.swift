@@ -112,6 +112,37 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertGreaterThan(result.adjustedProbability, 0)
     }
 
+    func testIrrelevantInferredGatesAreNotDisclosedOrPenalized() {
+        var profile = StudentProfile.sample
+        profile.applicantStatus = .usCitizenDomestic
+        profile.major = .humanities
+        profile.rigor = 1
+        profile.hasPortfolio = false
+        profile.toefl = nil
+        profile.ielts = nil
+
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        let result = engine.chance(for: bu, profile: profile)
+
+        XCTAssertTrue(result.gateResult.passed)
+        XCTAssertTrue(result.gateResult.inferredRules.isEmpty)
+        XCTAssertEqual(result.gateResult.confidenceImpact, -0.05, accuracy: 0.0001)
+        XCTAssertFalse(result.warnings.contains { $0.contains("推断硬门槛") })
+    }
+
+    func testStemInferredCurriculumGateStillAppliesToComputerScience() {
+        var profile = StudentProfile.sample
+        profile.major = .computerScience
+        profile.rigor = 2
+
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        let result = engine.chance(for: bu, profile: profile)
+
+        XCTAssertEqual(result.adjustedProbability, 0)
+        XCTAssertTrue(result.gateResult.failedRules.contains { $0.type == .curriculum })
+        XCTAssertTrue(result.gateResult.inferredRules.contains { $0.type == .curriculum })
+    }
+
     func testInferredEnglishGateAcceptsIeltsSixPointFive() {
         var profile = StudentProfile.sample
         profile.applicantStatus = .chineseInternational
