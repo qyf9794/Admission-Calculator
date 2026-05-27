@@ -4,7 +4,7 @@ import Foundation
 // Edit the source CSV/JSON files, then rerun the script.
 enum AdmissionsNormalizedData {
     static let dataVersion = "2026.05.admissionsight-seed.v1"
-    static let generatedAt = "2026-05-26"
+    static let generatedAt = "2026-05-27"
     static let admissionsSightURL = URL(string: "https://admissionsight.com/college-acceptance-rates/")!
 
     static let sourceRecords: [DataSourceRecord] = [
@@ -78,7 +78,7 @@ enum AdmissionsNormalizedData {
             role: "College-specific academic comparison layer for GPA, class rank, SAT/ACT, and course rigor.",
             refreshMode: "Reviewed CSV; replace inferred rows with official CDS/class profile values when available",
             confidence: "proxy",
-            note: "Uses CollegeVine-style public chancing concepts only. Current rows are inferred from selectivity/rank unless a row source says otherwise."
+            note: "Uses CollegeVine-style public chancing concepts only. Rows may mix official class-profile fields with inferred fields when complete official benchmarks are unavailable."
         )
     ]
 
@@ -718,16 +718,16 @@ enum AdmissionsNormalizedData {
         InternationalSignal(
             collegeID: "mit",
             undergradNonresidentShare: 0.1166,
-            internationalAdmittedCount: nil,
-            totalAdmittedCount: nil,
-            internationalAdmitCoefficient: nil,
+            internationalAdmittedCount: 136,
+            totalAdmittedCount: 1334,
+            internationalAdmitCoefficient: 0.1019,
             internationalAidPolicy: .needBlind,
             isUndergradOnly: true,
-            dataScope: "undergraduate_enrollment_proxy",
-            sourceFields: ["cds.undergrad_nonresident_share"],
-            sourceURL: URL(string: "https://nces.ed.gov/ipeds/search"),
-            sourceNote: "Undergraduate nonresident share only; admitted international count unavailable",
-            dataQuality: 0.62
+            dataScope: "undergraduate_admissions_and_enrollment_proxy",
+            sourceFields: ["official_admissions_statistics.international_admitted_count", "official_admissions_statistics.total_admitted_count", "ipeds.undergrad_nonresident_share"],
+            sourceURL: URL(string: "https://mitadmissions.org/apply/process/stats/"),
+            sourceNote: "MIT Class of 2029 official admissions statistics report international admits and total first-year admits; undergrad nonresident share remains an IPEDS enrollment proxy",
+            dataQuality: 0.86
         ),
         InternationalSignal(
             collegeID: "harvard",
@@ -1766,10 +1766,10 @@ enum AdmissionsNormalizedData {
             actBenchmark: 35,
             rigorBenchmark: 5,
             isInferred: true,
-            sourceFields: ["admissionsight_rank", "admissionsight_acceptance_rate", "collegevine_academic_index_concept"],
-            sourceURL: URL(string: "https://www.collegevine.com/admissions-calculator"),
-            sourceNote: "Inferred admitted-student academic benchmark; MIT official testing gate still controls minimum eligibility",
-            dataQuality: 0.45
+            sourceFields: ["official_class_profile_sat_act_midpoint", "admissionsight_rank", "admissionsight_acceptance_rate", "collegevine_academic_index_concept"],
+            sourceURL: URL(string: "https://mitadmissions.org/apply/process/stats/"),
+            sourceNote: "MIT Class of 2029 official SAT/ACT middle-50 midpoint is used for test benchmark; GPA rank and rigor remain inferred; MIT official testing gate still controls eligibility",
+            dataQuality: 0.58
         ),
         AcademicBenchmark(
             collegeID: "harvard",

@@ -353,7 +353,9 @@ struct ChanceEngine {
         if college.dataQuality < 0.8 {
             items.append("学校统计数据存在缺口，建议后续补官方 CDS/招生页面。")
         }
-        if benchmark.isInferred {
+        if benchmarkHasOfficialFields(benchmark), benchmark.isInferred {
+            items.append("目标校学术基准含部分官方字段，其余缺失字段仍为推断值；不得视作完整官方录取均值。")
+        } else if benchmark.isInferred {
             items.append("目标校学术基准为推断值，用于相对比较 GPA、排名、标化和课程难度；不是官方录取均值。")
         }
         if benchmark.dataQuality < 0.5 {
@@ -677,8 +679,17 @@ struct ChanceEngine {
         let applicantSAT = isTestFreeForAdmissions(college) ? "不使用（test-free）" : (submittedSATEquivalent(profile).map(String.init) ?? (profile.testOptional ? "Test optional" : "缺失"))
         let gpaScore = normalizedGPAScore(profile)
         let curriculumScore = curriculumPerformanceIndex(profile)
-        let inferred = benchmark.isInferred ? "推断基准" : "官方/核验基准"
+        let inferred: String
+        if benchmarkHasOfficialFields(benchmark), benchmark.isInferred {
+            inferred = "部分官方/部分推断基准"
+        } else {
+            inferred = benchmark.isInferred ? "推断基准" : "官方/核验基准"
+        }
         return "\(inferred)：GPA \(gpa)，排名 \(rank)，SAT \(sat)，ACT \(act)，课程难度 \(rigor)/5；申请者 \(profile.gradeScale.rawValue) 学术指数 \(String(format: "%.0f", gpaScore))/100，排名前\(String(format: "%.0f", profile.classRankPercentile))%，SAT等效 \(applicantSAT)，课程难度 \(profile.rigor)/5，\(profile.curriculum.rawValue) 体系内成绩指数 \(String(format: "%.0f", curriculumScore))/100。"
+    }
+
+    private func benchmarkHasOfficialFields(_ benchmark: AcademicBenchmark) -> Bool {
+        benchmark.sourceFields.contains { $0.localizedCaseInsensitiveContains("official") }
     }
 
     private func curriculumPerformanceIndex(_ profile: StudentProfile) -> Double {

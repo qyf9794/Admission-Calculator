@@ -99,7 +99,7 @@ const probabilityRows = [
   ["提交画像快照", "profileSnapshot", "计算时的 StudentProfile 副本", "结构化数据", "报告、结果一致性", "计算引擎", "报告必须使用快照，避免新画像搭配旧概率"],
   ["提交选校快照", "selectedCollegeIDs", "计算时的学校 ID 集合", "集合", "结果一致性、过期提示", "计算引擎", "实时选校变化后需提示结果过期"],
   ["组合警告", "selectionWarnings", "无效学校 ID 或组合层面的数据范围问题", "列表", "结果展示、报告", "计算引擎", "不在 AdmissionSight v1 数据集内的学校必须排除并披露"],
-  ["逐校来源审计", "perSchoolSourceAudit", "每所学校展示录取率、国际生本科信号、中国本科录取容量、学术基准和硬门槛来源备注", "数据页 DisclosureGroup", "透明披露", "生成数据 + 数据页", "帮助用户区分官方数据、推断值和代理数据"],
+  ["逐校来源审计", "perSchoolSourceAudit", "每所学校展示录取率、国际生本科信号、中国本科录取容量、学术基准和硬门槛来源备注", "数据页 DisclosureGroup + 报告", "透明披露", "生成数据 + 数据页 + AI报告", "帮助用户区分官方数据、推断值、混合官方/推断字段和代理数据"],
   ["课程体系成绩", "curriculumPerformance", "AP/IB/A-Level/中国课程成绩按分段表转内部指数；AP 门数为 0 时 AP 平均分不计入", "画像分 + 学术匹配修正", "课程体系强度结果", "学生输入", "与课程难度不同，表示该体系内的实际成绩表现；非真实百分制换算"],
   ["高中背景修正", "highSchoolDelta", "AdmitRanking 风格资源/顾问/升学/透明度；unknown 为保守默认", "logit 修正", "中国学校背景校准", "AdmitRanking 参考", "不能单独保证录取；默认不使用命名高中优势"],
   ["专业竞争修正", "majorDelta", "CS/Engineering/Business 等专业竞争", "logit 修正", "按专业调节", "模型规则", "CS/工程更保守"],

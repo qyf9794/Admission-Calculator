@@ -130,7 +130,7 @@ private struct CollegeSourceAudit: View {
                 SourceAuditRow(
                     title: "目标校学术基准",
                     value: academicBenchmarkValue(benchmark),
-                    note: "\(benchmark.isInferred ? "推断值" : "官方/学校来源")：\(benchmark.sourceNote)",
+                    note: "\(benchmarkSourceLabel(benchmark))：\(benchmark.sourceNote)",
                     url: benchmark.sourceURL
                 )
             } else {
@@ -187,6 +187,13 @@ private struct CollegeSourceAudit: View {
         let sat = benchmark.satBenchmark.map(String.init) ?? "不使用/缺失"
         let rigor = benchmark.rigorBenchmark.map { "\($0)/5" } ?? "缺失"
         return "GPA \(gpa)，排名 \(rank)，SAT \(sat)，课程难度 \(rigor)"
+    }
+
+    private func benchmarkSourceLabel(_ benchmark: AcademicBenchmark) -> String {
+        if benchmark.isInferred && benchmark.sourceFields.contains(where: { $0.localizedCaseInsensitiveContains("official") }) {
+            return "部分官方/部分推断"
+        }
+        return benchmark.isInferred ? "推断值" : "官方/学校来源"
     }
 }
 

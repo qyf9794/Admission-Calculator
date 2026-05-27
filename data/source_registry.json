@@ -1,6 +1,6 @@
 {
   "data_version": "2026.05.admissionsight-seed.v1",
-  "generated_at": "2026-05-26",
+  "generated_at": "2026-05-27",
   "sources": [
     {
       "id": "admissionsight_acceptance_rates",
@@ -72,7 +72,7 @@
       "role": "College-specific academic comparison layer for GPA, class rank, SAT/ACT, and course rigor.",
       "refresh_mode": "Reviewed CSV; replace inferred rows with official CDS/class profile values when available",
       "confidence": "proxy",
-      "note": "Uses CollegeVine-style public chancing concepts only. Current rows are inferred from selectivity/rank unless a row source says otherwise."
+      "note": "Uses CollegeVine-style public chancing concepts only. Rows may mix official class-profile fields with inferred fields when complete official benchmarks are unavailable."
     }
   ]
 }

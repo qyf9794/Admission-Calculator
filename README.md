@@ -14,6 +14,7 @@ The v1 model is intentionally transparent:
 - The form exposes both TOEFL and IELTS because either can satisfy the English proof gate.
 - Curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) affect academic readiness and school fit.
 - AP average score is counted only when AP course count is greater than 0.
+- Academic benchmark rows may mix official class-profile fields with inferred fields; the app labels mixed rows explicitly.
 - Transcript and Chinese-curriculum grades can be entered as percent scores, 4.0 GPA, 5.0 GPA, or letter grades; non-percent inputs are converted only to an internal academic index.
 - School-specific test-free/test-blind policies, such as UC's SAT/ACT policy, are applied to both readiness scoring and target-school academic fit.
 - SAT/ACT comparisons use the strongest submitted SAT-equivalent score through the official ACT/SAT concordance.

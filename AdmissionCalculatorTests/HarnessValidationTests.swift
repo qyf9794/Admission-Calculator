@@ -52,6 +52,16 @@ final class HarnessValidationTests: XCTestCase {
         }
     }
 
+    func testMITUsesOfficialAdmissionsStatsForInternationalSignal() {
+        let signal = AdmissionsSeedData.internationalSignals.first { $0.collegeID == "mit" }
+
+        XCTAssertEqual(signal?.internationalAdmittedCount, 136)
+        XCTAssertEqual(signal?.totalAdmittedCount, 1334)
+        XCTAssertEqual(signal?.internationalAdmitCoefficient ?? 0, 0.1019, accuracy: 0.0001)
+        XCTAssertTrue(signal?.sourceURL?.absoluteString.contains("mitadmissions.org/apply/process/stats") == true)
+        XCTAssertTrue(signal?.sourceFields.contains("official_admissions_statistics.international_admitted_count") == true)
+    }
+
     func testChinaAdmissionSignalsRemainScopedToDataset() {
         let collegeIDs = Set(AdmissionsSeedData.colleges.map(\.id))
         XCTAssertFalse(AdmissionsSeedData.chinaAdmissionSignals.isEmpty)
@@ -82,6 +92,23 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertEqual(benchmarkIDs, collegeIDs)
         XCTAssertTrue(AdmissionsSeedData.academicBenchmarks.allSatisfy { !$0.sourceNote.isEmpty })
         XCTAssertTrue(AdmissionsSeedData.academicBenchmarks.filter(\.isInferred).allSatisfy { $0.dataQuality < 0.6 })
+    }
+
+    func testMITAcademicBenchmarkDisclosesMixedOfficialAndInferredFields() {
+        let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == "mit" }
+        let result = ChanceEngine().chance(
+            for: AdmissionsSeedData.colleges.first { $0.id == "mit" }!,
+            profile: .sample
+        )
+        let detail = result.factors.first { $0.label == "目标校学术匹配" }?.detail ?? ""
+        let report = ReportService.makeReport(result: ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["mit"])))
+
+        XCTAssertEqual(benchmark?.satBenchmark, 1550)
+        XCTAssertEqual(benchmark?.actBenchmark, 35)
+        XCTAssertTrue(benchmark?.sourceFields.contains("official_class_profile_sat_act_midpoint") == true)
+        XCTAssertTrue(detail.contains("部分官方/部分推断基准"))
+        XCTAssertTrue(report.contains("部分官方/部分推断"))
+        XCTAssertTrue(report.contains("MIT Class of 2029 official SAT/ACT"))
     }
 
     func testPerSchoolSourceAuditDataIsDisplayable() {

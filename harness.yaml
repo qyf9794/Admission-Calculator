@@ -31,6 +31,7 @@ data_sources:
     scope: "GPA, class-rank percentile, SAT/ACT, and course-rigor comparison against school-level admitted-student benchmarks."
     rule: "Use official CDS/class-profile values when available; otherwise mark benchmark rows as inferred and lower confidence."
     prohibited: "Do not describe inferred benchmarks as official admitted-student averages."
+    mixed_source_rule: "If a benchmark row combines official fields with inferred fields, disclose the mixed scope instead of labeling the whole row as official or wholly inferred."
   curriculum_performance:
     rule: "Curriculum-specific achievement inputs may affect readiness only when the related course/exam evidence exists; AP average score is ignored when AP course count is 0."
   china_high_school_context:
@@ -136,6 +137,8 @@ validation_tests:
     description: "Arts applicants with portfolio should use lower academic emphasis; arts applicants without portfolio remain blocked."
   - id: academic_benchmark_disclosure
     description: "Academic benchmark rows must cover the AdmissionSight dataset, disclose inferred rows, and affect probability directionally."
+  - id: mixed_academic_benchmark_disclosure
+    description: "Rows that combine official class-profile fields with inferred academic fields must disclose the mixed scope in source audit, reports, and factor details."
   - id: best_testing_equivalent
     description: "When both SAT and ACT are submitted, gates and benchmark fit must use the strongest SAT-equivalent score."
   - id: english_input_coverage

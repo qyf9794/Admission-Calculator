@@ -123,12 +123,19 @@ enum ReportService {
 
         let internationalNote = internationalSignal.map { "\($0.dataScope)：\($0.sourceNote)" } ?? "缺失：当前没有本科国际生代理行。"
         let chinaNote = chinaSignal.map { "\($0.dataScope)：\($0.sourceNote)" } ?? "缺失：当前没有中国本科录取人数行。"
-        let benchmarkNote = benchmark.map { "\($0.isInferred ? "推断值" : "官方/学校来源")：\($0.sourceNote)" } ?? "缺失：当前没有学术基准行。"
+        let benchmarkNote = benchmark.map { "\(benchmarkSourceLabel($0))：\($0.sourceNote)" } ?? "缺失：当前没有学术基准行。"
         let gateNote = schoolRules.isEmpty
             ? "未配置学校专属硬门槛；仍按适用身份/专业检查全局推断门槛。"
             : schoolRules.map { "\($0.title)（\($0.isOfficial ? "官方" : "推断")）" }.joined(separator: "、")
 
         return "\(college.name)：录取率 \(college.latestAvailableClassYear) 届，AdmissionSight National Universities 表；国际生 \(internationalNote)；中国本科 \(chinaNote)；学术基准 \(benchmarkNote)；硬门槛 \(gateNote)"
+    }
+
+    private static func benchmarkSourceLabel(_ benchmark: AcademicBenchmark) -> String {
+        if benchmark.isInferred && benchmark.sourceFields.contains(where: { $0.localizedCaseInsensitiveContains("official") }) {
+            return "部分官方/部分推断"
+        }
+        return benchmark.isInferred ? "推断值" : "官方/学校来源"
     }
 
     private static func warningSummary(result: PortfolioResult) -> String {
