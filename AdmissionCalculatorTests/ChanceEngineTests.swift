@@ -289,6 +289,33 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.schoolResults.map(\.college.id), ["bu"])
     }
 
+    func testEmptySelectionDoesNotImplicitlyAutoRecommendSchools() {
+        let result = engine.evaluate(profile: .sample, selectedCollegeIDs: [])
+
+        XCTAssertTrue(result.schoolResults.isEmpty)
+        XCTAssertEqual(result.selectedAtLeastOne, 0)
+    }
+
+    func testAutoRecommendationHonorsReachTargetLikelyCountsWhenAvailable() {
+        let profile = StudentProfile.sample
+        let recommended = engine.recommendedColleges(for: profile, reachCount: 2, targetCount: 2, likelyCount: 1)
+        let results = recommended.map { engine.chance(for: $0, profile: profile) }
+        let allResults = AdmissionsSeedData.colleges.map { engine.chance(for: $0, profile: profile) }.filter(\.gateResult.passed)
+
+        XCTAssertEqual(Set(recommended.map(\.id)).count, recommended.count)
+        XCTAssertLessThanOrEqual(recommended.count, 5)
+
+        if allResults.filter({ $0.bucket == .likely }).count >= 1 {
+            XCTAssertEqual(results.filter { $0.bucket == .likely }.count, 1)
+        }
+        if allResults.filter({ $0.bucket == .target }).count >= 2 {
+            XCTAssertEqual(results.filter { $0.bucket == .target }.count, 2)
+        }
+        if allResults.filter({ $0.bucket == .reach }).count >= 2 {
+            XCTAssertEqual(results.filter { $0.bucket == .reach }.count, 2)
+        }
+    }
+
     func testChinaCapacityUsesApplicationRoundSpecificCount() {
         let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
         var rdProfile = strongChineseInternationalProfile

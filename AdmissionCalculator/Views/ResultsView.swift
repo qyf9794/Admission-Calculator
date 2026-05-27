@@ -89,6 +89,10 @@ private struct SchoolResultsList: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("逐校结果")
                 .font(.headline)
+            if results.isEmpty {
+                ContentUnavailableView("尚未选择学校", systemImage: "building.columns", description: Text("请在计算页手选学校，或点击自动推荐组合。"))
+                    .frame(maxWidth: .infinity)
+            }
             ForEach(results) { result in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .firstTextBaseline) {

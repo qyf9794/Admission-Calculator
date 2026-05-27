@@ -26,15 +26,18 @@ struct ChanceEngine {
 
     func evaluate(profile: StudentProfile, selectedCollegeIDs: Set<String>) -> PortfolioResult {
         let profileScore = studentScore(profile)
-        let selected = selectedCollegeIDs.isEmpty
-            ? recommendedColleges(for: profile, count: profile.requestedSchoolCount)
-            : colleges.filter { selectedCollegeIDs.contains($0.id) }
+        let selected = colleges.filter { selectedCollegeIDs.contains($0.id) }
 
         let schoolResults = selected.map { chance(for: $0, profile: profile, profileScore: profileScore) }
             .sorted { $0.adjustedProbability > $1.adjustedProbability }
         return PortfolioResult(
             schoolResults: schoolResults,
-            recommendedSchools: selectedCollegeIDs.isEmpty ? selected : recommendedColleges(for: profile, count: min(6, profile.requestedSchoolCount)),
+            recommendedSchools: recommendedColleges(
+                for: profile,
+                reachCount: profile.requestedReachCount,
+                targetCount: profile.requestedTargetCount,
+                likelyCount: profile.requestedLikelyCount
+            ),
             t10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 10 }),
             t30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 30 }),
             t50AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 50 }),
@@ -199,32 +202,46 @@ struct ChanceEngine {
     }
 
     func recommendedColleges(for profile: StudentProfile, count: Int) -> [College] {
+        let targetCount = max(1, Int(Double(count) * 0.45))
+        let likelyCount = max(1, Int(Double(count) * 0.30))
+        let reachCount = max(0, count - targetCount - likelyCount)
+        return recommendedColleges(for: profile, reachCount: reachCount, targetCount: targetCount, likelyCount: likelyCount)
+    }
+
+    func recommendedColleges(for profile: StudentProfile, reachCount: Int, targetCount: Int, likelyCount: Int) -> [College] {
         let score = studentScore(profile)
         let eligible = colleges
             .map { chance(for: $0, profile: profile, profileScore: score) }
             .filter { $0.gateResult.passed }
+
+        let reach = eligible
+            .filter { $0.bucket == .reach }
             .sorted { lhs, rhs in
-                let lhsBalance = abs(lhs.adjustedProbability - 0.22)
-                let rhsBalance = abs(rhs.adjustedProbability - 0.22)
+                lhs.adjustedProbability == rhs.adjustedProbability
+                    ? lhs.college.rank < rhs.college.rank
+                    : lhs.adjustedProbability > rhs.adjustedProbability
+            }
+        let target = eligible
+            .filter { $0.bucket == .target }
+            .sorted { lhs, rhs in
+                let lhsBalance = abs(lhs.adjustedProbability - 0.24)
+                let rhsBalance = abs(rhs.adjustedProbability - 0.24)
                 return lhsBalance == rhsBalance ? lhs.college.rank < rhs.college.rank : lhsBalance < rhsBalance
             }
+        let likely = eligible
+            .filter { $0.bucket == .likely }
+            .sorted { lhs, rhs in
+                lhs.adjustedProbability == rhs.adjustedProbability
+                    ? lhs.college.rank < rhs.college.rank
+                    : lhs.adjustedProbability > rhs.adjustedProbability
+            }
 
-        let reach = eligible.filter { $0.adjustedProbability < 0.15 }
-        let target = eligible.filter { $0.adjustedProbability >= 0.15 && $0.adjustedProbability < 0.35 }
-        let likely = eligible.filter { $0.adjustedProbability >= 0.35 }
-        let targetCount = max(1, Int(Double(count) * 0.45))
-        let likelyCount = max(1, Int(Double(count) * 0.30))
-        let reachCount = max(0, count - targetCount - likelyCount)
+        var picked: [College] = []
+        picked.append(contentsOf: likely.prefix(max(0, likelyCount)).map(\.college))
+        picked.append(contentsOf: target.prefix(max(0, targetCount)).map(\.college))
+        picked.append(contentsOf: reach.prefix(max(0, reachCount)).map(\.college))
 
-        var picked = Array(target.prefix(targetCount)).map(\.college)
-        picked.append(contentsOf: likely.prefix(likelyCount).map(\.college))
-        picked.append(contentsOf: reach.prefix(reachCount).map(\.college))
-
-        if picked.count < count {
-            let existing = Set(picked.map(\.id))
-            picked.append(contentsOf: eligible.map(\.college).filter { !existing.contains($0.id) }.prefix(count - picked.count))
-        }
-        return Array(picked.prefix(max(1, count)))
+        return picked
     }
 
     func atLeastOneProbability(_ results: [ChanceResult]) -> Double {

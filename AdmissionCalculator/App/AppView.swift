@@ -14,6 +14,7 @@ struct AppView: View {
                 CalculatorView(
                     profile: $profile,
                     selectedCollegeIDs: $selectedCollegeIDs,
+                    onAutoRecommend: autoRecommend,
                     onEvaluate: evaluate
                 )
                 .navigationTitle("录取概率")
@@ -43,5 +44,17 @@ struct AppView: View {
 
     private func evaluate() {
         latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: selectedCollegeIDs)
+    }
+
+    private func autoRecommend() {
+        let recommended = engine.recommendedColleges(
+            for: profile,
+            reachCount: profile.requestedReachCount,
+            targetCount: profile.requestedTargetCount,
+            likelyCount: profile.requestedLikelyCount
+        )
+        let recommendedIDs = Set(recommended.map(\.id))
+        selectedCollegeIDs = recommendedIDs
+        latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: recommendedIDs)
     }
 }

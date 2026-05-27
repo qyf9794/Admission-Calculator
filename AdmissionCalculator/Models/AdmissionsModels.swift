@@ -281,6 +281,9 @@ struct StudentProfile: Hashable, Codable {
     var needsAid: Bool
     var hasPortfolio: Bool
     var requestedSchoolCount: Int
+    var requestedLikelyCount: Int
+    var requestedTargetCount: Int
+    var requestedReachCount: Int
 
     static let sample = StudentProfile(
         applicantStatus: .chineseInternational,
@@ -318,7 +321,10 @@ struct StudentProfile: Hashable, Codable {
         round: .regularDecision,
         needsAid: false,
         hasPortfolio: false,
-        requestedSchoolCount: 12
+        requestedSchoolCount: 12,
+        requestedLikelyCount: 3,
+        requestedTargetCount: 5,
+        requestedReachCount: 4
     )
 }
 

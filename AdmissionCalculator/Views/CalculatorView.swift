@@ -3,6 +3,7 @@ import SwiftUI
 struct CalculatorView: View {
     @Binding var profile: StudentProfile
     @Binding var selectedCollegeIDs: Set<String>
+    let onAutoRecommend: () -> Void
     let onEvaluate: () -> Void
 
     var body: some View {
@@ -76,14 +77,26 @@ struct CalculatorView: View {
             }
 
             Section("选校") {
-                Stepper("自动推荐 \(profile.requestedSchoolCount) 所", value: $profile.requestedSchoolCount, in: 1...30)
+                Stepper("保底 \(profile.requestedLikelyCount) 所", value: $profile.requestedLikelyCount, in: 0...10)
+                Stepper("目标 \(profile.requestedTargetCount) 所", value: $profile.requestedTargetCount, in: 0...12)
+                Stepper("争取 \(profile.requestedReachCount) 所", value: $profile.requestedReachCount, in: 0...12)
+                Button {
+                    profile.requestedSchoolCount = profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount
+                    onAutoRecommend()
+                } label: {
+                    Label("自动推荐组合", systemImage: "wand.and.stars")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount == 0)
+
                 NavigationLink {
                     CollegePickerView(selectedCollegeIDs: $selectedCollegeIDs)
                 } label: {
-                    Label(selectedCollegeIDs.isEmpty ? "使用自动推荐组合" : "已手选 \(selectedCollegeIDs.count) 所", systemImage: "building.columns")
+                    Label(selectedCollegeIDs.isEmpty ? "尚未选择学校" : "已选择 \(selectedCollegeIDs.count) 所", systemImage: "building.columns")
                 }
                 if !selectedCollegeIDs.isEmpty {
-                    Button("清空手选学校") {
+                    Button("清空已选学校") {
                         selectedCollegeIDs.removeAll()
                     }
                 }
