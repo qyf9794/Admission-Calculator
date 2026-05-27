@@ -173,6 +173,71 @@ struct College: Identifiable, Hashable, Codable {
             "#\(rank)".localizedCaseInsensitiveContains(trimmed) ||
             String(rank).localizedCaseInsensitiveContains(trimmed)
     }
+
+    func matchesSourceAuditQuery(
+        _ query: String,
+        internationalSignal: InternationalSignal?,
+        chinaSignal: ChinaUndergradAdmissionSignal?,
+        academicBenchmark: AcademicBenchmark?,
+        gateRules: [CollegeGateRule]
+    ) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return true
+        }
+        if matchesPickerQuery(trimmed) || sourceURL.absoluteString.localizedCaseInsensitiveContains(trimmed) {
+            return true
+        }
+
+        let fields = sourceAuditSearchFields(
+            internationalSignal: internationalSignal,
+            chinaSignal: chinaSignal,
+            academicBenchmark: academicBenchmark,
+            gateRules: gateRules
+        )
+        return fields.contains { $0.localizedCaseInsensitiveContains(trimmed) }
+    }
+
+    private func sourceAuditSearchFields(
+        internationalSignal: InternationalSignal?,
+        chinaSignal: ChinaUndergradAdmissionSignal?,
+        academicBenchmark: AcademicBenchmark?,
+        gateRules: [CollegeGateRule]
+    ) -> [String] {
+        var fields: [String] = []
+        if let internationalSignal {
+            fields.append(internationalSignal.dataScope)
+            fields.append(internationalSignal.sourceNote)
+            fields.append(internationalSignal.internationalAidPolicy.rawValue)
+            fields.append(contentsOf: internationalSignal.sourceFields)
+            if let sourceURL = internationalSignal.sourceURL {
+                fields.append(sourceURL.absoluteString)
+            }
+        }
+        if let chinaSignal {
+            fields.append(chinaSignal.dataScope)
+            fields.append(chinaSignal.sourceNote)
+        }
+        if let academicBenchmark {
+            fields.append(academicBenchmark.sourceNote)
+            fields.append(contentsOf: academicBenchmark.sourceFields)
+            if let sourceURL = academicBenchmark.sourceURL {
+                fields.append(sourceURL.absoluteString)
+            }
+        }
+        for rule in gateRules {
+            fields.append(rule.title)
+            fields.append(rule.detail)
+            fields.append(rule.type.rawValue)
+            fields.append(rule.isOfficial ? "official" : "inferred")
+            fields.append(rule.isOfficial ? "官方" : "推断")
+            fields.append(contentsOf: rule.allowedRounds.map(\.rawValue))
+            if let sourceURL = rule.sourceURL {
+                fields.append(sourceURL.absoluteString)
+            }
+        }
+        return fields
+    }
 }
 
 enum InternationalAidPolicy: String, Codable {

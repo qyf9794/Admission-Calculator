@@ -60,6 +60,20 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertFalse(mit.matchesPickerQuery("not-a-school"))
     }
 
+    func testCollegeSourceAuditSearchMatchesSourceNotesURLsAndGateDetails() {
+        let mit = AdmissionsSeedData.colleges.first { $0.id == "mit" }!
+        let internationalSignal = AdmissionsSeedData.internationalSignals.first { $0.collegeID == mit.id }
+        let chinaSignal = AdmissionsSeedData.chinaAdmissionSignals.first { $0.collegeID == mit.id }
+        let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == mit.id }
+        let gateRules = AdmissionsSeedData.gateRules.filter { $0.collegeID == mit.id || $0.collegeID == "*" }
+
+        XCTAssertTrue(mit.matchesSourceAuditQuery("process/stats", internationalSignal: internationalSignal, chinaSignal: chinaSignal, academicBenchmark: benchmark, gateRules: gateRules))
+        XCTAssertTrue(mit.matchesSourceAuditQuery("official_class_profile_sat_act_midpoint", internationalSignal: internationalSignal, chinaSignal: chinaSignal, academicBenchmark: benchmark, gateRules: gateRules))
+        XCTAssertTrue(mit.matchesSourceAuditQuery("Required standardized testing", internationalSignal: internationalSignal, chinaSignal: chinaSignal, academicBenchmark: benchmark, gateRules: gateRules))
+        XCTAssertTrue(mit.matchesSourceAuditQuery("IMG_0740", internationalSignal: internationalSignal, chinaSignal: chinaSignal, academicBenchmark: benchmark, gateRules: gateRules))
+        XCTAssertFalse(mit.matchesSourceAuditQuery("not-a-source-field", internationalSignal: internationalSignal, chinaSignal: chinaSignal, academicBenchmark: benchmark, gateRules: gateRules))
+    }
+
     func testGeneratedDataKeepsGateTargetsInsideAdmissionSightScope() {
         let collegeIDs = Set(AdmissionsSeedData.colleges.map(\.id))
         for rule in AdmissionsSeedData.gateRules where rule.collegeID != "*" {

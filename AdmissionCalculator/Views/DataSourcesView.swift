@@ -9,7 +9,15 @@ struct DataSourcesView: View {
     }
 
     private var filteredColleges: [College] {
-        AdmissionsSeedData.colleges.filter { $0.matchesPickerQuery(searchText) }
+        AdmissionsSeedData.colleges.filter { college in
+            college.matchesSourceAuditQuery(
+                searchText,
+                internationalSignal: AdmissionsSeedData.internationalSignals.first { $0.collegeID == college.id },
+                chinaSignal: AdmissionsSeedData.chinaAdmissionSignals.first { $0.collegeID == college.id },
+                academicBenchmark: AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == college.id },
+                gateRules: AdmissionsSeedData.gateRules.filter { $0.collegeID == college.id || $0.collegeID == "*" }
+            )
+        }
     }
 
     var body: some View {
