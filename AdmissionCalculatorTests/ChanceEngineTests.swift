@@ -287,6 +287,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.t10AtLeastOne, 0)
         XCTAssertEqual(result.t30AtLeastOne, 0)
         XCTAssertEqual(result.schoolResults.map(\.college.id), ["bu"])
+        XCTAssertEqual(result.selectedBucketCounts.total, 1)
     }
 
     func testEmptySelectionDoesNotImplicitlyAutoRecommendSchools() {
@@ -314,6 +315,22 @@ final class ChanceEngineTests: XCTestCase {
         if allResults.filter({ $0.bucket == .reach }).count >= 2 {
             XCTAssertEqual(results.filter { $0.bucket == .reach }.count, 2)
         }
+    }
+
+    func testPortfolioDisclosesRecommendationBucketShortages() {
+        var profile = StudentProfile.sample
+        profile.requestedLikelyCount = 10
+        profile.requestedTargetCount = 12
+        profile.requestedReachCount = 12
+
+        let result = engine.evaluate(profile: profile, selectedCollegeIDs: [])
+        let recommendedResults = result.recommendedSchools.map { engine.chance(for: $0, profile: profile) }
+
+        XCTAssertFalse(result.recommendationWarnings.isEmpty)
+        XCTAssertEqual(result.recommendedSchools.count, Set(result.recommendedSchools.map(\.id)).count)
+        XCTAssertLessThanOrEqual(recommendedResults.filter { $0.bucket == .likely }.count, profile.requestedLikelyCount)
+        XCTAssertLessThanOrEqual(recommendedResults.filter { $0.bucket == .target }.count, profile.requestedTargetCount)
+        XCTAssertLessThanOrEqual(recommendedResults.filter { $0.bucket == .reach }.count, profile.requestedReachCount)
     }
 
     func testChinaCapacityUsesApplicationRoundSpecificCount() {

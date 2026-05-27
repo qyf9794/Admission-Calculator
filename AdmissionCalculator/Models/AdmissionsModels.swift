@@ -355,9 +355,22 @@ struct ChanceResult: Identifiable, Hashable {
     let gateResult: GateResult
 }
 
+struct PortfolioBucketCounts: Hashable {
+    let likely: Int
+    let target: Int
+    let reach: Int
+    let blocked: Int
+
+    var total: Int {
+        likely + target + reach + blocked
+    }
+}
+
 struct PortfolioResult: Hashable {
     let schoolResults: [ChanceResult]
     let recommendedSchools: [College]
+    let selectedBucketCounts: PortfolioBucketCounts
+    let recommendationWarnings: [String]
     let t10AtLeastOne: Double
     let t30AtLeastOne: Double
     let t50AtLeastOne: Double

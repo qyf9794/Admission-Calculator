@@ -27,17 +27,21 @@ struct ChanceEngine {
     func evaluate(profile: StudentProfile, selectedCollegeIDs: Set<String>) -> PortfolioResult {
         let profileScore = studentScore(profile)
         let selected = colleges.filter { selectedCollegeIDs.contains($0.id) }
+        let recommended = recommendedColleges(
+            for: profile,
+            reachCount: profile.requestedReachCount,
+            targetCount: profile.requestedTargetCount,
+            likelyCount: profile.requestedLikelyCount
+        )
 
         let schoolResults = selected.map { chance(for: $0, profile: profile, profileScore: profileScore) }
             .sorted { $0.adjustedProbability > $1.adjustedProbability }
+        let recommendedResults = recommended.map { chance(for: $0, profile: profile, profileScore: profileScore) }
         return PortfolioResult(
             schoolResults: schoolResults,
-            recommendedSchools: recommendedColleges(
-                for: profile,
-                reachCount: profile.requestedReachCount,
-                targetCount: profile.requestedTargetCount,
-                likelyCount: profile.requestedLikelyCount
-            ),
+            recommendedSchools: recommended,
+            selectedBucketCounts: bucketCounts(for: schoolResults),
+            recommendationWarnings: recommendationWarnings(profile: profile, recommendedResults: recommendedResults),
             t10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 10 }),
             t30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 30 }),
             t50AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 50 }),
@@ -255,6 +259,30 @@ struct ChanceEngine {
             }
         }
         return clamp(1 - failure, min: 0, max: 0.98)
+    }
+
+    private func bucketCounts(for results: [ChanceResult]) -> PortfolioBucketCounts {
+        PortfolioBucketCounts(
+            likely: results.filter { $0.bucket == .likely }.count,
+            target: results.filter { $0.bucket == .target }.count,
+            reach: results.filter { $0.bucket == .reach }.count,
+            blocked: results.filter { $0.bucket == .blocked }.count
+        )
+    }
+
+    private func recommendationWarnings(profile: StudentProfile, recommendedResults: [ChanceResult]) -> [String] {
+        let counts = bucketCounts(for: recommendedResults)
+        var items: [String] = []
+        if counts.likely < profile.requestedLikelyCount {
+            items.append("保底档可推荐学校不足：请求 \(profile.requestedLikelyCount) 所，当前找到 \(counts.likely) 所。")
+        }
+        if counts.target < profile.requestedTargetCount {
+            items.append("目标档可推荐学校不足：请求 \(profile.requestedTargetCount) 所，当前找到 \(counts.target) 所。")
+        }
+        if counts.reach < profile.requestedReachCount {
+            items.append("争取档可推荐学校不足：请求 \(profile.requestedReachCount) 所，当前找到 \(counts.reach) 所。")
+        }
+        return items
     }
 
     private func warnings(for college: College, profile: StudentProfile, gate: GateResult, internationalSignal: InternationalSignal, chinaSignal: ChinaUndergradAdmissionSignal, benchmark: AcademicBenchmark) -> [String] {

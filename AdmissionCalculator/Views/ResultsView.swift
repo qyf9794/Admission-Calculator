@@ -55,6 +55,14 @@ private struct SummaryBand: View {
                 MetricCell(title: "T50", value: result.t50AtLeastOne)
                 MetricCell(title: "当前组合", value: result.selectedAtLeastOne)
             }
+            Text("组合结构：保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            ForEach(result.recommendationWarnings, id: \.self) { warning in
+                Label(warning, systemImage: "info.circle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             Text("画像分 \(Int(result.profileScore))/100。T10/T30/T50 仅统计当前组合内学校，多校概率已使用同层相关性折扣。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)

@@ -12,6 +12,7 @@ The v1 model is intentionally transparent:
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
 - Portfolio-level T10/T30/T50 probabilities are scoped to the currently selected or auto-recommended school set.
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.
+- Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation bucket shortages.
 - Multi-school probability uses same-tier correlation discounting.
 - The paid-report surface is wired as a StoreKit-ready placeholder and cannot modify computed probabilities.
 

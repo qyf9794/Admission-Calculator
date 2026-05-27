@@ -27,6 +27,9 @@ enum ReportService {
         let gates = blocked.isEmpty
             ? "未发现已选学校的硬门槛失败项。"
             : blocked.map { "\($0.college.name)：\($0.gateResult.failedRules.map(\.title).joined(separator: "、"))" }.joined(separator: "\n")
+        let recommendationNotes = result.recommendationWarnings.isEmpty
+            ? "自动推荐三档数量可满足当前请求。"
+            : result.recommendationWarnings.joined(separator: "\n")
         return """
         综合选校报告
 
@@ -37,6 +40,12 @@ enum ReportService {
         T30：\(percent(result.t30AtLeastOne))
         T50：\(percent(result.t50AtLeastOne))
         当前组合：\(percent(result.selectedAtLeastOne))
+
+        当前组合结构：
+        保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。
+
+        自动推荐提示：
+        \(recommendationNotes)
 
         逐校重点：
         \(probabilities)
