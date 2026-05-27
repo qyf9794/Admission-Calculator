@@ -441,11 +441,19 @@ struct StudentProfile: Hashable, Codable {
     )
 }
 
+enum ProfileCompletionImpact: String, Hashable, Codable {
+    case gate = "硬门槛"
+    case probability = "概率计算"
+    case confidence = "置信度校准"
+    case portfolio = "选校策略"
+}
+
 struct ProfileCompletionPrompt: Identifiable, Hashable {
     let id: String
     let title: String
     let detail: String
     let systemImage: String
+    let impact: ProfileCompletionImpact
 }
 
 extension StudentProfile {
@@ -457,7 +465,8 @@ extension StudentProfile {
                 id: "selected-schools",
                 title: "选择学校组合",
                 detail: "手动选择学校，或点击自动推荐组合后再计算；空组合不会隐式生成推荐。",
-                systemImage: "building.columns"
+                systemImage: "building.columns",
+                impact: .portfolio
             ))
         }
 
@@ -466,7 +475,8 @@ extension StudentProfile {
                 id: "english-proof",
                 title: "补充 TOEFL 或 IELTS",
                 detail: "国际生英语硬门槛接受任一语言成绩；缺失时部分学校会被阻断或降低置信度。",
-                systemImage: "textformat.abc"
+                systemImage: "textformat.abc",
+                impact: .gate
             ))
         }
 
@@ -475,7 +485,8 @@ extension StudentProfile {
                 id: "standardized-test",
                 title: "补充 SAT/ACT 或选择不提交",
                 detail: "若计划提交标化，请填写 SAT 或 ACT；若不提交，请开启 Test Optional，系统会忽略残留分数。",
-                systemImage: "checklist.checked"
+                systemImage: "checklist.checked",
+                impact: .gate
             ))
         }
 
@@ -484,7 +495,8 @@ extension StudentProfile {
                 id: "high-school-context",
                 title: "确认高中背景",
                 detail: "当前使用其他/手动评估学校的保守代理；真实学校资源和升学记录会影响校准。",
-                systemImage: "graduationcap"
+                systemImage: "graduationcap",
+                impact: .confidence
             ))
         }
 
@@ -493,7 +505,8 @@ extension StudentProfile {
                 id: "arts-portfolio",
                 title: "补充艺术作品集状态",
                 detail: "艺术方向缺少作品集会触发作品集门槛，概率可能直接归零。",
-                systemImage: "paintpalette"
+                systemImage: "paintpalette",
+                impact: .gate
             ))
         }
 
@@ -502,7 +515,8 @@ extension StudentProfile {
                 id: "ap-evidence",
                 title: "补充 AP 课程证据",
                 detail: "AP 门数为 0 时，AP 平均分不会计入课程体系成绩。",
-                systemImage: "books.vertical"
+                systemImage: "books.vertical",
+                impact: .probability
             ))
         }
 
@@ -511,7 +525,8 @@ extension StudentProfile {
                 id: "alevel-evidence",
                 title: "补充 A-Level 科目",
                 detail: "A-Level 科目数为 0 会按缺少课程证据保守处理。",
-                systemImage: "list.bullet.clipboard"
+                systemImage: "list.bullet.clipboard",
+                impact: .probability
             ))
         }
 
@@ -520,7 +535,8 @@ extension StudentProfile {
                 id: "aid-detail",
                 title: "确认国际生资助策略",
                 detail: "当前只记录是否申请资助；若目标校 need-aware 或资源有限，建议单独核对资助需求强度。",
-                systemImage: "dollarsign.circle"
+                systemImage: "dollarsign.circle",
+                impact: .probability
             ))
         }
 

@@ -165,6 +165,12 @@ private struct MissingInputCard: View {
                 ForEach(prompts) { prompt in
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
+                            Text(prompt.impact.rawValue)
+                                .font(.caption2.weight(.bold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(promptImpactColor(prompt.impact).opacity(0.14), in: Capsule())
+                                .foregroundStyle(promptImpactColor(prompt.impact))
                             Text(prompt.title)
                                 .font(.subheadline.weight(.semibold))
                             Text(prompt.detail)
@@ -184,6 +190,19 @@ private struct MissingInputCard: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke((prompts.isEmpty ? Color.green : Color.orange).opacity(0.18), lineWidth: 1)
         )
+    }
+
+    private func promptImpactColor(_ impact: ProfileCompletionImpact) -> Color {
+        switch impact {
+        case .gate:
+            return .red
+        case .probability:
+            return .blue
+        case .confidence:
+            return .orange
+        case .portfolio:
+            return .purple
+        }
     }
 }
 

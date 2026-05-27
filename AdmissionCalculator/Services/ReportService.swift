@@ -203,7 +203,7 @@ enum ReportService {
         guard !prompts.isEmpty else {
             return "当前画像没有明显缺失项；仍需逐校查看数据置信度、硬门槛和来源审计。"
         }
-        return prompts.map { "\($0.title)：\($0.detail)" }.joined(separator: "\n")
+        return prompts.map { "\($0.title)（\($0.impact.rawValue)）：\($0.detail)" }.joined(separator: "\n")
     }
 
     private static func unique(_ values: [String]) -> [String] {

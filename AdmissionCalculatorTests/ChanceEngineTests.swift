@@ -57,6 +57,11 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(ids.contains("standardized-test"))
         XCTAssertTrue(ids.contains("high-school-context"))
         XCTAssertTrue(ids.contains("ap-evidence"))
+        XCTAssertEqual(prompts.first { $0.id == "english-proof" }?.impact, .gate)
+        XCTAssertEqual(prompts.first { $0.id == "standardized-test" }?.impact, .gate)
+        XCTAssertEqual(prompts.first { $0.id == "high-school-context" }?.impact, .confidence)
+        XCTAssertEqual(prompts.first { $0.id == "ap-evidence" }?.impact, .probability)
+        XCTAssertEqual(prompts.first { $0.id == "selected-schools" }?.impact, .portfolio)
     }
 
     func testProfileCompletionPromptsClearWhenCoreInputsArePresent() {
@@ -80,10 +85,10 @@ final class ChanceEngineTests: XCTestCase {
         let report = ReportService.makeReport(result: result)
 
         XCTAssertTrue(report.contains("待补资料"))
-        XCTAssertTrue(report.contains("选择学校组合"))
-        XCTAssertTrue(report.contains("补充 TOEFL 或 IELTS"))
-        XCTAssertTrue(report.contains("补充 SAT/ACT 或选择不提交"))
-        XCTAssertTrue(report.contains("补充 AP 课程证据"))
+        XCTAssertTrue(report.contains("选择学校组合（选校策略）"))
+        XCTAssertTrue(report.contains("补充 TOEFL 或 IELTS（硬门槛）"))
+        XCTAssertTrue(report.contains("补充 SAT/ACT 或选择不提交（硬门槛）"))
+        XCTAssertTrue(report.contains("补充 AP 课程证据（概率计算）"))
     }
 
     func testInferredGateIsDisclosedAndCanBlock() {
