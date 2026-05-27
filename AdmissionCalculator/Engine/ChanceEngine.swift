@@ -72,7 +72,7 @@ struct ChanceEngine {
         )
 
         guard gate.passed else {
-            let warnings = gate.failedRules.map { "未满足\($0.isOfficial ? "官方" : "推断")硬门槛：\($0.title)" }
+            let warnings = gate.failedRules.map { "未满足\($0.isOfficial ? "官方" : "推断")硬门槛：\($0.title)（\($0.detail)）" }
             return ChanceResult(
                 college: college,
                 baseRate: baseRate,

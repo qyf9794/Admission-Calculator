@@ -173,10 +173,26 @@ final class HarnessValidationTests: XCTestCase {
 
         for school in result.schoolResults {
             XCTAssertTrue(report.contains("\(school.college.name)：\(school.adjustedProbability.formatted(.percent.precision(.fractionLength(0))))"))
+            XCTAssertTrue(report.contains("置信度 \(school.confidence.rawValue)"))
             XCTAssertTrue(report.contains("\(school.college.name)："))
         }
         XCTAssertEqual(result.schoolResults.count, selected.count)
         XCTAssertTrue(report.contains("Boston University"))
+    }
+
+    func testReportIncludesFailedGateReasonsAndSources() {
+        var profile = StudentProfile.sample
+        profile.testOptional = true
+        profile.sat = nil
+        profile.act = nil
+
+        let result = ChanceEngine().evaluate(profile: profile, selectedCollegeIDs: Set(["mit"]), selectionSource: .manual)
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(report.contains("硬门槛"))
+        XCTAssertTrue(report.contains("官方 Required standardized testing"))
+        XCTAssertTrue(report.contains("MIT requires SAT/ACT"))
+        XCTAssertTrue(report.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
     }
 
     private func assertChinaTotal(_ early: Int?, _ rd: Int?, _ total: Int?, _ collegeID: String) {

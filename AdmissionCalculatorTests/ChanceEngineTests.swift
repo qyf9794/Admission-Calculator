@@ -17,6 +17,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.adjustedProbability, 0)
         XCTAssertEqual(result.bucket, .blocked)
         XCTAssertTrue(result.gateResult.failedRules.contains { $0.isOfficial && $0.type == .standardizedTest })
+        XCTAssertTrue(result.warnings.contains { $0.contains("MIT requires SAT/ACT") })
     }
 
     func testWeakButEligibleProfileReceivesNonZeroProbability() {

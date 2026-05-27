@@ -157,3 +157,7 @@ validation_tests:
     description: "AI reports must include probability and academic-fit lines for every school in the current selected or auto-recommended portfolio, not only the first few rows."
   - id: no_generic_early_round_boost
     description: "EA/ED should not receive a generic probability boost when school-specific round policy data is missing; the model must disclose the missing policy data."
+  - id: report_includes_confidence_label
+    description: "AI reports must include each selected school's computed confidence label next to its probability so uncertainty is not lost outside the results UI."
+  - id: failed_gate_reason_detail
+    description: "Hard-gate failures must disclose the rule title, official/inferred status, explanatory detail, and source when available."

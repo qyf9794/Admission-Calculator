@@ -10,6 +10,7 @@ The result is an explainable estimate, not a promise of admission.
 - Use AdmitRanking-style Chinese high-school context only as a calibration signal.
 - Default and sample profiles must use the conservative `其他/手动评估学校` high-school context unless the user explicitly selects a known school.
 - Run hard gates before probability math. If a required rule is not met, the school result is `0%`.
+- Hard-gate failures must disclose the rule title, official/inferred status, explanatory detail, and source when available.
 - Clearly mark inferred gate rules and lower confidence when official sources are missing.
 - Only applicable gate rules may be checked, disclosed, or used to lower confidence; irrelevant global rules must not penalize unrelated applicants.
 - AI reports may explain and advise, but may not modify computed probabilities or add schools.
@@ -28,6 +29,7 @@ The result is an explainable estimate, not a promise of admission.
 - Automatic school recommendations must be triggered by an explicit user action and must respect user-requested likely / target / reach counts as far as eligible schools are available. If a bucket has too few eligible schools, do not silently fill it from another bucket. An empty selected-school set must not silently become an auto-recommended portfolio.
 - Results and AI reports must disclose the current portfolio's likely / target / reach / blocked composition, and must warn when the auto-recommendation pool cannot satisfy a requested bucket count.
 - AI reports must include probability and academic-fit lines for every school in the current selected or auto-recommended portfolio, not only a shortened preview.
+- AI reports must include each selected school's computed confidence label next to its probability so uncertainty is not lost outside the results UI.
 - Auto-recommendation shortage warnings must be shown only for an auto-recommended portfolio, not for a manually selected school list.
 - AI reports must include computed portfolio-level warnings and per-school warnings/data limitations; generic advice is not enough to satisfy disclosure.
 - Result pages and AI reports must use the submitted profile snapshot that produced the probabilities. If the live form or selected schools change after calculation, the results view must disclose that the displayed probabilities are stale until recalculated.

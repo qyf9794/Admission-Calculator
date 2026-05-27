@@ -21,7 +21,7 @@ enum ReportService {
         let schoolResults = result.schoolResults
         let probabilities = schoolResults.isEmpty
             ? "尚未选择学校。"
-            : schoolResults.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)）" }.joined(separator: "\n")
+            : schoolResults.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)，置信度 \($0.confidence.rawValue)）" }.joined(separator: "\n")
         let academicFit = schoolResults.isEmpty ? "尚未选择学校。" : schoolResults.map { school in
             let factor = school.factors.first { $0.label == "目标校学术匹配" }
             let value = factor.map { Self.signed($0.value) } ?? "缺失"
@@ -29,7 +29,7 @@ enum ReportService {
         }.joined(separator: "\n")
         let gates = blocked.isEmpty
             ? "未发现已选学校的硬门槛失败项。"
-            : blocked.map { "\($0.college.name)：\($0.gateResult.failedRules.map(\.title).joined(separator: "、"))" }.joined(separator: "\n")
+            : blocked.map { "\($0.college.name)：\($0.gateResult.failedRules.map(Self.gateRuleSummary).joined(separator: "；"))" }.joined(separator: "\n")
         let selectionNotes = result.selectionWarnings.isEmpty
             ? "当前组合内学校均来自 v1 数据集。"
             : result.selectionWarnings.joined(separator: "\n")
@@ -93,6 +93,12 @@ enum ReportService {
     private static func signed(_ value: Double) -> String {
         let sign = value >= 0 ? "+" : ""
         return "\(sign)\(value.formatted(.number.precision(.fractionLength(2))))"
+    }
+
+    private static func gateRuleSummary(_ rule: CollegeGateRule) -> String {
+        let source = rule.isOfficial ? "官方" : "推断"
+        let url = rule.sourceURL.map { " 来源：\($0.absoluteString)" } ?? ""
+        return "\(source) \(rule.title)：\(rule.detail)\(url)"
     }
 
     private static func warningSummary(result: PortfolioResult) -> String {

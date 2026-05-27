@@ -7,6 +7,7 @@ The v1 model is intentionally transparent:
 - AdmissionSight National Universities acceptance rates are the only school statistics seed.
 - The data tab includes per-school source audit notes for the major inputs used in probability math.
 - Hard gates run before probability math; failed required gates return `0%`.
+- Hard-gate failures show the rule, official/inferred status, explanation, and source when available.
 - Inferred gates are labeled and lower confidence.
 - Global gate rules are filtered by applicant status and major before they can block, warn, or lower confidence.
 - Default profiles use `其他/手动评估学校` for high-school background so named-school proxy advantages are never applied by default.
@@ -26,6 +27,7 @@ The v1 model is intentionally transparent:
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.
 - Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation bucket shortages.
 - AI reports include every selected or auto-recommended school's probability and academic-fit adjustment.
+- AI reports include each selected school's confidence label next to its probability.
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.
 - AI reports include computed portfolio warnings and per-school data limitations instead of replacing them with generic advice.
 - Results and AI reports are tied to the submitted profile snapshot; if the live form changes afterward, the app flags the displayed result as stale.

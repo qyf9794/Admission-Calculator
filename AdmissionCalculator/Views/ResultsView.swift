@@ -142,9 +142,13 @@ private struct SchoolResultsList: View {
                         .foregroundStyle(bucketColor(result.bucket))
 
                     if !result.gateResult.failedRules.isEmpty {
-                        Label(result.gateResult.failedRules.map(\.title).joined(separator: "、"), systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(result.gateResult.failedRules) { rule in
+                                Label(gateRuleSummary(rule), systemImage: "exclamationmark.triangle.fill")
+                            }
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.red)
                     }
                     DisclosureGroup("影响因素") {
                         VStack(alignment: .leading, spacing: 6) {
@@ -184,6 +188,10 @@ private struct SchoolResultsList: View {
         }
         let sign = factor.value >= 0 ? "+" : ""
         return "\(sign)\(factor.value.formatted(.number.precision(.fractionLength(2))))"
+    }
+
+    private func gateRuleSummary(_ rule: CollegeGateRule) -> String {
+        "\(rule.isOfficial ? "官方" : "推断") \(rule.title)：\(rule.detail)"
     }
 
     private func bucketColor(_ bucket: RecommendationBucket) -> Color {
