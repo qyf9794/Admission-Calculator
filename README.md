@@ -18,6 +18,7 @@ The v1 model is intentionally transparent:
 - SAT/ACT comparisons use the strongest submitted SAT-equivalent score through the official ACT/SAT concordance.
 - Test Optional / 不提交标化 clears SAT/ACT in the form and ignores residual SAT/ACT values in readiness and academic fit.
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
+- International financial-aid need is shown as a separate factor and does not penalize domestic/U.S. citizen applicants.
 - Portfolio-level T10/T30/T50 probabilities are scoped to the currently selected or auto-recommended school set.
 - Selected schools outside the v1 dataset are excluded from probability math and disclosed as portfolio warnings.
 - Recommendation buckets use conservative planning thresholds: `争取` below 20%, `目标` 20%-60%, and `保底` at least 60%; `保底` is still not a guarantee.

@@ -515,7 +515,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(rd.warnings.contains { $0.contains("当前申请轮次中国学生录取容量很小") })
     }
 
-    func testNeedBlindAidDoesNotChangeStrategyDelta() {
+    func testNeedBlindAidDoesNotChangeAidDelta() {
         let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
         var noAid = strongChineseInternationalProfile
         noAid.needsAid = false
@@ -523,10 +523,45 @@ final class ChanceEngineTests: XCTestCase {
         var needsAid = noAid
         needsAid.needsAid = true
 
-        let noAidStrategy = engine.chance(for: yale, profile: noAid).factors.first { $0.label == "申请策略" }?.value
-        let needsAidStrategy = engine.chance(for: yale, profile: needsAid).factors.first { $0.label == "申请策略" }?.value
+        let noAidFactor = engine.chance(for: yale, profile: noAid).factors.first { $0.label == "资助需求" }
+        let needsAidFactor = engine.chance(for: yale, profile: needsAid).factors.first { $0.label == "资助需求" }
 
-        XCTAssertEqual(noAidStrategy, needsAidStrategy)
+        XCTAssertEqual(noAidFactor?.value, 0)
+        XCTAssertEqual(needsAidFactor?.value, 0)
+        XCTAssertTrue(needsAidFactor?.detail.contains("need-blind") == true)
+    }
+
+    func testNeedAwareInternationalAidIsDisclosedSeparately() {
+        let harvard = AdmissionsSeedData.colleges.first { $0.id == "harvard" }!
+        var noAid = strongChineseInternationalProfile
+        noAid.needsAid = false
+
+        var needsAid = noAid
+        needsAid.needsAid = true
+
+        let noAidResult = engine.chance(for: harvard, profile: noAid)
+        let needsAidResult = engine.chance(for: harvard, profile: needsAid)
+        let aidFactor = needsAidResult.factors.first { $0.label == "资助需求" }
+
+        XCTAssertEqual(noAidResult.factors.first { $0.label == "资助需求" }?.value, 0)
+        XCTAssertLessThan(aidFactor?.value ?? 0, 0)
+        XCTAssertTrue(aidFactor?.detail.contains("need-aware") == true)
+        XCTAssertTrue(needsAidResult.warnings.contains { $0.contains("need-aware") })
+    }
+
+    func testDomesticAidDoesNotUseInternationalAidPolicy() {
+        let harvard = AdmissionsSeedData.colleges.first { $0.id == "harvard" }!
+        var profile = StudentProfile.sample
+        profile.applicantStatus = .usCitizenDomestic
+        profile.major = .humanities
+        profile.needsAid = true
+
+        let result = engine.chance(for: harvard, profile: profile)
+        let aidFactor = result.factors.first { $0.label == "资助需求" }
+
+        XCTAssertEqual(aidFactor?.value, 0)
+        XCTAssertTrue(aidFactor?.detail.contains("不使用国际生资助政策修正") == true)
+        XCTAssertFalse(result.warnings.contains { $0.contains("need-aware") })
     }
 
     func testSubmittedStrongTestScoreBeatsTestOptionalAtSelectiveSchool() {

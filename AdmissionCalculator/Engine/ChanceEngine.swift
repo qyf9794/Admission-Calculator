@@ -116,7 +116,8 @@ struct ChanceEngine {
             ChanceFactor(label: "专业竞争", value: majorDelta, detail: "\(profile.major.rawValue) 的竞争强度修正。"),
             ChanceFactor(label: "申请身份", value: internationalDelta, detail: internationalDetail(profile: profile, signal: internationalSignal)),
             ChanceFactor(label: "中国录取信号", value: chinaAdmissionDelta, detail: chinaAdmissionDetail(profile: profile, signal: chinaSignal)),
-            ChanceFactor(label: "申请策略", value: roundDelta + aidDelta, detail: "\(profile.round.rawValue) 轮次与资助需求修正。")
+            ChanceFactor(label: "申请轮次", value: roundDelta, detail: roundDetail(profile.round, college: college)),
+            ChanceFactor(label: "资助需求", value: aidDelta, detail: aidDetail(profile: profile, signal: internationalSignal))
         ]
 
         let warnings = warnings(for: college, profile: profile, gate: gate, internationalSignal: internationalSignal, chinaSignal: chinaSignal, benchmark: benchmark)
@@ -367,6 +368,18 @@ struct ChanceEngine {
         if profile.highSchoolID == "unknown" {
             items.append("高中背景为其他/手动评估学校，当前使用保守代理校准；如有真实学校资源和升学记录，应单独复核。")
         }
+        if profile.needsAid && profile.applicantStatus.isInternational {
+            switch internationalSignal.internationalAidPolicy {
+            case .needAware:
+                items.append("该校国际生资助政策按 need-aware 处理，申请资助已作为负向策略修正。")
+            case .limited:
+                items.append("该校国际生资助资源有限，申请资助已作为较强负向策略修正。")
+            case .unknown:
+                items.append("该校国际生资助政策缺少明确口径，申请资助按保守负向策略修正。")
+            case .needBlind:
+                break
+            }
+        }
         items.append(contentsOf: curriculumEvidenceWarnings(profile))
         if isTestFreeForAdmissions(college), profile.sat != nil || profile.act != nil || profile.testOptional {
             items.append("该 UC 校区为 test-free：SAT/ACT 不进入录取概率或奖学金判断；语言成绩、AP/IB/A-Level 等仍可作为门槛或课程表现信号。")
@@ -437,6 +450,33 @@ struct ChanceEngine {
             return "其他/手动评估学校使用保守代理校准；不会按顶尖国际化高中默认加分。"
         }
         return "\(school.name) 的资源、升学记录与透明度校准；这是 AdmitRanking 风格代理，不是个人录取证明。"
+    }
+
+    private func roundDetail(_ round: ApplicationRound, college: College) -> String {
+        if isUCCampus(college) {
+            return "UC 校区使用统一 first-year filing period；EA/ED 不作为有效轮次优势。"
+        }
+        return "\(round.rawValue) 轮次策略修正；学校官方轮次限制仍由硬门槛先检查。"
+    }
+
+    private func aidDetail(profile: StudentProfile, signal: InternationalSignal) -> String {
+        guard profile.needsAid else {
+            return "未申请资助，不进行资助需求修正。"
+        }
+        guard profile.applicantStatus.isInternational else {
+            return "\(profile.applicantStatus.rawValue) 不使用国际生资助政策修正。"
+        }
+
+        switch signal.internationalAidPolicy {
+        case .needBlind:
+            return "该校国际生资助政策按 need-blind 处理，申请资助不降低概率。"
+        case .needAware:
+            return "该校国际生资助政策按 need-aware 处理，申请资助会降低录取机会估计。"
+        case .limited:
+            return "该校国际生资助资源有限，申请资助会较强降低录取机会估计。"
+        case .unknown:
+            return "该校国际生资助政策缺少明确口径，申请资助按保守负向修正。"
+        }
     }
 
     private func testingScore(_ profile: StudentProfile, college: College? = nil) -> Double {

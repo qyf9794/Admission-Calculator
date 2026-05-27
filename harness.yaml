@@ -54,6 +54,7 @@ data_sources:
       - "Official admissions and financial aid pages"
     scope: "Undergraduate only"
     rule: "Use international admit coefficient only when undergraduate international admitted count and total admitted count are both available. Do not use graduate or all-level SEVIS data in probability math."
+    aid_policy_rule: "International financial-aid policy may affect international applicants who request aid, but must be shown as a separate factor and must not penalize domestic/U.S. citizen applicants."
   china_undergrad_admissions:
     scope: "Undergraduate China student admits only"
     rule: "May adjust China applicant estimates as an admit-count signal. Do not present as share of all admits unless all-admit denominator is available."
@@ -148,3 +149,5 @@ validation_tests:
     description: "Sample/default profiles must use the unknown high-school proxy, and UI/report/warnings must disclose that high-school context is a proxy calibration."
   - id: test_optional_ignores_residual_scores
     description: "If testOptional is true, residual SAT/ACT values must not improve readiness or academic benchmark fit, and the UI should clear or disclose ignored scores."
+  - id: aid_policy_factor_disclosure
+    description: "Financial-aid need adjustments must be a separate disclosed factor, apply only to relevant international applicants, and show no penalty for need-blind or domestic cases."

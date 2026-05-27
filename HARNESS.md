@@ -19,6 +19,7 @@ The result is an explainable estimate, not a promise of admission.
 - The data UI must expose per-school source audit notes for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules.
 - International student fields must be undergraduate-only. Never use graduate or all-level international data in probability math.
 - International admit coefficient may be used only when undergraduate international admitted count and total admitted count are both present.
+- International financial-aid policy may affect international applicants who request aid, but it must be a separate disclosed factor and must not penalize domestic/U.S. citizen applicants.
 - China student admit-count data may adjust China applicant estimates, but may not be labeled as a share of all admits unless all-admit totals are present.
 - For Chinese international applicants, the model must not use the raw overall school admit rate as the final prior. It must apply ordinary-applicant calibration for international status, hooked-seat dilution at highly selective schools, and round-specific China admit-count capacity caps when China applicant denominators are missing.
 - T10/T30/T50 portfolio probabilities must describe only the currently selected or auto-recommended application portfolio. Do not display all-dataset tier probabilities as if the applicant planned to apply to every school in that tier.
