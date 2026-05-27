@@ -9,6 +9,7 @@ struct ResultsView: View {
         ScrollView {
             if let result {
                 VStack(alignment: .leading, spacing: 16) {
+                    ResultsHero(result: result)
                     if isStale {
                         Label("当前结果基于上一次提交的画像或选校；请回到计算页重新计算后再用于决策。", systemImage: "exclamationmark.triangle.fill")
                             .font(.footnote)
@@ -18,6 +19,7 @@ struct ResultsView: View {
                             .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                     }
                     SummaryBand(result: result)
+                    ResultPriorityCard(result: result)
                     ApplicantDisclosure(profile: result.profileSnapshot)
                     SchoolResultsList(results: result.schoolResults)
                     ReportPanel(result: result, purchaseState: purchaseState)
@@ -30,23 +32,107 @@ struct ResultsView: View {
     }
 }
 
+private struct ResultsHero: View {
+    let result: PortfolioResult
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color(red: 0.07, green: 0.13, blue: 0.27)
+            HStack(alignment: .bottom, spacing: 8) {
+                ResultBar(color: .green, count: result.selectedBucketCounts.likely, height: 78)
+                ResultBar(color: .blue, count: result.selectedBucketCounts.target, height: 112)
+                ResultBar(color: .orange, count: result.selectedBucketCounts.reach, height: 94)
+                ResultBar(color: .red, count: result.selectedBucketCounts.blocked, height: 54)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .opacity(0.72)
+            .padding(.trailing, 18)
+
+            VStack(alignment: .leading, spacing: 14) {
+                Label(result.selectionSource.rawValue, systemImage: "chart.bar.xaxis")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+                Text(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))
+                    .font(.system(size: 54, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text("当前组合至少一所录取估算")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Text("这是用于规划的区间判断，不是录取承诺；硬门槛、置信度和数据来源仍需逐校查看。")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.84))
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    HeroMetric(title: "学校", value: "\(result.schoolResults.count)")
+                    HeroMetric(title: "阻断", value: "\(result.selectedBucketCounts.blocked)")
+                    HeroMetric(title: "画像", value: "\(Int(result.profileScore))")
+                }
+            }
+            .padding(18)
+        }
+        .frame(maxWidth: .infinity, minHeight: 270)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct ResultBar: View {
+    let color: Color
+    let count: Int
+    let height: CGFloat
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("\(count)")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+            RoundedRectangle(cornerRadius: 4)
+                .fill(color)
+                .frame(width: 24, height: min(150, max(24, height + CGFloat(count * 8))))
+        }
+    }
+}
+
+private struct HeroMetric: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.white.opacity(0.72))
+            Text(value)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+        }
+        .frame(minWidth: 56, alignment: .leading)
+    }
+}
+
 private struct ApplicantDisclosure: View {
     let profile: StudentProfile
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("申请身份")
+        VStack(alignment: .leading, spacing: 10) {
+            Label("申请身份", systemImage: "person.crop.circle.badge.checkmark")
                 .font(.headline)
+                .foregroundStyle(.indigo)
             Text(profile.applicantStatus.rawValue)
-                .font(.subheadline.weight(.medium))
+                .font(.title3.weight(.semibold))
             Text(profile.applicantStatus.isInternational
                  ? "国际生修正只使用本科口径；中国籍申请者会使用普通申请池先验和中国学生本科录取容量约束，缺少申请人数分母时不会计算精确中国录取率。"
                  : "当前身份不使用国际生代理修正，英语硬门槛也不会作为国际生要求触发。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.indigo.opacity(0.16), lineWidth: 1)
+        )
     }
 }
 
@@ -55,13 +141,14 @@ private struct SummaryBand: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("至少一所录取概率")
+            Label("组合概率概览", systemImage: "chart.pie.fill")
                 .font(.headline)
+                .foregroundStyle(.blue)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                MetricCell(title: "T10", value: result.t10AtLeastOne)
-                MetricCell(title: "T30", value: result.t30AtLeastOne)
-                MetricCell(title: "T50", value: result.t50AtLeastOne)
-                MetricCell(title: "当前组合", value: result.selectedAtLeastOne)
+                MetricCell(title: "T10", value: result.t10AtLeastOne, tint: .purple)
+                MetricCell(title: "T30", value: result.t30AtLeastOne, tint: .blue)
+                MetricCell(title: "T50", value: result.t50AtLeastOne, tint: .teal)
+                MetricCell(title: "当前组合", value: result.selectedAtLeastOne, tint: .green)
             }
             Text("组合来源：\(result.selectionSource.rawValue)。")
                 .font(.footnote)
@@ -86,27 +173,128 @@ private struct SummaryBand: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.blue.opacity(0.16), lineWidth: 1)
+        )
     }
 }
 
 private struct MetricCell: View {
     let title: String
     let value: Double
+    let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(value.formatted(.percent.precision(.fractionLength(0))))
                 .font(.title2.weight(.semibold))
+                .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(tint.opacity(0.18), lineWidth: 1)
+        )
     }
+}
+
+private struct ResultPriorityCard: View {
+    let result: PortfolioResult
+
+    private var actions: [PriorityAction] {
+        var items: [PriorityAction] = []
+        if result.selectedBucketCounts.blocked > 0 {
+            items.append(PriorityAction(
+                title: "先处理硬门槛",
+                detail: "\(result.selectedBucketCounts.blocked) 所学校当前被硬门槛阻断，补齐 required 标化、英语、轮次或作品集后再看概率。",
+                systemImage: "exclamationmark.triangle.fill",
+                color: .red
+            ))
+        }
+
+        let lowConfidenceCount = result.schoolResults.filter { $0.confidence == .low }.count
+        if lowConfidenceCount > 0 {
+            items.append(PriorityAction(
+                title: "复核低置信度学校",
+                detail: "\(lowConfidenceCount) 所学校数据缺口较大，优先核对官方 CDS、class profile 或国际生本科数据。",
+                systemImage: "questionmark.diamond.fill",
+                color: .orange
+            ))
+        }
+
+        let prompts = result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.selectedCollegeIDs)
+        if let prompt = prompts.first {
+            items.append(PriorityAction(
+                title: prompt.title,
+                detail: prompt.detail,
+                systemImage: prompt.systemImage,
+                color: .blue
+            ))
+        }
+
+        if result.selectionSource == .automatic, let warning = result.recommendationWarnings.first {
+            items.append(PriorityAction(
+                title: "调整自动推荐数量",
+                detail: warning,
+                systemImage: "slider.horizontal.3",
+                color: .purple
+            ))
+        }
+
+        if items.isEmpty {
+            items.append(PriorityAction(
+                title: "可以进入逐校复核",
+                detail: "当前组合没有优先级更高的阻断项；下一步看学术匹配、置信度和来源审计。",
+                systemImage: "checkmark.seal.fill",
+                color: .green
+            ))
+        }
+        return Array(items.prefix(3))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("下一步优先级", systemImage: "flag.checkered")
+                .font(.headline)
+                .foregroundStyle(.orange)
+            ForEach(actions) { action in
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(action.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(action.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: action.systemImage)
+                        .foregroundStyle(action.color)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.orange.opacity(0.18), lineWidth: 1)
+        )
+    }
+}
+
+private struct PriorityAction: Identifiable {
+    let id = UUID()
+    let title: String
+    let detail: String
+    let systemImage: String
+    let color: Color
 }
 
 private struct SchoolResultsList: View {
@@ -114,8 +302,9 @@ private struct SchoolResultsList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("逐校结果")
+            Label("逐校结果", systemImage: "building.2.crop.circle")
                 .font(.headline)
+                .foregroundStyle(.indigo)
             if results.isEmpty {
                 ContentUnavailableView("尚未选择学校", systemImage: "building.columns", description: Text("请在计算页手选学校，或点击自动推荐组合。"))
                     .frame(maxWidth: .infinity)
@@ -178,6 +367,12 @@ private struct SchoolResultsList: View {
                 }
                 .padding()
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(bucketColor(result.bucket))
+                        .frame(width: 5)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
     }
@@ -206,8 +401,9 @@ private struct ReportPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("AI 综合报告")
+            Label("AI 综合报告", systemImage: "doc.text.magnifyingglass")
                 .font(.headline)
+                .foregroundStyle(.purple)
             if purchaseState.isUnlocked {
                 Text(ReportService.makeReport(result: result))
                     .font(.callout)
@@ -224,7 +420,11 @@ private struct ReportPanel: View {
                 .buttonStyle(.borderedProminent)
             }
         }
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.purple.opacity(0.16), lineWidth: 1)
+        )
     }
 }
