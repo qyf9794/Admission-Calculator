@@ -232,7 +232,7 @@ private struct CollegeStatisticsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: "学校统计", subtitle: "基础录取率只作为模型种子，个人概率会被画像、门槛和数据质量修正。", systemImage: "chart.bar.doc.horizontal", tint: .purple)
             if colleges.isEmpty {
-                ContentUnavailableView("没有匹配学校", systemImage: "magnifyingglass", description: Text("可按学校名、排名或综合大学 T10/T30/T50 搜索。"))
+                ContentUnavailableView("没有匹配学校", systemImage: "magnifyingglass", description: Text("可按学校名、排名或综合大学 T10/T30/T50/50+ 搜索。"))
             }
             ForEach(colleges) { college in
                 CollegeStatCard(college: college)

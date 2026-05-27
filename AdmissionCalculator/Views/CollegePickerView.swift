@@ -92,6 +92,7 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
     case top10 = "综大T10"
     case top30 = "综大T30"
     case top50 = "综大T50"
+    case fiftyPlus = "综大50+"
 
     var id: String { rawValue }
 
@@ -107,6 +108,8 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
             return college.rank <= 30
         case .top50:
             return college.rank <= 50
+        case .fiftyPlus:
+            return college.rank > 50
         }
     }
 }
