@@ -243,7 +243,22 @@ struct ChanceEngine {
         let targetCount = max(1, Int(Double(count) * 0.45))
         let likelyCount = count == 1 ? 0 : max(1, Int(Double(count) * 0.30))
         let reachCount = max(0, count - targetCount - likelyCount)
-        return Array(recommendedColleges(for: profile, reachCount: reachCount, targetCount: targetCount, likelyCount: likelyCount).prefix(count))
+        var picked = recommendedColleges(for: profile, reachCount: reachCount, targetCount: targetCount, likelyCount: likelyCount)
+        if picked.count < count {
+            let pickedIDs = Set(picked.map(\.id))
+            let fallbackResults = colleges.map { chance(for: $0, profile: profile) }
+            let eligibleFallbackResults = fallbackResults.filter { result in
+                result.gateResult.passed && !pickedIDs.contains(result.college.id)
+            }
+            let sortedFallbackResults = eligibleFallbackResults.sorted { lhs, rhs in
+                lhs.adjustedProbability == rhs.adjustedProbability
+                    ? lhs.college.rank < rhs.college.rank
+                    : lhs.adjustedProbability > rhs.adjustedProbability
+            }
+            let fallback = sortedFallbackResults.map(\.college)
+            picked.append(contentsOf: fallback.prefix(count - picked.count))
+        }
+        return Array(picked.prefix(count))
     }
 
     func recommendedColleges(for profile: StudentProfile, reachCount: Int, targetCount: Int, likelyCount: Int) -> [College] {
@@ -939,8 +954,8 @@ struct ChanceEngine {
 
     private func bucket(_ probability: Double) -> RecommendationBucket {
         if probability == 0 { return .blocked }
-        if probability < 0.15 { return .reach }
-        if probability < 0.35 { return .target }
+        if probability < 0.20 { return .reach }
+        if probability < 0.60 { return .target }
         return .likely
     }
 

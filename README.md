@@ -17,6 +17,7 @@ The v1 model is intentionally transparent:
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
 - Portfolio-level T10/T30/T50 probabilities are scoped to the currently selected or auto-recommended school set.
 - Selected schools outside the v1 dataset are excluded from probability math and disclosed as portfolio warnings.
+- Recommendation buckets use conservative planning thresholds: `争取` below 20%, `目标` 20%-60%, and `保底` at least 60%; `保底` is still not a guarantee.
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.
 - Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation bucket shortages.
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.

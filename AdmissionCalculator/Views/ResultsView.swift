@@ -74,6 +74,9 @@ private struct SummaryBand: View {
             Text("组合结构：保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            Text("分档规则：争取 <20%，目标 20%-60%，保底 >=60%。保底是相对规划标签，不代表录取保证。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             ForEach(result.recommendationWarnings, id: \.self) { warning in
                 Label(warning, systemImage: "info.circle")
                     .font(.footnote)

@@ -414,6 +414,23 @@ final class ChanceEngineTests: XCTestCase {
         }
     }
 
+    func testRecommendationBucketsUseConservativePlanningThresholds() {
+        let results = AdmissionsSeedData.colleges.map { engine.chance(for: $0, profile: .sample) }
+
+        XCTAssertTrue(results.allSatisfy { result in
+            switch result.bucket {
+            case .blocked:
+                result.adjustedProbability == 0
+            case .reach:
+                result.adjustedProbability > 0 && result.adjustedProbability < 0.20
+            case .target:
+                result.adjustedProbability >= 0.20 && result.adjustedProbability < 0.60
+            case .likely:
+                result.adjustedProbability >= 0.60
+            }
+        })
+    }
+
     func testPortfolioDisclosesRecommendationBucketShortages() {
         var profile = StudentProfile.sample
         profile.requestedLikelyCount = 10

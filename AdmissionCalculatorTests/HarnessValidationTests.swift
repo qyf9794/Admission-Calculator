@@ -131,6 +131,7 @@ final class HarnessValidationTests: XCTestCase {
 
         XCTAssertTrue(report.contains("不改变概率"))
         XCTAssertTrue(report.contains("不承诺录取"))
+        XCTAssertTrue(report.contains("保底是相对规划标签，不代表录取保证"))
     }
 
     func testReportIncludesComputedWarningsAndDataLimitations() {

@@ -57,6 +57,7 @@ enum ReportService {
         当前组合结构：
         来源：\(result.selectionSource.rawValue)。
         保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。
+        分档规则：争取 <20%，目标 20%-60%，保底 >=60%；保底是相对规划标签，不代表录取保证。
         \(selectionNotes)
 
         自动推荐提示：
