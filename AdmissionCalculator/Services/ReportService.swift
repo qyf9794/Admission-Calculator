@@ -15,7 +15,8 @@ final class ReportPurchaseState: ObservableObject {
 }
 
 enum ReportService {
-    static func makeReport(profile: StudentProfile, result: PortfolioResult) -> String {
+    static func makeReport(result: PortfolioResult) -> String {
+        let profile = result.profileSnapshot
         let blocked = result.schoolResults.filter { !$0.gateResult.passed }
         let top = result.schoolResults.prefix(5)
         let probabilities = top.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)）" }.joined(separator: "\n")

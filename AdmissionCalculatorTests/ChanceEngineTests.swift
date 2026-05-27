@@ -298,11 +298,30 @@ final class ChanceEngineTests: XCTestCase {
         let result = engine.evaluate(profile: submitted, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
 
         submitted.major = .computerScience
-        let report = ReportService.makeReport(profile: result.profileSnapshot, result: result)
+        let report = ReportService.makeReport(result: result)
 
         XCTAssertEqual(result.profileSnapshot.major, .humanities)
         XCTAssertTrue(report.contains("目标专业 Humanities"))
         XCTAssertFalse(report.contains("目标专业 Computer Science"))
+    }
+
+    func testLegacyRecommendationCountHonorsRequestedCount() {
+        XCTAssertTrue(engine.recommendedColleges(for: .sample, count: 0).isEmpty)
+        XCTAssertEqual(engine.recommendedColleges(for: .sample, count: 1).count, 1)
+    }
+
+    func testACTUsesConcordanceForProfileScoring() {
+        var satProfile = StudentProfile.sample
+        satProfile.major = .humanities
+        satProfile.sat = 1460
+        satProfile.act = nil
+        satProfile.testOptional = false
+
+        var actProfile = satProfile
+        actProfile.sat = nil
+        actProfile.act = 33
+
+        XCTAssertEqual(engine.studentScore(actProfile), engine.studentScore(satProfile), accuracy: 0.0001)
     }
 
     func testEmptySelectionDoesNotImplicitlyAutoRecommendSchools() {

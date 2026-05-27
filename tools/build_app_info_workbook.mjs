@@ -174,7 +174,7 @@ sheets.method.getRange(`A${weightStart + 2}:F${weightStart + 12}`).values = [
   ["年级排名", 0.10, "classRankPercentile", "100 - 百分位", "相对竞争环境", "可调"],
   ["课程难度", 0.10, "rigor", "1-5 转 20-100", "课程挑战度", "可调"],
   ["课程体系成绩", 0.08, "AP/IB/A-Level/Chinese scores", "按体系分段转内部指数", "课程体系内成绩表现", "可调"],
-  ["标化/语言", 0.11, "SAT/ACT/TOEFL/IELTS", "分段归一", "可比硬指标", "可调"],
+  ["标化/语言", 0.11, "SAT/ACT/TOEFL/IELTS", "ACT 先按官方 concordance 转 SAT 等效后分段归一", "可比硬指标", "可调"],
   ["高中背景", 0.08, "highSchoolID", "资源/顾问/升学/透明度", "中国校背景", "可调"],
   ["活动", 0.12, "activities", "1-5 转 20-100", "影响力", "可调"],
   ["科研/夏校", 0.07, "research", "1-5 转 20-100", "学术探索", "可调"],

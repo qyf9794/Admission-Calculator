@@ -197,7 +197,7 @@ private struct ReportPanel: View {
             Text("AI 综合报告")
                 .font(.headline)
             if purchaseState.isUnlocked {
-                Text(ReportService.makeReport(profile: result.profileSnapshot, result: result))
+                Text(ReportService.makeReport(result: result))
                     .font(.callout)
                     .textSelection(.enabled)
             } else {

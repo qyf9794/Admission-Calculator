@@ -214,10 +214,13 @@ struct ChanceEngine {
     }
 
     func recommendedColleges(for profile: StudentProfile, count: Int) -> [College] {
+        guard count > 0 else {
+            return []
+        }
         let targetCount = max(1, Int(Double(count) * 0.45))
-        let likelyCount = max(1, Int(Double(count) * 0.30))
+        let likelyCount = count == 1 ? 0 : max(1, Int(Double(count) * 0.30))
         let reachCount = max(0, count - targetCount - likelyCount)
-        return recommendedColleges(for: profile, reachCount: reachCount, targetCount: targetCount, likelyCount: likelyCount)
+        return Array(recommendedColleges(for: profile, reachCount: reachCount, targetCount: targetCount, likelyCount: likelyCount).prefix(count))
     }
 
     func recommendedColleges(for profile: StudentProfile, reachCount: Int, targetCount: Int, likelyCount: Int) -> [College] {
@@ -360,10 +363,10 @@ struct ChanceEngine {
         if profile.testOptional {
             return 54
         }
-        let satScore = profile.sat.map { clamp((Double($0) - 1050) / 550 * 100, min: 0, max: 100) } ?? 0
-        let actScore = profile.act.map { clamp((Double($0) - 21) / 15 * 100, min: 0, max: 100) } ?? 0
+        let satEquivalent = max(profile.sat ?? 0, actToSat(profile.act) ?? 0)
+        let testScore = satEquivalent > 0 ? clamp((Double(satEquivalent) - 1050) / 550 * 100, min: 0, max: 100) : 0
         let english = englishScore(profile)
-        return max(satScore, actScore) * 0.72 + english * 0.28
+        return testScore * 0.72 + english * 0.28
     }
 
     private func englishScore(_ profile: StudentProfile) -> Double {

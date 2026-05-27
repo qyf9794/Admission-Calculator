@@ -79,7 +79,7 @@ final class HarnessValidationTests: XCTestCase {
 
     func testNoReportCanChangeComputedProbabilities() {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu", "tufts"]))
-        let report = ReportService.makeReport(profile: .sample, result: result)
+        let report = ReportService.makeReport(result: result)
 
         XCTAssertTrue(report.contains("不改变概率"))
         XCTAssertTrue(report.contains("不承诺录取"))
