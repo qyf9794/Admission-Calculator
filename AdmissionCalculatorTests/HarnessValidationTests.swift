@@ -133,6 +133,22 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("不承诺录取"))
     }
 
+    func testReportIncludesComputedWarningsAndDataLimitations() {
+        var profile = StudentProfile.sample
+        profile.major = .humanities
+        profile.curriculum = .ap
+        profile.apCourseCount = 0
+        profile.apAverageScore = 5.0
+
+        let result = ChanceEngine().evaluate(profile: profile, selectedCollegeIDs: Set(["bu"]))
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(report.contains("数据限制与警告"))
+        XCTAssertTrue(report.contains("Boston University"))
+        XCTAssertTrue(report.contains("AP 体系课程门数为 0"))
+        XCTAssertTrue(report.contains("目标校学术基准为推断值"))
+    }
+
     private func assertChinaTotal(_ early: Int?, _ rd: Int?, _ total: Int?, _ collegeID: String) {
         guard let early, let rd, let total else {
             return

@@ -42,6 +42,7 @@ enum ReportService {
         case .none:
             recommendationNotes = "尚未选择学校，未触发自动推荐。"
         }
+        let warningNotes = warningSummary(result: result)
         return """
         综合选校报告
 
@@ -70,6 +71,9 @@ enum ReportService {
         硬门槛：
         \(gates)
 
+        数据限制与警告：
+        \(warningNotes)
+
         建议：
         1. 先补齐所有 required 标化、英语或作品集门槛，再优化概率。
         2. 对低概率但未被阻断的学校，先看 GPA/排名/标化/课程难度是否低于目标校基准，再决定是补学术、换梯度，还是加强专业叙事。
@@ -86,5 +90,29 @@ enum ReportService {
     private static func signed(_ value: Double) -> String {
         let sign = value >= 0 ? "+" : ""
         return "\(sign)\(value.formatted(.number.precision(.fractionLength(2))))"
+    }
+
+    private static func warningSummary(result: PortfolioResult) -> String {
+        var lines: [String] = []
+        lines.append(contentsOf: result.selectionWarnings)
+        if result.selectionSource == .automatic {
+            lines.append(contentsOf: result.recommendationWarnings)
+        }
+        for school in result.schoolResults {
+            let warnings = unique(school.warnings)
+            guard !warnings.isEmpty else {
+                continue
+            }
+            let visible = warnings.prefix(4).joined(separator: "；")
+            let suffix = warnings.count > 4 ? "；等 \(warnings.count) 条" : ""
+            lines.append("\(school.college.name)：\(visible)\(suffix)")
+        }
+        let uniqueLines = unique(lines)
+        return uniqueLines.isEmpty ? "未发现额外数据限制或模型警告。" : uniqueLines.joined(separator: "\n")
+    }
+
+    private static func unique(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
     }
 }

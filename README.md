@@ -20,6 +20,7 @@ The v1 model is intentionally transparent:
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.
 - Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation bucket shortages.
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.
+- AI reports include computed portfolio warnings and per-school data limitations instead of replacing them with generic advice.
 - Results and AI reports are tied to the submitted profile snapshot; if the live form changes afterward, the app flags the displayed result as stale.
 - Multi-school probability uses same-tier correlation discounting.
 - The paid-report surface is wired as a StoreKit-ready placeholder and cannot modify computed probabilities.
