@@ -37,6 +37,7 @@ data_sources:
     reference_source: "AdmitRanking"
     url: "https://admitranking.com/"
     rule: "Use school background as a calibration signal, never as a standalone guarantee."
+    default_rule: "Default sample profiles and ambiguous user input must use the conservative unknown/other school context rather than a named high-performing school."
   hard_gates:
     preferred_source: "Official college admissions pages or CDS"
     fallback: "If official data is missing, infer from peer policy and mark the rule as inferred."
@@ -142,3 +143,5 @@ validation_tests:
     description: "Recommendation buckets must not label sub-60% chances as likely/safety, and UI/report copy must state that likely is not a guarantee."
   - id: per_school_source_audit
     description: "The data UI must expose per-school source notes for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules."
+  - id: conservative_high_school_default
+    description: "Sample/default profiles must use the unknown high-school proxy, and UI/report/warnings must disclose that high-school context is a proxy calibration."

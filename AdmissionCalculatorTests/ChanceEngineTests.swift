@@ -295,6 +295,36 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertGreaterThan(engine.studentScore(aGrades), engine.studentScore(bGrades))
     }
 
+    func testSampleProfileUsesConservativeUnknownHighSchoolDefault() {
+        XCTAssertEqual(StudentProfile.sample.highSchoolID, "unknown")
+
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        let result = engine.chance(for: bu, profile: .sample)
+
+        XCTAssertTrue(result.factors.contains { factor in
+            factor.label == "高中背景" && factor.detail.contains("保守代理校准")
+        })
+        XCTAssertTrue(result.warnings.contains { $0.contains("高中背景为其他/手动评估学校") })
+    }
+
+    func testKnownHighSchoolContextCanImproveReadinessButIsOnlyProxy() {
+        var unknown = StudentProfile.sample
+        unknown.highSchoolID = "unknown"
+
+        var known = unknown
+        known.highSchoolID = "shsid"
+
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        let unknownResult = engine.chance(for: bu, profile: unknown)
+        let knownResult = engine.chance(for: bu, profile: known)
+
+        XCTAssertGreaterThan(engine.studentScore(known), engine.studentScore(unknown))
+        XCTAssertGreaterThan(knownResult.factors.first { $0.label == "高中背景" }?.value ?? 0, unknownResult.factors.first { $0.label == "高中背景" }?.value ?? 0)
+        XCTAssertTrue(knownResult.factors.contains { factor in
+            factor.label == "高中背景" && factor.detail.contains("代理")
+        })
+    }
+
     func testLowChinaCapacityIvyPlusSchoolIsConservativelyCapped() {
         let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
         let result = engine.chance(for: yale, profile: strongChineseInternationalProfile)
@@ -365,6 +395,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.profileSnapshot.major, .humanities)
         XCTAssertTrue(report.contains("目标专业 Humanities"))
         XCTAssertFalse(report.contains("目标专业 Computer Science"))
+        XCTAssertTrue(report.contains("高中背景"))
     }
 
     func testLegacyRecommendationCountHonorsRequestedCount() {

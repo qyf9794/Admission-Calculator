@@ -46,7 +46,7 @@ enum ReportService {
         return """
         综合选校报告
 
-        画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。
+        画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)，高中背景 \(highSchoolName(profile.highSchoolID))。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。
 
         当前组合内至少一所录取概率：
         T10：\(percent(result.t10AtLeastOne))
@@ -104,9 +104,7 @@ enum ReportService {
             guard !warnings.isEmpty else {
                 continue
             }
-            let visible = warnings.prefix(4).joined(separator: "；")
-            let suffix = warnings.count > 4 ? "；等 \(warnings.count) 条" : ""
-            lines.append("\(school.college.name)：\(visible)\(suffix)")
+            lines.append("\(school.college.name)：\(warnings.joined(separator: "；"))")
         }
         let uniqueLines = unique(lines)
         return uniqueLines.isEmpty ? "未发现额外数据限制或模型警告。" : uniqueLines.joined(separator: "\n")
@@ -115,5 +113,9 @@ enum ReportService {
     private static func unique(_ values: [String]) -> [String] {
         var seen = Set<String>()
         return values.filter { seen.insert($0).inserted }
+    }
+
+    private static func highSchoolName(_ id: String) -> String {
+        AdmissionsSeedData.highSchools.first { $0.id == id }?.name ?? "其他/手动评估学校"
     }
 }

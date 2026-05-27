@@ -8,6 +8,7 @@ The result is an explainable estimate, not a promise of admission.
 - Use the AdmissionSight National Universities acceptance-rate table as the only v1 college statistics seed.
 - Treat CollegeVine as a product/modeling reference for fields and explanation style, not as a copied formula.
 - Use AdmitRanking-style Chinese high-school context only as a calibration signal.
+- Default and sample profiles must use the conservative `其他/手动评估学校` high-school context unless the user explicitly selects a known school.
 - Run hard gates before probability math. If a required rule is not met, the school result is `0%`.
 - Clearly mark inferred gate rules and lower confidence when official sources are missing.
 - Only applicable gate rules may be checked, disclosed, or used to lower confidence; irrelevant global rules must not penalize unrelated applicants.

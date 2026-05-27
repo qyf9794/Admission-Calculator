@@ -9,6 +9,7 @@ The v1 model is intentionally transparent:
 - Hard gates run before probability math; failed required gates return `0%`.
 - Inferred gates are labeled and lower confidence.
 - Global gate rules are filtered by applicant status and major before they can block, warn, or lower confidence.
+- Default profiles use `其他/手动评估学校` for high-school background so named-school proxy advantages are never applied by default.
 - The form exposes both TOEFL and IELTS because either can satisfy the English proof gate.
 - Curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) affect academic readiness and school fit.
 - AP average score is counted only when AP course count is greater than 0.

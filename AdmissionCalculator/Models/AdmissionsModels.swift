@@ -322,7 +322,7 @@ struct StudentProfile: Hashable, Codable {
         honors: 4,
         essay: 3,
         recommendations: 4,
-        highSchoolID: "bnu_experimental",
+        highSchoolID: "unknown",
         major: .computerScience,
         round: .regularDecision,
         needsAid: false,

@@ -112,7 +112,7 @@ struct ChanceEngine {
             ChanceFactor(label: "普通申请池先验", value: ordinaryPrior, detail: ordinaryPriorDetail(for: college, profile: profile, internationalSignal: internationalSignal, chinaSignal: chinaSignal)),
             ChanceFactor(label: "学生画像", value: readinessDelta, detail: readinessDetail(score: score, college: college)),
             ChanceFactor(label: "目标校学术匹配", value: academicBenchmarkDelta, detail: academicBenchmarkDetail(profile: profile, college: college, benchmark: benchmark)),
-            ChanceFactor(label: "高中背景", value: highSchoolDelta, detail: "\(schoolContext.name) 的资源、升学记录与透明度校准。"),
+            ChanceFactor(label: "高中背景", value: highSchoolDelta, detail: highSchoolDetail(schoolContext)),
             ChanceFactor(label: "专业竞争", value: majorDelta, detail: "\(profile.major.rawValue) 的竞争强度修正。"),
             ChanceFactor(label: "申请身份", value: internationalDelta, detail: internationalDetail(profile: profile, signal: internationalSignal)),
             ChanceFactor(label: "中国录取信号", value: chinaAdmissionDelta, detail: chinaAdmissionDetail(profile: profile, signal: chinaSignal)),
@@ -361,6 +361,9 @@ struct ChanceEngine {
         if profile.gradeScale != .percent || (profile.curriculum == .chinese && profile.curriculumGradeScale != .percent) {
             items.append("绩点或等级制成绩已转换为内部学术指数；该指数用于相对比较，不等同于真实百分制成绩。")
         }
+        if profile.highSchoolID == "unknown" {
+            items.append("高中背景为其他/手动评估学校，当前使用保守代理校准；如有真实学校资源和升学记录，应单独复核。")
+        }
         items.append(contentsOf: curriculumEvidenceWarnings(profile))
         if isTestFreeForAdmissions(college), profile.sat != nil || profile.act != nil || profile.testOptional {
             items.append("该 UC 校区为 test-free：SAT/ACT 不进入录取概率或奖学金判断；语言成绩、AP/IB/A-Level 等仍可作为门槛或课程表现信号。")
@@ -424,6 +427,13 @@ struct ChanceEngine {
             return "学术、课程、活动、奖项、文书与推荐信合成分：\(Int(score))/100；SAT/ACT 已按该校 test-free 政策从录取画像中排除。"
         }
         return "学术、课程、标化、活动、奖项、文书与推荐信合成分：\(Int(score))/100。"
+    }
+
+    private func highSchoolDetail(_ school: HighSchoolContext) -> String {
+        if school.id == "unknown" {
+            return "其他/手动评估学校使用保守代理校准；不会按顶尖国际化高中默认加分。"
+        }
+        return "\(school.name) 的资源、升学记录与透明度校准；这是 AdmitRanking 风格代理，不是个人录取证明。"
     }
 
     private func testingScore(_ profile: StudentProfile, college: College? = nil) -> Double {

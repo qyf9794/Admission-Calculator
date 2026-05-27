@@ -76,6 +76,9 @@ struct CalculatorView: View {
                         Text("\(school.name) · \(school.city)").tag(school.id)
                     }
                 }
+                Text("高中背景仅作为 AdmitRanking 风格代理校准；不确定时请选择“其他/手动评估学校”，避免默认名校背景抬高估算。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("自动推荐组合") {
