@@ -335,6 +335,32 @@ final class ChanceEngineTests: XCTestCase {
         )
     }
 
+    func testLetterGradesDistinguishCDBands() {
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        var cGrade = StudentProfile.sample
+        cGrade.major = .humanities
+        cGrade.gradeScale = .letter
+        cGrade.letterGrade = .c
+
+        var dGrade = cGrade
+        dGrade.letterGrade = .d
+
+        var fGrade = cGrade
+        fGrade.letterGrade = .f
+
+        XCTAssertFalse(LetterGradeBand.allCases.contains(.cOrBelow))
+        XCTAssertGreaterThan(engine.studentScore(cGrade, college: bu), engine.studentScore(dGrade, college: bu))
+        XCTAssertGreaterThan(engine.studentScore(dGrade, college: bu), engine.studentScore(fGrade, college: bu))
+        XCTAssertGreaterThan(
+            engine.chance(for: bu, profile: cGrade).adjustedProbability,
+            engine.chance(for: bu, profile: dGrade).adjustedProbability
+        )
+        XCTAssertGreaterThan(
+            engine.chance(for: bu, profile: dGrade).adjustedProbability,
+            engine.chance(for: bu, profile: fGrade).adjustedProbability
+        )
+    }
+
     func testChineseCurriculumSupportsGpaScale() {
         var lowerCore = StudentProfile.sample
         lowerCore.major = .humanities

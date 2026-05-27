@@ -26,7 +26,14 @@ enum LetterGradeBand: String, CaseIterable, Identifiable, Codable {
     case b = "B"
     case bMinus = "B-"
     case cPlus = "C+"
+    case c = "C"
+    case d = "D"
+    case f = "F"
     case cOrBelow = "C 或以下"
+
+    static var allCases: [LetterGradeBand] {
+        [.aPlus, .a, .aMinus, .bPlus, .b, .bMinus, .cPlus, .c, .d, .f]
+    }
 
     var id: String { rawValue }
 }

@@ -738,7 +738,10 @@ struct ChanceEngine {
             case .b: return 83
             case .bMinus: return 79
             case .cPlus: return 74
-            case .cOrBelow: return 68
+            case .c: return 70
+            case .d: return 55
+            case .f: return 25
+            case .cOrBelow: return 60
             }
         }
     }
