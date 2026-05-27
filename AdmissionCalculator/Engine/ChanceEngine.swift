@@ -33,18 +33,9 @@ struct ChanceEngine {
         let selected = colleges.filter { selectedCollegeIDs.contains($0.id) }
         let resolvedSelectedIDs = Set(selected.map(\.id))
         let resolvedSource: PortfolioSelectionSource = selectedCollegeIDs.isEmpty ? .none : selectionSource
-        let recommended = resolvedSource == .automatic
-            ? recommendedColleges(
-                for: profile,
-                reachCount: profile.requestedReachCount,
-                targetCount: profile.requestedTargetCount,
-                likelyCount: profile.requestedLikelyCount
-            )
-            : []
-
         let schoolResults = selected.map { chance(for: $0, profile: profile) }
             .sorted { $0.adjustedProbability > $1.adjustedProbability }
-        let recommendedResults = recommended.map { chance(for: $0, profile: profile) }
+        let recommended = resolvedSource == .automatic ? selected : []
         return PortfolioResult(
             profileSnapshot: profile,
             selectedCollegeIDs: selectedCollegeIDs,
@@ -53,7 +44,7 @@ struct ChanceEngine {
             selectionSource: resolvedSource,
             selectedBucketCounts: bucketCounts(for: schoolResults),
             selectionWarnings: selectionWarnings(requestedIDs: selectedCollegeIDs, resolvedIDs: resolvedSelectedIDs),
-            recommendationWarnings: resolvedSource == .automatic ? recommendationWarnings(profile: profile, recommendedResults: recommendedResults) : [],
+            recommendationWarnings: resolvedSource == .automatic ? recommendationWarnings(profile: profile, recommendedResults: schoolResults) : [],
             t10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 10 }),
             t30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 30 }),
             t50AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 50 }),

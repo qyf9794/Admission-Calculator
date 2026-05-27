@@ -515,6 +515,20 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(Set(automatic.recommendedSchools.map(\.id)), automaticIDs)
     }
 
+    func testAutomaticSelectionCarriesCurrentPortfolioWithoutRecommendingAgain() {
+        var profile = StudentProfile.sample
+        profile.requestedLikelyCount = 3
+        profile.requestedTargetCount = 5
+        profile.requestedReachCount = 4
+
+        let selectedIDs: Set<String> = ["bu"]
+        let result = engine.evaluate(profile: profile, selectedCollegeIDs: selectedIDs, selectionSource: .automatic)
+
+        XCTAssertEqual(result.selectionSource, .automatic)
+        XCTAssertEqual(Set(result.schoolResults.map(\.college.id)), selectedIDs)
+        XCTAssertEqual(Set(result.recommendedSchools.map(\.id)), selectedIDs)
+    }
+
     func testChinaCapacityUsesApplicationRoundSpecificCount() {
         let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
         var rdProfile = strongChineseInternationalProfile
