@@ -30,6 +30,16 @@ final class HarnessValidationTests: XCTestCase {
         }
     }
 
+    func testCollegePickerSearchMatchesNameRankIDAndTier() {
+        let mit = AdmissionsSeedData.colleges.first { $0.id == "mit" }!
+
+        XCTAssertTrue(mit.matchesPickerQuery("MIT"))
+        XCTAssertTrue(mit.matchesPickerQuery("mit"))
+        XCTAssertTrue(mit.matchesPickerQuery("#2"))
+        XCTAssertTrue(mit.matchesPickerQuery("T10"))
+        XCTAssertFalse(mit.matchesPickerQuery("not-a-school"))
+    }
+
     func testGeneratedDataKeepsGateTargetsInsideAdmissionSightScope() {
         let collegeIDs = Set(AdmissionsSeedData.colleges.map(\.id))
         for rule in AdmissionsSeedData.gateRules where rule.collegeID != "*" {

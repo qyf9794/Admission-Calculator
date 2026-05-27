@@ -148,6 +148,19 @@ struct College: Identifiable, Hashable, Codable {
         if rank <= 50 { return "T50" }
         return "Listed"
     }
+
+    func matchesPickerQuery(_ query: String) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return true
+        }
+
+        return name.localizedCaseInsensitiveContains(trimmed) ||
+            id.localizedCaseInsensitiveContains(trimmed) ||
+            tierName.localizedCaseInsensitiveContains(trimmed) ||
+            "#\(rank)".localizedCaseInsensitiveContains(trimmed) ||
+            String(rank).localizedCaseInsensitiveContains(trimmed)
+    }
 }
 
 enum InternationalAidPolicy: String, Codable {
