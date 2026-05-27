@@ -156,6 +156,10 @@ struct College: Identifiable, Hashable, Codable {
         return "Listed"
     }
 
+    var tierDisplayName: String {
+        "综合大学 \(tierName)"
+    }
+
     func matchesPickerQuery(_ query: String) -> Bool {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {

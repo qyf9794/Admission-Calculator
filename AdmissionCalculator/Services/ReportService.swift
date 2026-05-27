@@ -71,9 +71,9 @@ enum ReportService {
         画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)，高中背景 \(highSchoolName(profile.highSchoolID))。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。
 
         当前选择学校中至少被一所录取的估算概率：
-        T10 至少一所（当前组合 \(tierCount(in: result, maxRank: 10)) 所）：\(percent(result.t10AtLeastOne))
-        T30 至少一所（当前组合 \(tierCount(in: result, maxRank: 30)) 所）：\(percent(result.t30AtLeastOne))
-        T50 至少一所（当前组合 \(tierCount(in: result, maxRank: 50)) 所）：\(percent(result.t50AtLeastOne))
+        综合大学 T10 至少一所（当前组合 \(tierCount(in: result, maxRank: 10)) 所）：\(percent(result.t10AtLeastOne))
+        综合大学 T30 至少一所（当前组合 \(tierCount(in: result, maxRank: 30)) 所）：\(percent(result.t30AtLeastOne))
+        综合大学 T50 至少一所（当前组合 \(tierCount(in: result, maxRank: 50)) 所）：\(percent(result.t50AtLeastOne))
         全部已选至少一所（\(result.schoolResults.count) 所）：\(percent(result.selectedAtLeastOne))
 
         当前组合结构：

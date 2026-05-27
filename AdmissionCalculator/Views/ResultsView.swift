@@ -215,9 +215,9 @@ private struct SummaryBand: View {
                 .font(.headline)
                 .foregroundStyle(.blue)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                MetricCell(title: "T10", value: result.t10AtLeastOne, count: tierCount(maxRank: 10), tint: .purple)
-                MetricCell(title: "T30", value: result.t30AtLeastOne, count: tierCount(maxRank: 30), tint: .blue)
-                MetricCell(title: "T50", value: result.t50AtLeastOne, count: tierCount(maxRank: 50), tint: .teal)
+                MetricCell(title: "综大T10", value: result.t10AtLeastOne, count: tierCount(maxRank: 10), tint: .purple)
+                MetricCell(title: "综大T30", value: result.t30AtLeastOne, count: tierCount(maxRank: 30), tint: .blue)
+                MetricCell(title: "综大T50", value: result.t50AtLeastOne, count: tierCount(maxRank: 50), tint: .teal)
                 MetricCell(title: "全部已选", value: result.selectedAtLeastOne, count: result.schoolResults.count, tint: .green)
             }
             Text("组合来源：\(result.selectionSource.rawValue)。")
@@ -239,7 +239,7 @@ private struct SummaryBand: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            Text("上述数值均表示当前选择范围内至少被一所学校录取的估算概率。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。T10/T30/T50 仅统计当前组合内学校，多校概率已使用同层相关性折扣。")
+            Text("上述数值均表示当前选择范围内至少被一所学校录取的估算概率。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。综大T10/T30/T50 仅统计当前组合内 AdmissionSight National Universities 学校，多校概率已使用同层相关性折扣。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -395,7 +395,7 @@ private struct SchoolResultsList: View {
                         VStack(alignment: .leading) {
                             Text(result.college.name)
                                 .font(.headline)
-                            Text("#\(result.college.rank) · \(result.college.tierName) · 置信度 \(result.confidence.rawValue)")
+                            Text("#\(result.college.rank) · \(result.college.tierDisplayName) · 置信度 \(result.confidence.rawValue)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

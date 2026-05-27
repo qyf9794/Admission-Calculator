@@ -89,9 +89,9 @@ struct CollegePickerView: View {
 private enum CollegePickerFilter: String, CaseIterable, Identifiable {
     case all = "全部"
     case selected = "已选"
-    case top10 = "T10"
-    case top30 = "T30"
-    case top50 = "T50"
+    case top10 = "综大T10"
+    case top30 = "综大T30"
+    case top50 = "综大T50"
 
     var id: String { rawValue }
 
@@ -224,7 +224,7 @@ private struct CollegeSelectionCard: View {
                             .padding(.vertical, 4)
                             .background(tierColor.opacity(0.14), in: Capsule())
                             .foregroundStyle(tierColor)
-                        Text(college.tierName)
+                        Text(college.tierDisplayName)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(tierColor)
                     }

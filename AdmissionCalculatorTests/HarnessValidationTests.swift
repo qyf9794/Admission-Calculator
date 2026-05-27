@@ -45,6 +45,7 @@ final class HarnessValidationTests: XCTestCase {
         let florida = AdmissionsSeedData.colleges.first { $0.id == "uf" }!
         let caseWestern = AdmissionsSeedData.colleges.first { $0.id == "case" }!
 
+        XCTAssertEqual(mit.tierDisplayName, "综合大学 T10")
         XCTAssertTrue(mit.matchesPickerQuery("MIT"))
         XCTAssertTrue(mit.matchesPickerQuery("mit"))
         XCTAssertTrue(mit.matchesPickerQuery("#2"))
@@ -295,9 +296,9 @@ final class HarnessValidationTests: XCTestCase {
         let report = ReportService.makeReport(result: result)
 
         XCTAssertTrue(report.contains("当前选择学校中至少被一所录取的估算概率"))
-        XCTAssertTrue(report.contains("T10 至少一所（当前组合 0 所）：0%"))
-        XCTAssertTrue(report.contains("T30 至少一所（当前组合 0 所）：0%"))
-        XCTAssertTrue(report.contains("T50 至少一所（当前组合 1 所）"))
+        XCTAssertTrue(report.contains("综合大学 T10 至少一所（当前组合 0 所）：0%"))
+        XCTAssertTrue(report.contains("综合大学 T30 至少一所（当前组合 0 所）：0%"))
+        XCTAssertTrue(report.contains("综合大学 T50 至少一所（当前组合 1 所）"))
         XCTAssertTrue(report.contains("全部已选至少一所（1 所）"))
     }
 
