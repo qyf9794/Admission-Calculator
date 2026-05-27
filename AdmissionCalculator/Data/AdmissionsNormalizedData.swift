@@ -2436,6 +2436,23 @@ enum AdmissionsNormalizedData {
             minimumStrengthBand: nil
         ),
         CollegeGateRule(
+            id: "caltech_rounds",
+            collegeID: "caltech",
+            type: .round,
+            title: "First-year application rounds",
+            detail: "Caltech offers Restrictive Early Action and Regular Decision; Caltech says both admit rates are under 5% and the difference is negligible.",
+            isOfficial: true,
+            sourceURL: URL(string: "https://www.admissions.caltech.edu/apply/first-year-applicants/deadlines"),
+            minimumSAT: nil,
+            minimumTOEFL: nil,
+            requiredRound: nil,
+            allowedRounds: [.earlyAction, .regularDecision],
+            earlyActionAdjustment: 0,
+            earlyDecisionAdjustment: nil,
+            affectedMajor: nil,
+            minimumStrengthBand: nil
+        ),
+        CollegeGateRule(
             id: "georgetown_sat",
             collegeID: "georgetown",
             type: .standardizedTest,

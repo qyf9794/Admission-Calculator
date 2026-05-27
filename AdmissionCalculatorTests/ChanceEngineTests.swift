@@ -704,6 +704,34 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(ed.gateResult.failedRules.contains { $0.type == .round && $0.isOfficial })
     }
 
+    func testCaltechRestrictiveEarlyActionDoesNotCreateBoostAndBlocksED() {
+        let caltech = AdmissionsSeedData.colleges.first { $0.id == "caltech" }!
+        var rdProfile = StudentProfile.sample
+        rdProfile.applicantStatus = .usCitizenDomestic
+        rdProfile.major = .humanities
+        rdProfile.sat = 1560
+        rdProfile.round = .regularDecision
+
+        var eaProfile = rdProfile
+        eaProfile.round = .earlyAction
+
+        var edProfile = rdProfile
+        edProfile.round = .earlyDecision
+
+        let rd = engine.chance(for: caltech, profile: rdProfile)
+        let ea = engine.chance(for: caltech, profile: eaProfile)
+        let ed = engine.chance(for: caltech, profile: edProfile)
+        let eaRound = ea.factors.first { $0.label == "申请轮次" }
+
+        XCTAssertTrue(rd.gateResult.passed)
+        XCTAssertTrue(ea.gateResult.passed)
+        XCTAssertEqual(eaRound?.value, 0)
+        XCTAssertEqual(rd.adjustedProbability, ea.adjustedProbability, accuracy: 0.0001)
+        XCTAssertTrue(eaRound?.detail.contains("没有明确概率加分") == true)
+        XCTAssertEqual(ed.adjustedProbability, 0)
+        XCTAssertTrue(ed.gateResult.failedRules.contains { $0.type == .round && $0.isOfficial })
+    }
+
     func testACTConcordanceUsesOfficialMidpointsForGateChecks() {
         let georgetown = AdmissionsSeedData.colleges.first { $0.id == "georgetown" }!
         var act32 = StudentProfile.sample

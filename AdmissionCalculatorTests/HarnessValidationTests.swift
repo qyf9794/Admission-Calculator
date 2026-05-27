@@ -245,6 +245,16 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("ED加分 无明确数据"))
     }
 
+    func testCaltechRoundPolicySourceAuditUsesOfficialDeadlinePage() {
+        let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["caltech"]), selectionSource: .manual)
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(report.contains("Caltech offers Restrictive Early Action and Regular Decision"))
+        XCTAssertTrue(report.contains("允许轮次 EA/RD"))
+        XCTAssertTrue(report.contains("EA加分 +0.00"))
+        XCTAssertTrue(report.contains("https://www.admissions.caltech.edu/apply/first-year-applicants/deadlines"))
+    }
+
     private func assertChinaTotal(_ early: Int?, _ rd: Int?, _ total: Int?, _ collegeID: String) {
         guard let early, let rd, let total else {
             return

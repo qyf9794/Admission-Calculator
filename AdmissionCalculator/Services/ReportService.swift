@@ -133,8 +133,9 @@ enum ReportService {
 
     private static func gateSourceAuditSummary(_ rule: CollegeGateRule) -> String {
         let status = rule.isOfficial ? "官方" : "推断"
+        let url = rule.sourceURL.map { "，来源 \($0.absoluteString)" } ?? ""
         guard rule.type == .round else {
-            return "\(rule.title)（\(status)）"
+            return "\(rule.title)（\(status)，\(rule.detail)\(url)）"
         }
 
         let allowed = rule.allowedRounds.isEmpty
@@ -142,7 +143,7 @@ enum ReportService {
             : rule.allowedRounds.map(\.rawValue).joined(separator: "/")
         let ea = roundAdjustmentText(rule.earlyActionAdjustment)
         let ed = roundAdjustmentText(rule.earlyDecisionAdjustment)
-        return "\(rule.title)（\(status)，允许轮次 \(allowed)，EA加分 \(ea)，ED加分 \(ed)）"
+        return "\(rule.title)（\(status)，\(rule.detail)，允许轮次 \(allowed)，EA加分 \(ea)，ED加分 \(ed)\(url)）"
     }
 
     private static func roundAdjustmentText(_ value: Double?) -> String {

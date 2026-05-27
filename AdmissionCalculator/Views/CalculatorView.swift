@@ -81,11 +81,14 @@ struct CalculatorView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("自动推荐组合") {
+            Section("自动推荐数量") {
                 Stepper("保底 \(profile.requestedLikelyCount) 所", value: $profile.requestedLikelyCount, in: 0...10)
                 Stepper("目标 \(profile.requestedTargetCount) 所", value: $profile.requestedTargetCount, in: 0...12)
                 Stepper("争取 \(profile.requestedReachCount) 所", value: $profile.requestedReachCount, in: 0...12)
                 LabeledContent("计划数量", value: "\(requestedRecommendationTotal) 所")
+            }
+
+            Section("自动推荐组合") {
                 Button {
                     profile.requestedSchoolCount = requestedRecommendationTotal
                     onAutoRecommend()
