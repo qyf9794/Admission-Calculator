@@ -16,6 +16,7 @@ struct AppView: View {
                     profile: $profile,
                     selectedCollegeIDs: $selectedCollegeIDs,
                     selectionSource: $selectionSource,
+                    hasExistingResult: latestResult != nil,
                     onAutoRecommend: autoRecommend,
                     onEvaluate: evaluate
                 )

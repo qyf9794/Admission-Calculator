@@ -4,6 +4,7 @@ struct CalculatorView: View {
     @Binding var profile: StudentProfile
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
+    let hasExistingResult: Bool
     let onAutoRecommend: () -> Void
     let onEvaluate: () -> Void
 
@@ -137,7 +138,7 @@ struct CalculatorView: View {
             }
 
                 Button(action: onEvaluate) {
-                    Label("重新计算", systemImage: "arrow.clockwise")
+                    Label(hasExistingResult ? "重新计算" : "计算当前组合", systemImage: hasExistingResult ? "arrow.clockwise" : "function")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
