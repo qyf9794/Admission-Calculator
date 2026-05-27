@@ -29,7 +29,7 @@ struct ResultsView: View {
                         selectionSource: result.selectionSource,
                         recommendationWarnings: result.recommendationWarnings
                     )
-                    ReportPanel(result: result, purchaseState: purchaseState)
+                    ReportPanel(result: result, purchaseState: purchaseState, isStale: isStale)
                 }
                 .padding()
             } else {
@@ -505,12 +505,18 @@ private struct SchoolResultsList: View {
 private struct ReportPanel: View {
     let result: PortfolioResult
     @ObservedObject var purchaseState: ReportPurchaseState
+    let isStale: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("AI 综合报告", systemImage: "doc.text.magnifyingglass")
                 .font(.headline)
                 .foregroundStyle(.purple)
+            if isStale {
+                Label("当前结果已过期；请先重新计算，再解锁或使用报告。", systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
             if purchaseState.isUnlocked {
                 Text(ReportService.makeReport(result: result))
                     .font(.callout)
@@ -525,6 +531,7 @@ private struct ReportPanel: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(!purchaseState.canUnlockReport(isStale: isStale))
             }
         }
         .padding(16)

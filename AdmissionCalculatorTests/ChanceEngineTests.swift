@@ -480,6 +480,18 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(PortfolioSelectionSource.none.afterProfileEdit(selectedCollegeIDs: []), .none)
     }
 
+    @MainActor
+    func testStaleResultCannotUnlockNewReportPreview() {
+        let purchaseState = ReportPurchaseState()
+
+        XCTAssertTrue(purchaseState.canUnlockReport(isStale: false))
+        XCTAssertFalse(purchaseState.canUnlockReport(isStale: true))
+
+        purchaseState.unlockForPrototype()
+
+        XCTAssertFalse(purchaseState.canUnlockReport(isStale: false))
+    }
+
     func testExplicitAutomaticEmptySelectionReportsRecommendationShortages() {
         var profile = StudentProfile.sample
         profile.requestedLikelyCount = 2

@@ -8,6 +8,10 @@ final class ReportPurchaseState: ObservableObject {
 
     let productID = "admission_calculator_ai_report"
 
+    func canUnlockReport(isStale: Bool) -> Bool {
+        !isUnlocked && !isStale
+    }
+
     func unlockForPrototype() {
         isUnlocked = true
         statusText = "已解锁报告预览"
