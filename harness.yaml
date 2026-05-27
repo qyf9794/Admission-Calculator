@@ -92,6 +92,7 @@ model_constraints:
   portfolio_selection:
     dataset_scope_rule: "Selected schools outside the approved AdmissionSight v1 dataset must be excluded from calculations and disclosed in portfolio warnings."
     recommendation_scope_rule: "Auto-recommendation shortage messages may appear only when the current portfolio was produced by explicit automatic recommendation."
+    recommendation_result_scope_rule: "Portfolio results must carry recommendedSchools only for explicit automatic recommendation results; manual and empty portfolios must not include hidden recommendation lists."
     bucket_rule: "Use conservative planning buckets: reach below 20%, target 20%-60%, likely at least 60%, and disclose that likely/safety is not a guarantee."
   ai_report:
     may_generate:
@@ -149,6 +150,8 @@ validation_tests:
     description: "AI reports must include computed portfolio-level and per-school warnings/data limitations instead of replacing them with generic advice."
   - id: conservative_bucket_thresholds
     description: "Recommendation buckets must not label sub-60% chances as likely/safety, and UI/report copy must state that likely is not a guarantee."
+  - id: recommendation_result_scope
+    description: "PortfolioResult.recommendedSchools must be empty for manual or empty portfolios and populated only for explicit automatic recommendation results."
   - id: per_school_source_audit
     description: "The data UI must expose per-school source notes for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules."
   - id: conservative_high_school_default

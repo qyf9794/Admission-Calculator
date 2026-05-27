@@ -493,9 +493,26 @@ final class ChanceEngineTests: XCTestCase {
         let result = engine.evaluate(profile: profile, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
 
         XCTAssertEqual(result.selectionSource, .manual)
+        XCTAssertTrue(result.recommendedSchools.isEmpty)
         XCTAssertTrue(result.recommendationWarnings.isEmpty)
         XCTAssertTrue(ReportService.makeReport(result: result).contains("当前为手动选校，未触发自动推荐缺口判断"))
         XCTAssertFalse(ReportService.makeReport(result: result).contains("自动推荐三档数量可满足当前请求"))
+    }
+
+    func testAutomaticSelectionIsOnlySourceThatCarriesRecommendedSchools() {
+        let manual = engine.evaluate(profile: .sample, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
+        let none = engine.evaluate(profile: .sample, selectedCollegeIDs: [], selectionSource: .none)
+        let automaticIDs = Set(engine.recommendedColleges(for: .sample, reachCount: 1, targetCount: 1, likelyCount: 0).map(\.id))
+        var profile = StudentProfile.sample
+        profile.requestedReachCount = 1
+        profile.requestedTargetCount = 1
+        profile.requestedLikelyCount = 0
+        let automatic = engine.evaluate(profile: profile, selectedCollegeIDs: automaticIDs, selectionSource: .automatic)
+
+        XCTAssertTrue(manual.recommendedSchools.isEmpty)
+        XCTAssertTrue(none.recommendedSchools.isEmpty)
+        XCTAssertFalse(automatic.recommendedSchools.isEmpty)
+        XCTAssertEqual(Set(automatic.recommendedSchools.map(\.id)), automaticIDs)
     }
 
     func testChinaCapacityUsesApplicationRoundSpecificCount() {

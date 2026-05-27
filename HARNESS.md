@@ -27,6 +27,7 @@ The result is an explainable estimate, not a promise of admission.
 - Selected schools outside the approved AdmissionSight v1 dataset must be excluded from probability math and disclosed in portfolio-level warnings.
 - Recommendation buckets must use conservative planning thresholds: `争取` below 20%, `目标` from 20% to below 60%, and `保底` at 60% or higher. The UI and AI report must disclose that `保底` is not a guarantee.
 - Automatic school recommendations must be triggered by an explicit user action and must respect user-requested likely / target / reach counts as far as eligible schools are available. If a bucket has too few eligible schools, do not silently fill it from another bucket. An empty selected-school set must not silently become an auto-recommended portfolio.
+- Portfolio results must carry recommended schools only for explicit automatic recommendation results; manual and empty portfolios must not include hidden recommendation lists.
 - Results and AI reports must disclose the current portfolio's likely / target / reach / blocked composition, and must warn when the auto-recommendation pool cannot satisfy a requested bucket count.
 - AI reports must include probability and academic-fit lines for every school in the current selected or auto-recommended portfolio, not only a shortened preview.
 - AI reports must include each selected school's computed confidence label next to its probability so uncertainty is not lost outside the results UI.

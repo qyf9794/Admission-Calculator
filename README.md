@@ -26,6 +26,7 @@ The v1 model is intentionally transparent:
 - Selected schools outside the v1 dataset are excluded from probability math and disclosed as portfolio warnings.
 - Recommendation buckets use conservative planning thresholds: `争取` below 20%, `目标` 20%-60%, and `保底` at least 60%; `保底` is still not a guarantee.
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.
+- Manual and empty portfolio results do not carry hidden auto-recommendation school lists.
 - Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation bucket shortages.
 - AI reports include every selected or auto-recommended school's probability and academic-fit adjustment.
 - AI reports include each selected school's confidence label next to its probability.

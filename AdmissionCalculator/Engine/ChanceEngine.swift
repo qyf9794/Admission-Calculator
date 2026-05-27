@@ -33,12 +33,14 @@ struct ChanceEngine {
         let selected = colleges.filter { selectedCollegeIDs.contains($0.id) }
         let resolvedSelectedIDs = Set(selected.map(\.id))
         let resolvedSource: PortfolioSelectionSource = selectedCollegeIDs.isEmpty ? .none : selectionSource
-        let recommended = recommendedColleges(
-            for: profile,
-            reachCount: profile.requestedReachCount,
-            targetCount: profile.requestedTargetCount,
-            likelyCount: profile.requestedLikelyCount
-        )
+        let recommended = resolvedSource == .automatic
+            ? recommendedColleges(
+                for: profile,
+                reachCount: profile.requestedReachCount,
+                targetCount: profile.requestedTargetCount,
+                likelyCount: profile.requestedLikelyCount
+            )
+            : []
 
         let schoolResults = selected.map { chance(for: $0, profile: profile) }
             .sorted { $0.adjustedProbability > $1.adjustedProbability }
