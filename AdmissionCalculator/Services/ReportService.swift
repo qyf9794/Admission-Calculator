@@ -58,6 +58,9 @@ enum ReportService {
         return """
         综合选校报告
 
+        生成时间：\(generatedAtText(result.generatedAt))
+        快照说明：本报告只解释该次提交的学生画像和选校组合；后续修改表单或选校后需要重新计算。
+
         画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)，高中背景 \(highSchoolName(profile.highSchoolID))。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。
 
         当前组合内至少一所录取概率：
@@ -104,6 +107,10 @@ enum ReportService {
 
     private static func percent(_ value: Double) -> String {
         value.formatted(.percent.precision(.fractionLength(0)))
+    }
+
+    private static func generatedAtText(_ date: Date) -> String {
+        ISO8601DateFormatter().string(from: date)
     }
 
     private static func tierCount(in result: PortfolioResult, maxRank: Int) -> Int {

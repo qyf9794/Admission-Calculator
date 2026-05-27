@@ -284,6 +284,15 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("当前组合（1 所）"))
     }
 
+    func testReportDisclosesGeneratedSnapshotTime() {
+        let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(report.contains("生成时间："))
+        XCTAssertTrue(report.contains("快照说明：本报告只解释该次提交的学生画像和选校组合"))
+        XCTAssertTrue(report.contains("后续修改表单或选校后需要重新计算"))
+    }
+
     func testReportSourceAuditIncludesStructuredRoundPolicy() {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["mit"]), selectionSource: .manual)
         let report = ReportService.makeReport(result: result)

@@ -71,6 +71,9 @@ private struct ResultsHero: View {
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.84))
                     .fixedSize(horizontal: false, vertical: true)
+                Text("生成时间 \(result.generatedAt.formatted(date: .numeric, time: .shortened)) · 基于提交快照")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.74))
                 HStack(spacing: 10) {
                     HeroMetric(title: "学校", value: "\(result.schoolResults.count)")
                     HeroMetric(title: "阻断", value: "\(result.selectedBucketCounts.blocked)")
