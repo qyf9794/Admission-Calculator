@@ -41,7 +41,6 @@ struct AppView: View {
                 Label("数据", systemImage: "tablecells")
             }
         }
-        .onAppear(perform: evaluate)
     }
 
     private func evaluate() {
@@ -57,7 +56,7 @@ struct AppView: View {
         )
         let recommendedIDs = Set(recommended.map(\.id))
         selectedCollegeIDs = recommendedIDs
-        selectionSource = recommendedIDs.isEmpty ? .none : .automatic
+        selectionSource = .automatic
         latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: recommendedIDs, selectionSource: selectionSource)
     }
 

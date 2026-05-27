@@ -481,6 +481,25 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(result.schoolResults.isEmpty)
         XCTAssertEqual(result.selectedAtLeastOne, 0)
         XCTAssertEqual(result.selectionSource, .none)
+        XCTAssertTrue(result.recommendedSchools.isEmpty)
+        XCTAssertTrue(result.recommendationWarnings.isEmpty)
+    }
+
+    func testExplicitAutomaticEmptySelectionReportsRecommendationShortages() {
+        var profile = StudentProfile.sample
+        profile.requestedLikelyCount = 2
+        profile.requestedTargetCount = 3
+        profile.requestedReachCount = 4
+
+        let result = engine.evaluate(profile: profile, selectedCollegeIDs: [], selectionSource: .automatic)
+
+        XCTAssertTrue(result.schoolResults.isEmpty)
+        XCTAssertTrue(result.recommendedSchools.isEmpty)
+        XCTAssertEqual(result.selectionSource, .automatic)
+        XCTAssertEqual(result.selectedAtLeastOne, 0)
+        XCTAssertTrue(result.recommendationWarnings.contains("保底档可推荐学校不足：请求 2 所，当前找到 0 所。"))
+        XCTAssertTrue(result.recommendationWarnings.contains("目标档可推荐学校不足：请求 3 所，当前找到 0 所。"))
+        XCTAssertTrue(result.recommendationWarnings.contains("争取档可推荐学校不足：请求 4 所，当前找到 0 所。"))
     }
 
     func testAutoRecommendationHonorsReachTargetLikelyCountsWhenAvailable() {
