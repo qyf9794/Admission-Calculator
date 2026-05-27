@@ -21,6 +21,9 @@ struct ResultsView: View {
                     SummaryBand(result: result)
                     ResultPriorityCard(result: result)
                     ApplicantDisclosure(profile: result.profileSnapshot)
+                    MissingInputCard(
+                        prompts: result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.selectedCollegeIDs)
+                    )
                     SchoolResultsList(results: result.schoolResults)
                     ReportPanel(result: result, purchaseState: purchaseState)
                 }
@@ -132,6 +135,47 @@ private struct ApplicantDisclosure: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.indigo.opacity(0.16), lineWidth: 1)
+        )
+    }
+}
+
+private struct MissingInputCard: View {
+    let prompts: [ProfileCompletionPrompt]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(prompts.isEmpty ? "待补资料已清空" : "待补资料清单", systemImage: prompts.isEmpty ? "checkmark.seal.fill" : "square.and.pencil")
+                .font(.headline)
+                .foregroundStyle(prompts.isEmpty ? .green : .orange)
+            if prompts.isEmpty {
+                Text("当前已选组合和学生画像没有明显缺失项；仍需逐校查看数据置信度、硬门槛和来源审计。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("以下信息会影响硬门槛、画像分、自动推荐或置信度；补齐后请重新计算。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                ForEach(prompts) { prompt in
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(prompt.title)
+                                .font(.subheadline.weight(.semibold))
+                            Text(prompt.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: prompt.systemImage)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke((prompts.isEmpty ? Color.green : Color.orange).opacity(0.18), lineWidth: 1)
         )
     }
 }

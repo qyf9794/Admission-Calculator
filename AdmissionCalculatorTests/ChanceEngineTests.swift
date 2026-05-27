@@ -68,6 +68,24 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(prompts.isEmpty)
     }
 
+    func testReportListsDecisionCriticalMissingInputs() {
+        var profile = StudentProfile.sample
+        profile.toefl = nil
+        profile.ielts = nil
+        profile.sat = nil
+        profile.act = nil
+        profile.apCourseCount = 0
+
+        let result = engine.evaluate(profile: profile, selectedCollegeIDs: [])
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(report.contains("待补资料"))
+        XCTAssertTrue(report.contains("选择学校组合"))
+        XCTAssertTrue(report.contains("补充 TOEFL 或 IELTS"))
+        XCTAssertTrue(report.contains("补充 SAT/ACT 或选择不提交"))
+        XCTAssertTrue(report.contains("补充 AP 课程证据"))
+    }
+
     func testInferredGateIsDisclosedAndCanBlock() {
         var profile = StudentProfile.sample
         profile.major = .arts

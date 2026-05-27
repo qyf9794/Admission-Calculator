@@ -42,6 +42,7 @@ enum ReportService {
         let selectionNotes = result.selectionWarnings.isEmpty
             ? "当前组合内学校均来自 v1 数据集。"
             : result.selectionWarnings.joined(separator: "\n")
+        let missingInputNotes = missingInputSummary(profile: profile, selectedCollegeIDs: result.selectedCollegeIDs)
         let recommendationNotes: String
         switch result.selectionSource {
         case .automatic:
@@ -70,6 +71,9 @@ enum ReportService {
         保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。
         分档规则：争取 <20%，目标 20%-60%，保底 >=60%；保底是相对规划标签，不代表录取保证。
         \(selectionNotes)
+
+        待补资料：
+        \(missingInputNotes)
 
         自动推荐提示：
         \(recommendationNotes)
@@ -178,6 +182,14 @@ enum ReportService {
         }
         let uniqueLines = unique(lines)
         return uniqueLines.isEmpty ? "未发现额外数据限制或模型警告。" : uniqueLines.joined(separator: "\n")
+    }
+
+    private static func missingInputSummary(profile: StudentProfile, selectedCollegeIDs: Set<String>) -> String {
+        let prompts = profile.completionPrompts(selectedCollegeIDs: selectedCollegeIDs)
+        guard !prompts.isEmpty else {
+            return "当前画像没有明显缺失项；仍需逐校查看数据置信度、硬门槛和来源审计。"
+        }
+        return prompts.map { "\($0.title)：\($0.detail)" }.joined(separator: "\n")
     }
 
     private static func unique(_ values: [String]) -> [String] {
