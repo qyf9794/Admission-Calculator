@@ -3,16 +3,24 @@ import SwiftUI
 struct ResultsView: View {
     let result: PortfolioResult?
     @ObservedObject var purchaseState: ReportPurchaseState
-    let profile: StudentProfile
+    let isStale: Bool
 
     var body: some View {
         ScrollView {
             if let result {
                 VStack(alignment: .leading, spacing: 16) {
+                    if isStale {
+                        Label("当前结果基于上一次提交的画像或选校；请回到计算页重新计算后再用于决策。", systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                    }
                     SummaryBand(result: result)
-                    ApplicantDisclosure(profile: profile)
+                    ApplicantDisclosure(profile: result.profileSnapshot)
                     SchoolResultsList(results: result.schoolResults)
-                    ReportPanel(result: result, profile: profile, purchaseState: purchaseState)
+                    ReportPanel(result: result, purchaseState: purchaseState)
                 }
                 .padding()
             } else {
@@ -182,7 +190,6 @@ private struct SchoolResultsList: View {
 
 private struct ReportPanel: View {
     let result: PortfolioResult
-    let profile: StudentProfile
     @ObservedObject var purchaseState: ReportPurchaseState
 
     var body: some View {
@@ -190,7 +197,7 @@ private struct ReportPanel: View {
             Text("AI 综合报告")
                 .font(.headline)
             if purchaseState.isUnlocked {
-                Text(ReportService.makeReport(profile: profile, result: result))
+                Text(ReportService.makeReport(profile: result.profileSnapshot, result: result))
                     .font(.callout)
                     .textSelection(.enabled)
             } else {

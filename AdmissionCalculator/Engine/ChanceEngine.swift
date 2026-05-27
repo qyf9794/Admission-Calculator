@@ -43,6 +43,8 @@ struct ChanceEngine {
             .sorted { $0.adjustedProbability > $1.adjustedProbability }
         let recommendedResults = recommended.map { chance(for: $0, profile: profile, profileScore: profileScore) }
         return PortfolioResult(
+            profileSnapshot: profile,
+            selectedCollegeIDs: selectedCollegeIDs,
             schoolResults: schoolResults,
             recommendedSchools: recommended,
             selectionSource: resolvedSource,

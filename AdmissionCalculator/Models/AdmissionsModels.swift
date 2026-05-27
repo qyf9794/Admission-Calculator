@@ -373,6 +373,8 @@ struct PortfolioBucketCounts: Hashable {
 }
 
 struct PortfolioResult: Hashable {
+    let profileSnapshot: StudentProfile
+    let selectedCollegeIDs: Set<String>
     let schoolResults: [ChanceResult]
     let recommendedSchools: [College]
     let selectionSource: PortfolioSelectionSource

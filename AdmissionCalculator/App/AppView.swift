@@ -26,7 +26,7 @@ struct AppView: View {
             }
 
             NavigationStack {
-                ResultsView(result: latestResult, purchaseState: purchaseState, profile: profile)
+                ResultsView(result: latestResult, purchaseState: purchaseState, isStale: resultIsStale)
                     .navigationTitle("结果")
             }
             .tabItem {
@@ -59,5 +59,14 @@ struct AppView: View {
         selectedCollegeIDs = recommendedIDs
         selectionSource = recommendedIDs.isEmpty ? .none : .automatic
         latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: recommendedIDs, selectionSource: selectionSource)
+    }
+
+    private var resultIsStale: Bool {
+        guard let latestResult else {
+            return false
+        }
+        return latestResult.profileSnapshot != profile ||
+            latestResult.selectedCollegeIDs != selectedCollegeIDs ||
+            latestResult.selectionSource != selectionSource
     }
 }

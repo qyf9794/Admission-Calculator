@@ -288,6 +288,21 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.t30AtLeastOne, 0)
         XCTAssertEqual(result.schoolResults.map(\.college.id), ["bu"])
         XCTAssertEqual(result.selectedBucketCounts.total, 1)
+        XCTAssertEqual(result.profileSnapshot, .sample)
+        XCTAssertEqual(result.selectedCollegeIDs, Set(["bu"]))
+    }
+
+    func testPortfolioKeepsSubmittedProfileSnapshotForReports() {
+        var submitted = StudentProfile.sample
+        submitted.major = .humanities
+        let result = engine.evaluate(profile: submitted, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
+
+        submitted.major = .computerScience
+        let report = ReportService.makeReport(profile: result.profileSnapshot, result: result)
+
+        XCTAssertEqual(result.profileSnapshot.major, .humanities)
+        XCTAssertTrue(report.contains("目标专业 Humanities"))
+        XCTAssertFalse(report.contains("目标专业 Computer Science"))
     }
 
     func testEmptySelectionDoesNotImplicitlyAutoRecommendSchools() {
