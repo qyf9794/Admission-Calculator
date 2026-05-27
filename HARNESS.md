@@ -27,6 +27,7 @@ The result is an explainable estimate, not a promise of admission.
 - Global inferred English floor is TOEFL 90 or IELTS 6.5 unless an official school-specific rule says otherwise.
 - ACT scores must be converted with the official ACT/College Board 2018 ACT/SAT concordance midpoint table, not a linear approximation.
 - UC campuses must not accept EA or ED as valid first-year rounds; they use the UC first-year filing period and should be treated as the regular application round in this app.
+- School-specific test-free/test-blind policies must remove SAT/ACT from both the student readiness score and academic benchmark fit for that school; they must not merely leave SAT/ACT benchmarks blank.
 - Arts applicants use a separate profile-weighting path with lower academic/standardized-test weight and higher portfolio-adjacent soft-signal weight; missing portfolio remains a blocking gate.
 - School-specific academic benchmarks may adjust probability only after hard gates pass. Inferred GPA/rank/test/rigor benchmarks must be labeled and cannot be presented as official admitted-student averages.
 - Curriculum selection must expose curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) and those inputs must affect academic readiness and school-specific fit.
@@ -37,7 +38,7 @@ The result is an explainable estimate, not a promise of admission.
 1. Validate the selected school exists in the approved dataset.
 2. Run the hard-gate checker against official and inferred requirements.
 3. If any required gate fails, return `0%` and show the failed rules.
-4. If gates pass, compute a student readiness score from hard, soft, school-context, and strategy signals.
+4. If gates pass, compute a school-aware student readiness score from hard, soft, school-context, and strategy signals, respecting official test-free/test-blind policies.
 5. Convert the school's latest available acceptance rate into an ordinary-applicant prior. For Chinese international applicants, discount this prior for international data availability, highly selective hooked-seat dilution, and round-specific China admit-count capacity.
 6. Adjust the prior using readiness, school-specific academic benchmark fit, high-school context, applicant status, undergraduate international signals, major competition, round, aid, and China trend signals.
 7. Compute at-least-one probabilities with same-tier correlation discounting.

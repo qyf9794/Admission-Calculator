@@ -434,6 +434,30 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertGreaterThan(submittedFit, optionalFit)
     }
 
+    func testUCTestFreePolicyIgnoresSatActForProbability() {
+        let ucla = AdmissionsSeedData.colleges.first { $0.id == "ucla" }!
+        var noScore = strongChineseInternationalProfile
+        noScore.testOptional = true
+        noScore.sat = nil
+        noScore.act = nil
+
+        var highScore = noScore
+        highScore.testOptional = false
+        highScore.sat = 1580
+        highScore.act = 36
+
+        let noScoreResult = engine.chance(for: ucla, profile: noScore)
+        let highScoreResult = engine.chance(for: ucla, profile: highScore)
+
+        XCTAssertTrue(noScoreResult.gateResult.passed)
+        XCTAssertTrue(highScoreResult.gateResult.passed)
+        XCTAssertEqual(noScoreResult.adjustedProbability, highScoreResult.adjustedProbability, accuracy: 0.0001)
+        XCTAssertEqual(engine.studentScore(noScore, college: ucla), engine.studentScore(highScore, college: ucla), accuracy: 0.0001)
+        XCTAssertTrue(highScoreResult.factors.contains { $0.label == "学生画像" && $0.detail.contains("test-free") })
+        XCTAssertTrue(highScoreResult.factors.contains { $0.label == "目标校学术匹配" && $0.detail.contains("test-free") })
+        XCTAssertTrue(highScoreResult.warnings.contains { $0.contains("SAT/ACT 不进入录取概率") })
+    }
+
     func testUCCampusesBlockEarlyRounds() {
         let ucla = AdmissionsSeedData.colleges.first { $0.id == "ucla" }!
         var profile = strongChineseInternationalProfile

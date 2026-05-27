@@ -74,7 +74,7 @@ private struct SummaryBand: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            Text("画像分 \(Int(result.profileScore))/100。T10/T30/T50 仅统计当前组合内学校，多校概率已使用同层相关性折扣。")
+            Text("总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。T10/T30/T50 仅统计当前组合内学校，多校概率已使用同层相关性折扣。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

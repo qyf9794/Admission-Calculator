@@ -65,6 +65,7 @@ model_constraints:
   academic_benchmark_adjustment:
     rule: "After hard gates pass, compare GPA, rank, standardized testing, and rigor to the target school's benchmark. Keep this school-specific correction bounded so it cannot override hard gates or dominate holistic factors."
     arts_rule: "Arts applicants receive a reduced academic-benchmark correction because portfolio and creative fit carry more weight."
+    test_free_rule: "If a school is officially test-free or test-blind for admissions, SAT/ACT must be excluded from both readiness scoring and academic benchmark adjustment for that school."
   required_outputs:
     - individual_school_probability
     - selected_school_at_least_one_probability

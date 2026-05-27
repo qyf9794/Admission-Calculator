@@ -9,6 +9,7 @@ The v1 model is intentionally transparent:
 - Inferred gates are labeled and lower confidence.
 - Curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) affect academic readiness and school fit.
 - Transcript and Chinese-curriculum grades can be entered as percent scores, 4.0 GPA, 5.0 GPA, or letter grades; non-percent inputs are converted only to an internal academic index.
+- School-specific test-free/test-blind policies, such as UC's SAT/ACT policy, are applied to both readiness scoring and target-school academic fit.
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
 - Portfolio-level T10/T30/T50 probabilities are scoped to the currently selected or auto-recommended school set.
 - Auto recommendation is an explicit action: users choose likely / target / reach counts and tap a button to populate the school set.

@@ -34,7 +34,7 @@ enum ReportService {
         return """
         综合选校报告
 
-        画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)。模型画像分 \(Int(result.profileScore))/100。
+        画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。
 
         当前组合内至少一所录取概率：
         T10：\(percent(result.t10AtLeastOne))

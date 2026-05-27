@@ -39,9 +39,9 @@ struct ChanceEngine {
             likelyCount: profile.requestedLikelyCount
         )
 
-        let schoolResults = selected.map { chance(for: $0, profile: profile, profileScore: profileScore) }
+        let schoolResults = selected.map { chance(for: $0, profile: profile) }
             .sorted { $0.adjustedProbability > $1.adjustedProbability }
-        let recommendedResults = recommended.map { chance(for: $0, profile: profile, profileScore: profileScore) }
+        let recommendedResults = recommended.map { chance(for: $0, profile: profile) }
         return PortfolioResult(
             profileSnapshot: profile,
             selectedCollegeIDs: selectedCollegeIDs,
@@ -60,7 +60,7 @@ struct ChanceEngine {
     }
 
     func chance(for college: College, profile: StudentProfile, profileScore: Double? = nil) -> ChanceResult {
-        let score = profileScore ?? studentScore(profile)
+        let score = profileScore ?? studentScore(profile, college: college)
         let gate = gateResult(for: college, profile: profile)
         let baseRate = college.latestAvailableRate
         let baseFactor = ChanceFactor(
@@ -108,8 +108,8 @@ struct ChanceEngine {
         let factors = [
             baseFactor,
             ChanceFactor(label: "普通申请池先验", value: ordinaryPrior, detail: ordinaryPriorDetail(for: college, profile: profile, internationalSignal: internationalSignal, chinaSignal: chinaSignal)),
-            ChanceFactor(label: "学生画像", value: readinessDelta, detail: "学术、课程、标化、活动、奖项、文书与推荐信合成分：\(Int(score))/100。"),
-            ChanceFactor(label: "目标校学术匹配", value: academicBenchmarkDelta, detail: academicBenchmarkDetail(profile: profile, benchmark: benchmark)),
+            ChanceFactor(label: "学生画像", value: readinessDelta, detail: readinessDetail(score: score, college: college)),
+            ChanceFactor(label: "目标校学术匹配", value: academicBenchmarkDelta, detail: academicBenchmarkDetail(profile: profile, college: college, benchmark: benchmark)),
             ChanceFactor(label: "高中背景", value: highSchoolDelta, detail: "\(schoolContext.name) 的资源、升学记录与透明度校准。"),
             ChanceFactor(label: "专业竞争", value: majorDelta, detail: "\(profile.major.rawValue) 的竞争强度修正。"),
             ChanceFactor(label: "申请身份", value: internationalDelta, detail: internationalDetail(profile: profile, signal: internationalSignal)),
@@ -181,12 +181,12 @@ struct ChanceEngine {
         )
     }
 
-    func studentScore(_ profile: StudentProfile) -> Double {
+    func studentScore(_ profile: StudentProfile, college: College? = nil) -> Double {
         let gpa = normalizedGPAScore(profile)
         let rank = clamp(100 - profile.classRankPercentile, min: 30, max: 100)
         let rigor = band(profile.rigor)
         let curriculumPerformance = curriculumPerformanceIndex(profile)
-        let testing = testingScore(profile)
+        let testing = testingScore(profile, college: college)
         let activities = band(profile.activities)
         let research = band(profile.research)
         let honors = band(profile.honors)
@@ -224,9 +224,8 @@ struct ChanceEngine {
     }
 
     func recommendedColleges(for profile: StudentProfile, reachCount: Int, targetCount: Int, likelyCount: Int) -> [College] {
-        let score = studentScore(profile)
         let eligible = colleges
-            .map { chance(for: $0, profile: profile, profileScore: score) }
+            .map { chance(for: $0, profile: profile) }
             .filter { $0.gateResult.passed }
 
         let reach = eligible
@@ -316,6 +315,9 @@ struct ChanceEngine {
         if profile.gradeScale != .percent || (profile.curriculum == .chinese && profile.curriculumGradeScale != .percent) {
             items.append("绩点或等级制成绩已转换为内部学术指数；该指数用于相对比较，不等同于真实百分制成绩。")
         }
+        if isTestFreeForAdmissions(college), profile.sat != nil || profile.act != nil || profile.testOptional {
+            items.append("该 UC 校区为 test-free：SAT/ACT 不进入录取概率或奖学金判断；语言成绩、AP/IB/A-Level 等仍可作为门槛或课程表现信号。")
+        }
         if profile.applicantStatus.isInternational {
             items.append("国际生数据仅使用本科口径；录取系数只有在本科国际生 admitted 数和总 admitted 数同时可用时才参与计算。")
             if internationalSignal.internationalAdmitCoefficient == nil {
@@ -351,7 +353,7 @@ struct ChanceEngine {
             score -= (1 - chinaSignal.dataQuality) * 12
         }
         score += gate.confidenceImpact * 100
-        if profile.testOptional { score -= 10 }
+        if profile.testOptional && !isTestFreeForAdmissions(college) { score -= 10 }
         if profile.applicantStatus.requiresEnglishProof && profile.toefl == nil && profile.ielts == nil { score -= 8 }
         if profile.highSchoolID == "unknown" { score -= 10 }
         if score >= 78 { return .high }
@@ -359,7 +361,17 @@ struct ChanceEngine {
         return .low
     }
 
-    private func testingScore(_ profile: StudentProfile) -> Double {
+    private func readinessDetail(score: Double, college: College) -> String {
+        if isTestFreeForAdmissions(college) {
+            return "学术、课程、活动、奖项、文书与推荐信合成分：\(Int(score))/100；SAT/ACT 已按该校 test-free 政策从录取画像中排除。"
+        }
+        return "学术、课程、标化、活动、奖项、文书与推荐信合成分：\(Int(score))/100。"
+    }
+
+    private func testingScore(_ profile: StudentProfile, college: College? = nil) -> Double {
+        if let college, isTestFreeForAdmissions(college) {
+            return profile.applicantStatus.requiresEnglishProof ? englishScore(profile) : 72
+        }
         if profile.testOptional {
             return 54
         }
@@ -500,7 +512,9 @@ struct ChanceEngine {
 
         let satEquivalent = profile.sat ?? actToSat(profile.act)
         let testDelta: Double
-        if let satBenchmark = benchmark.satBenchmark, let satEquivalent {
+        if isTestFreeForAdmissions(college) {
+            testDelta = 0
+        } else if let satBenchmark = benchmark.satBenchmark, let satEquivalent {
             testDelta = clamp((Double(satEquivalent - satBenchmark)) / 200 * 0.14, min: -0.12, max: 0.12)
         } else if benchmark.satBenchmark != nil && profile.testOptional {
             switch college.rank {
@@ -528,13 +542,13 @@ struct ChanceEngine {
         return clamp(raw * majorScale, min: -0.25, max: 0.25)
     }
 
-    private func academicBenchmarkDetail(profile: StudentProfile, benchmark: AcademicBenchmark) -> String {
+    private func academicBenchmarkDetail(profile: StudentProfile, college: College, benchmark: AcademicBenchmark) -> String {
         let gpa = benchmark.gpaPercentBenchmark.map { String(format: "%.0f", $0) } ?? "缺失"
         let rank = benchmark.classRankPercentileBenchmark.map { "前\(String(format: "%.0f", $0))%" } ?? "缺失"
-        let sat = benchmark.satBenchmark.map(String.init) ?? "不使用"
-        let act = benchmark.actBenchmark.map(String.init) ?? "不使用"
+        let sat = isTestFreeForAdmissions(college) ? "不使用（test-free）" : (benchmark.satBenchmark.map(String.init) ?? "不使用")
+        let act = isTestFreeForAdmissions(college) ? "不使用（test-free）" : (benchmark.actBenchmark.map(String.init) ?? "不使用")
         let rigor = benchmark.rigorBenchmark.map(String.init) ?? "缺失"
-        let applicantSAT = (profile.sat ?? actToSat(profile.act)).map(String.init) ?? (profile.testOptional ? "Test optional" : "缺失")
+        let applicantSAT = isTestFreeForAdmissions(college) ? "不使用（test-free）" : ((profile.sat ?? actToSat(profile.act)).map(String.init) ?? (profile.testOptional ? "Test optional" : "缺失"))
         let gpaScore = normalizedGPAScore(profile)
         let curriculumScore = curriculumPerformanceIndex(profile)
         let inferred = benchmark.isInferred ? "推断基准" : "官方/核验基准"
@@ -893,6 +907,10 @@ struct ChanceEngine {
 
     private func isUCCampus(_ college: College) -> Bool {
         ["uc_berkeley", "ucla", "ucsd", "uc_davis", "uc_irvine"].contains(college.id)
+    }
+
+    private func isTestFreeForAdmissions(_ college: College) -> Bool {
+        isUCCampus(college)
     }
 }
 
