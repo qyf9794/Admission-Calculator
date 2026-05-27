@@ -432,7 +432,20 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.schoolResults.map(\.college.id), ["bu"])
         XCTAssertEqual(result.selectedBucketCounts.total, 1)
         XCTAssertEqual(result.selectedCollegeIDs, Set(["bu", "outside_dataset"]))
+        XCTAssertEqual(result.calculatedCollegeIDs, Set(["bu"]))
         XCTAssertTrue(result.selectionWarnings.contains { $0.contains("不在 AdmissionSight v1 数据集内") })
+    }
+
+    func testOnlyUnknownSelectedCollegeIDsStillPromptForValidSelection() {
+        let result = engine.evaluate(profile: .sample, selectedCollegeIDs: Set(["outside_dataset"]), selectionSource: .manual)
+        let prompts = result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.calculatedCollegeIDs)
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(result.schoolResults.isEmpty)
+        XCTAssertTrue(result.calculatedCollegeIDs.isEmpty)
+        XCTAssertTrue(result.selectionWarnings.contains { $0.contains("不在 AdmissionSight v1 数据集内") })
+        XCTAssertTrue(prompts.contains { $0.id == "selected-schools" })
+        XCTAssertTrue(report.contains("选择学校组合（选校策略）"))
     }
 
     func testPortfolioKeepsSubmittedProfileSnapshotForReports() {

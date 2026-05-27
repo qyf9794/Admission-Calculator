@@ -22,7 +22,7 @@ struct ResultsView: View {
                     ResultPriorityCard(result: result)
                     ApplicantDisclosure(profile: result.profileSnapshot)
                     MissingInputCard(
-                        prompts: result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.selectedCollegeIDs)
+                        prompts: result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.calculatedCollegeIDs)
                     )
                     SchoolResultsList(
                         results: result.schoolResults,
@@ -308,7 +308,7 @@ private struct ResultPriorityCard: View {
             ))
         }
 
-        let prompts = result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.selectedCollegeIDs)
+        let prompts = result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.calculatedCollegeIDs)
         if let prompt = prompts.first {
             items.append(PriorityAction(
                 title: prompt.title,

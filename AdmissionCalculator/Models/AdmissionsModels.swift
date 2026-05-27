@@ -606,4 +606,8 @@ struct PortfolioResult: Hashable {
     let selectedAtLeastOne: Double
     let profileScore: Double
     let generatedAt: Date
+
+    var calculatedCollegeIDs: Set<String> {
+        Set(schoolResults.map(\.college.id))
+    }
 }

@@ -49,7 +49,7 @@ enum ReportService {
         let selectionNotes = result.selectionWarnings.isEmpty
             ? "当前组合内学校均来自 v1 数据集。"
             : result.selectionWarnings.joined(separator: "\n")
-        let missingInputNotes = missingInputSummary(profile: profile, selectedCollegeIDs: result.selectedCollegeIDs)
+        let missingInputNotes = missingInputSummary(profile: profile, selectedCollegeIDs: result.calculatedCollegeIDs)
         let recommendationNotes: String
         switch result.selectionSource {
         case .automatic:
