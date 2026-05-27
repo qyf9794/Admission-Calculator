@@ -3,6 +3,7 @@ import SwiftUI
 struct CalculatorView: View {
     @Binding var profile: StudentProfile
     @Binding var selectedCollegeIDs: Set<String>
+    @Binding var selectionSource: PortfolioSelectionSource
     let onAutoRecommend: () -> Void
     let onEvaluate: () -> Void
 
@@ -91,13 +92,14 @@ struct CalculatorView: View {
                 .disabled(profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount == 0)
 
                 NavigationLink {
-                    CollegePickerView(selectedCollegeIDs: $selectedCollegeIDs)
+                    CollegePickerView(selectedCollegeIDs: $selectedCollegeIDs, selectionSource: $selectionSource)
                 } label: {
                     Label(selectedCollegeIDs.isEmpty ? "尚未选择学校" : "已选择 \(selectedCollegeIDs.count) 所", systemImage: "building.columns")
                 }
                 if !selectedCollegeIDs.isEmpty {
                     Button("清空已选学校") {
                         selectedCollegeIDs.removeAll()
+                        selectionSource = .none
                     }
                 }
             }

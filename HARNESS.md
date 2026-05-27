@@ -20,6 +20,7 @@ The result is an explainable estimate, not a promise of admission.
 - T10/T30/T50 portfolio probabilities must describe only the currently selected or auto-recommended application portfolio. Do not display all-dataset tier probabilities as if the applicant planned to apply to every school in that tier.
 - Automatic school recommendations must be triggered by an explicit user action and must respect user-requested likely / target / reach counts as far as eligible schools are available. If a bucket has too few eligible schools, do not silently fill it from another bucket. An empty selected-school set must not silently become an auto-recommended portfolio.
 - Results and AI reports must disclose the current portfolio's likely / target / reach / blocked composition, and must warn when the auto-recommendation pool cannot satisfy a requested bucket count.
+- Auto-recommendation shortage warnings must be shown only for an auto-recommended portfolio, not for a manually selected school list.
 - Global inferred English floor is TOEFL 90 or IELTS 6.5 unless an official school-specific rule says otherwise.
 - ACT scores must be converted with the official ACT/College Board 2018 ACT/SAT concordance midpoint table, not a linear approximation.
 - UC campuses must not accept EA or ED as valid first-year rounds; they use the UC first-year filing period and should be treated as the regular application round in this app.

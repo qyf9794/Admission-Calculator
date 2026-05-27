@@ -3,6 +3,7 @@ import SwiftUI
 struct AppView: View {
     @State private var profile = StudentProfile.sample
     @State private var selectedCollegeIDs: Set<String> = []
+    @State private var selectionSource: PortfolioSelectionSource = .none
     @State private var latestResult: PortfolioResult?
     @StateObject private var purchaseState = ReportPurchaseState()
 
@@ -14,6 +15,7 @@ struct AppView: View {
                 CalculatorView(
                     profile: $profile,
                     selectedCollegeIDs: $selectedCollegeIDs,
+                    selectionSource: $selectionSource,
                     onAutoRecommend: autoRecommend,
                     onEvaluate: evaluate
                 )
@@ -43,7 +45,7 @@ struct AppView: View {
     }
 
     private func evaluate() {
-        latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: selectedCollegeIDs)
+        latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: selectedCollegeIDs, selectionSource: selectionSource)
     }
 
     private func autoRecommend() {
@@ -55,6 +57,7 @@ struct AppView: View {
         )
         let recommendedIDs = Set(recommended.map(\.id))
         selectedCollegeIDs = recommendedIDs
-        latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: recommendedIDs)
+        selectionSource = recommendedIDs.isEmpty ? .none : .automatic
+        latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: recommendedIDs, selectionSource: selectionSource)
     }
 }

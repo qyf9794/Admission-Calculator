@@ -42,6 +42,7 @@ enum ReportService {
         当前组合：\(percent(result.selectedAtLeastOne))
 
         当前组合结构：
+        来源：\(result.selectionSource.rawValue)。
         保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。
 
         自动推荐提示：

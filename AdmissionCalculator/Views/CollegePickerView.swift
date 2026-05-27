@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CollegePickerView: View {
     @Binding var selectedCollegeIDs: Set<String>
+    @Binding var selectionSource: PortfolioSelectionSource
     private let colleges = AdmissionsSeedData.colleges
 
     var body: some View {
@@ -30,6 +31,7 @@ struct CollegePickerView: View {
         .toolbar {
             Button("全清") {
                 selectedCollegeIDs.removeAll()
+                selectionSource = .none
             }
         }
     }
@@ -40,5 +42,6 @@ struct CollegePickerView: View {
         } else {
             selectedCollegeIDs.insert(id)
         }
+        selectionSource = selectedCollegeIDs.isEmpty ? .none : .manual
     }
 }

@@ -55,6 +55,9 @@ private struct SummaryBand: View {
                 MetricCell(title: "T50", value: result.t50AtLeastOne)
                 MetricCell(title: "当前组合", value: result.selectedAtLeastOne)
             }
+            Text("组合来源：\(result.selectionSource.rawValue)。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             Text("组合结构：保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)

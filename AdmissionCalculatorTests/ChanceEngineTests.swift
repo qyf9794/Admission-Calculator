@@ -295,6 +295,7 @@ final class ChanceEngineTests: XCTestCase {
 
         XCTAssertTrue(result.schoolResults.isEmpty)
         XCTAssertEqual(result.selectedAtLeastOne, 0)
+        XCTAssertEqual(result.selectionSource, .none)
     }
 
     func testAutoRecommendationHonorsReachTargetLikelyCountsWhenAvailable() {
@@ -323,14 +324,31 @@ final class ChanceEngineTests: XCTestCase {
         profile.requestedTargetCount = 12
         profile.requestedReachCount = 12
 
-        let result = engine.evaluate(profile: profile, selectedCollegeIDs: [])
+        let result = engine.evaluate(
+            profile: profile,
+            selectedCollegeIDs: Set(engine.recommendedColleges(for: profile, reachCount: 12, targetCount: 12, likelyCount: 10).map(\.id)),
+            selectionSource: .automatic
+        )
         let recommendedResults = result.recommendedSchools.map { engine.chance(for: $0, profile: profile) }
 
         XCTAssertFalse(result.recommendationWarnings.isEmpty)
+        XCTAssertEqual(result.selectionSource, .automatic)
         XCTAssertEqual(result.recommendedSchools.count, Set(result.recommendedSchools.map(\.id)).count)
         XCTAssertLessThanOrEqual(recommendedResults.filter { $0.bucket == .likely }.count, profile.requestedLikelyCount)
         XCTAssertLessThanOrEqual(recommendedResults.filter { $0.bucket == .target }.count, profile.requestedTargetCount)
         XCTAssertLessThanOrEqual(recommendedResults.filter { $0.bucket == .reach }.count, profile.requestedReachCount)
+    }
+
+    func testManualSelectionDoesNotShowAutoRecommendationWarnings() {
+        var profile = StudentProfile.sample
+        profile.requestedLikelyCount = 10
+        profile.requestedTargetCount = 12
+        profile.requestedReachCount = 12
+
+        let result = engine.evaluate(profile: profile, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
+
+        XCTAssertEqual(result.selectionSource, .manual)
+        XCTAssertTrue(result.recommendationWarnings.isEmpty)
     }
 
     func testChinaCapacityUsesApplicationRoundSpecificCount() {

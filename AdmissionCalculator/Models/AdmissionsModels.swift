@@ -105,6 +105,12 @@ enum RecommendationBucket: String, Codable {
     case blocked = "硬门槛未满足"
 }
 
+enum PortfolioSelectionSource: String, Codable {
+    case none = "尚未选择"
+    case manual = "手动选择"
+    case automatic = "自动推荐"
+}
+
 enum GateRuleType: String, Codable {
     case standardizedTest = "标化"
     case english = "英语"
@@ -369,6 +375,7 @@ struct PortfolioBucketCounts: Hashable {
 struct PortfolioResult: Hashable {
     let schoolResults: [ChanceResult]
     let recommendedSchools: [College]
+    let selectionSource: PortfolioSelectionSource
     let selectedBucketCounts: PortfolioBucketCounts
     let recommendationWarnings: [String]
     let t10AtLeastOne: Double

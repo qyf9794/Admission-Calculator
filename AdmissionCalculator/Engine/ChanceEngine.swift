@@ -24,9 +24,14 @@ struct ChanceEngine {
         self.academicBenchmarks = academicBenchmarks
     }
 
-    func evaluate(profile: StudentProfile, selectedCollegeIDs: Set<String>) -> PortfolioResult {
+    func evaluate(
+        profile: StudentProfile,
+        selectedCollegeIDs: Set<String>,
+        selectionSource: PortfolioSelectionSource = .manual
+    ) -> PortfolioResult {
         let profileScore = studentScore(profile)
         let selected = colleges.filter { selectedCollegeIDs.contains($0.id) }
+        let resolvedSource: PortfolioSelectionSource = selectedCollegeIDs.isEmpty ? .none : selectionSource
         let recommended = recommendedColleges(
             for: profile,
             reachCount: profile.requestedReachCount,
@@ -40,8 +45,9 @@ struct ChanceEngine {
         return PortfolioResult(
             schoolResults: schoolResults,
             recommendedSchools: recommended,
+            selectionSource: resolvedSource,
             selectedBucketCounts: bucketCounts(for: schoolResults),
-            recommendationWarnings: recommendationWarnings(profile: profile, recommendedResults: recommendedResults),
+            recommendationWarnings: resolvedSource == .automatic ? recommendationWarnings(profile: profile, recommendedResults: recommendedResults) : [],
             t10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 10 }),
             t30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 30 }),
             t50AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 50 }),
