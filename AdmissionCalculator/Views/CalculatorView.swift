@@ -104,7 +104,6 @@ struct CalculatorView: View {
 
                 CardSection(title: "选校动作", subtitle: "自动推荐不会悄悄触发；手动选校会切换为手动组合。", systemImage: "rectangle.stack.badge.plus", tint: .green) {
                 Button {
-                    profile.requestedSchoolCount = requestedRecommendationTotal
                     onAutoRecommend()
                 } label: {
                     Label("按三档生成组合", systemImage: "wand.and.stars")

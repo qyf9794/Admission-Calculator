@@ -233,16 +233,6 @@ struct ChanceEngine {
         return clamp(total, min: 0, max: 100)
     }
 
-    func recommendedColleges(for profile: StudentProfile, count: Int) -> [College] {
-        guard count > 0 else {
-            return []
-        }
-        let targetCount = max(1, Int(Double(count) * 0.45))
-        let likelyCount = count == 1 ? 0 : max(1, Int(Double(count) * 0.30))
-        let reachCount = max(0, count - targetCount - likelyCount)
-        return recommendedColleges(for: profile, reachCount: reachCount, targetCount: targetCount, likelyCount: likelyCount)
-    }
-
     func recommendedColleges(for profile: StudentProfile, reachCount: Int, targetCount: Int, likelyCount: Int) -> [College] {
         let eligible = colleges
             .map { chance(for: $0, profile: profile) }
