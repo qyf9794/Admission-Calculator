@@ -17,6 +17,7 @@ The v1 model is intentionally transparent:
 - School-specific test-free/test-blind policies, such as UC's SAT/ACT policy, are applied to both readiness scoring and target-school academic fit.
 - SAT/ACT comparisons use the strongest submitted SAT-equivalent score through the official ACT/SAT concordance.
 - Test Optional / 不提交标化 clears SAT/ACT in the form and ignores residual SAT/ACT values in readiness and academic fit.
+- EA/ED does not receive a generic probability boost unless school-specific round policy data exists; missing round data is disclosed.
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
 - International financial-aid need is shown as a separate factor and does not penalize domestic/U.S. citizen applicants.
 - Portfolio-level T10/T30/T50 probabilities are scoped to the currently selected or auto-recommended school set.

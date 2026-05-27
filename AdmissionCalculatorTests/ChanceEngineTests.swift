@@ -637,6 +637,28 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(result.gateResult.failedRules.contains { $0.type == .round && $0.isOfficial })
     }
 
+    func testEarlyRoundDoesNotReceiveGenericBoostWithoutSchoolPolicyData() {
+        let harvard = AdmissionsSeedData.colleges.first { $0.id == "harvard" }!
+        var rdProfile = StudentProfile.sample
+        rdProfile.applicantStatus = .usCitizenDomestic
+        rdProfile.major = .humanities
+        rdProfile.round = .regularDecision
+
+        var edProfile = rdProfile
+        edProfile.round = .earlyDecision
+
+        let rd = engine.chance(for: harvard, profile: rdProfile)
+        let ed = engine.chance(for: harvard, profile: edProfile)
+        let rdRound = rd.factors.first { $0.label == "申请轮次" }
+        let edRound = ed.factors.first { $0.label == "申请轮次" }
+
+        XCTAssertEqual(rdRound?.value, 0)
+        XCTAssertEqual(edRound?.value, 0)
+        XCTAssertEqual(rd.adjustedProbability, ed.adjustedProbability, accuracy: 0.0001)
+        XCTAssertTrue(edRound?.detail.contains("缺少学校级") == true)
+        XCTAssertTrue(ed.warnings.contains { $0.contains("缺少学校级 EA/ED 轮次政策数据") })
+    }
+
     func testACTConcordanceUsesOfficialMidpointsForGateChecks() {
         let georgetown = AdmissionsSeedData.colleges.first { $0.id == "georgetown" }!
         var act32 = StudentProfile.sample

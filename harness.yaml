@@ -42,6 +42,7 @@ data_sources:
     preferred_source: "Official college admissions pages or CDS"
     fallback: "If official data is missing, infer from peer policy and mark the rule as inferred."
     official_source_required: true
+    round_policy_rule: "Do not grant EA/ED probability boosts without school-specific round policy data; missing round policy data must be disclosed instead of generalized."
     ui_english_inputs_required: "The app form must expose both TOEFL and IELTS inputs because either can satisfy the English proof gate."
     inferred_english_floor:
       toefl: 90
@@ -154,3 +155,5 @@ validation_tests:
     description: "Financial-aid need adjustments must be a separate disclosed factor, apply only to relevant international applicants, and show no penalty for need-blind or domestic cases."
   - id: report_covers_all_selected_schools
     description: "AI reports must include probability and academic-fit lines for every school in the current selected or auto-recommended portfolio, not only the first few rows."
+  - id: no_generic_early_round_boost
+    description: "EA/ED should not receive a generic probability boost when school-specific round policy data is missing; the model must disclose the missing policy data."

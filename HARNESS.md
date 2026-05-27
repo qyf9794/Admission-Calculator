@@ -38,6 +38,7 @@ The result is an explainable estimate, not a promise of admission.
 - ACT scores must be converted with the official ACT/College Board 2018 ACT/SAT concordance midpoint table, not a linear approximation.
 - When both SAT and ACT are submitted, standardized-test gates, readiness scoring, and academic benchmark fit must use the strongest SAT-equivalent submitted score, not whichever field happens to be read first.
 - When the user chooses Test Optional / not submitting scores, residual SAT/ACT values must not improve readiness or academic benchmark fit; test-required gates may still block the school.
+- EA/ED must not receive a generic probability boost without school-specific round policy data; missing school-level round data must be disclosed instead of generalized.
 - UC campuses must not accept EA or ED as valid first-year rounds; they use the UC first-year filing period and should be treated as the regular application round in this app.
 - School-specific test-free/test-blind policies must remove SAT/ACT from both the student readiness score and academic benchmark fit for that school; they must not merely leave SAT/ACT benchmarks blank.
 - Arts applicants use a separate profile-weighting path with lower academic/standardized-test weight and higher portfolio-adjacent soft-signal weight; missing portfolio remains a blocking gate.

@@ -380,6 +380,9 @@ struct ChanceEngine {
                 break
             }
         }
+        if profile.round != .regularDecision && !isUCCampus(college) && !hasSchoolSpecificRoundPolicy(college) {
+            items.append("该校缺少学校级 EA/ED 轮次政策数据，当前未给早申轮次加分；请以官方招生轮次为准。")
+        }
         items.append(contentsOf: curriculumEvidenceWarnings(profile))
         if isTestFreeForAdmissions(college), profile.sat != nil || profile.act != nil || profile.testOptional {
             items.append("该 UC 校区为 test-free：SAT/ACT 不进入录取概率或奖学金判断；语言成绩、AP/IB/A-Level 等仍可作为门槛或课程表现信号。")
@@ -455,6 +458,9 @@ struct ChanceEngine {
     private func roundDetail(_ round: ApplicationRound, college: College) -> String {
         if isUCCampus(college) {
             return "UC 校区使用统一 first-year filing period；EA/ED 不作为有效轮次优势。"
+        }
+        if round != .regularDecision && !hasSchoolSpecificRoundPolicy(college) {
+            return "该校缺少学校级 \(round.rawValue) 政策数据，当前不泛化早申加分；请以官方招生轮次为准。"
         }
         return "\(round.rawValue) 轮次策略修正；学校官方轮次限制仍由硬门槛先检查。"
     }
@@ -999,6 +1005,9 @@ struct ChanceEngine {
         if isUCCampus(college) {
             return 0
         }
+        guard hasSchoolSpecificRoundPolicy(college) else {
+            return 0
+        }
 
         switch round {
         case .earlyDecision:
@@ -1007,6 +1016,10 @@ struct ChanceEngine {
             return college.rank <= 20 ? 0.03 : 0.05
         case .regularDecision: return 0
         }
+    }
+
+    private func hasSchoolSpecificRoundPolicy(_ college: College) -> Bool {
+        gateRules.contains { $0.collegeID == college.id && $0.type == .round }
     }
 
     private func bucket(_ probability: Double) -> RecommendationBucket {
