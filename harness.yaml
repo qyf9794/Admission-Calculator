@@ -81,6 +81,7 @@ model_constraints:
     - confidence_label
     - failed_gate_reasons
     - missing_data_warnings
+    - per_school_source_audit
   multi_school_correlation:
     rule: "Do not multiply all independent probabilities directly; apply same-tier correlation discount."
   portfolio_selection:
@@ -139,3 +140,5 @@ validation_tests:
     description: "AI reports must include computed portfolio-level and per-school warnings/data limitations instead of replacing them with generic advice."
   - id: conservative_bucket_thresholds
     description: "Recommendation buckets must not label sub-60% chances as likely/safety, and UI/report copy must state that likely is not a guarantee."
+  - id: per_school_source_audit
+    description: "The data UI must expose per-school source notes for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules."

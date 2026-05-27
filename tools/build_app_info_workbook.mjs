@@ -99,6 +99,7 @@ const probabilityRows = [
   ["提交画像快照", "profileSnapshot", "计算时的 StudentProfile 副本", "结构化数据", "报告、结果一致性", "计算引擎", "报告必须使用快照，避免新画像搭配旧概率"],
   ["提交选校快照", "selectedCollegeIDs", "计算时的学校 ID 集合", "集合", "结果一致性、过期提示", "计算引擎", "实时选校变化后需提示结果过期"],
   ["组合警告", "selectionWarnings", "无效学校 ID 或组合层面的数据范围问题", "列表", "结果展示、报告", "计算引擎", "不在 AdmissionSight v1 数据集内的学校必须排除并披露"],
+  ["逐校来源审计", "perSchoolSourceAudit", "每所学校展示录取率、国际生本科信号、中国本科录取容量、学术基准和硬门槛来源备注", "数据页 DisclosureGroup", "透明披露", "生成数据 + 数据页", "帮助用户区分官方数据、推断值和代理数据"],
   ["课程体系成绩", "curriculumPerformance", "AP/IB/A-Level/中国课程成绩按分段表转内部指数；AP 门数为 0 时 AP 平均分不计入", "画像分 + 学术匹配修正", "课程体系强度结果", "学生输入", "与课程难度不同，表示该体系内的实际成绩表现；非真实百分制换算"],
   ["高中背景修正", "highSchoolDelta", "AdmitRanking 风格资源/顾问/升学/透明度", "logit 修正", "中国学校背景校准", "AdmitRanking 参考", "不能单独保证录取"],
   ["专业竞争修正", "majorDelta", "CS/Engineering/Business 等专业竞争", "logit 修正", "按专业调节", "模型规则", "CS/工程更保守"],
@@ -159,7 +160,8 @@ const methodRows = [
   ["9", "结果分档", "按概率给中文 bucket", "0=硬门槛；>0 且 <20%=争取；20%-60%=目标；>=60%=保底", "结果页展示", "分档只做规划参考，保底不代表录取保证"],
   ["10", "自动推荐组合", "用户点击按钮后按保底/目标/争取数量抽取学校", "likely/target/reach buckets by probability", "写入 selectedCollegeIDs", "空选校不再隐式推荐；某档不足时不跨档硬凑；手动组合不显示自动推荐缺口结论"],
   ["11", "组合概率", "按 tier 分组，同层学校依次折扣", "failure *= (1 - probability × 0.72^index)", "至少一所录取概率", "避免简单独立相乘高估"],
-  ["12", "报告生成", "AI 基于结构化结果生成策略和建议，并汇总组合级与逐校 warnings / 数据限制", "report(input = profile + computedResults + warnings)", "付费报告", "AI 不得改概率、加学校或承诺录取；不得用通用建议替代已计算警告"]
+  ["12", "报告生成", "AI 基于结构化结果生成策略和建议，并汇总组合级与逐校 warnings / 数据限制", "report(input = profile + computedResults + warnings)", "付费报告", "AI 不得改概率、加学校或承诺录取；不得用通用建议替代已计算警告"],
+  ["13", "逐校来源审计", "数据页按学校展示概率所用关键数据的 source note、URL 和推断标记", "acceptance + international + China admits + benchmark + gates", "数据透明度", "不能只展示总来源表；用户需能追溯单校代理数据"]
 ];
 
 writeSheet(

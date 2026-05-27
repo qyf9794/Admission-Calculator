@@ -84,6 +84,22 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(AdmissionsSeedData.academicBenchmarks.filter(\.isInferred).allSatisfy { $0.dataQuality < 0.6 })
     }
 
+    func testPerSchoolSourceAuditDataIsDisplayable() {
+        let collegeIDs = Set(AdmissionsSeedData.colleges.map(\.id))
+        let internationalIDs = Set(AdmissionsSeedData.internationalSignals.map(\.collegeID))
+        let chinaIDs = Set(AdmissionsSeedData.chinaAdmissionSignals.map(\.collegeID))
+        let benchmarkIDs = Set(AdmissionsSeedData.academicBenchmarks.map(\.collegeID))
+
+        XCTAssertEqual(internationalIDs, collegeIDs)
+        XCTAssertTrue(chinaIDs.isSubset(of: collegeIDs))
+        XCTAssertFalse(chinaIDs.isEmpty)
+        XCTAssertEqual(benchmarkIDs, collegeIDs)
+        XCTAssertTrue(AdmissionsSeedData.internationalSignals.allSatisfy { !$0.sourceNote.isEmpty })
+        XCTAssertTrue(AdmissionsSeedData.chinaAdmissionSignals.allSatisfy { !$0.sourceNote.isEmpty })
+        XCTAssertTrue(AdmissionsSeedData.academicBenchmarks.allSatisfy { !$0.sourceNote.isEmpty })
+        XCTAssertTrue(AdmissionsSeedData.gateRules.contains { $0.collegeID == "*" && !$0.isOfficial })
+    }
+
     func testDataQualityAndProxyValuesStayInBounds() {
         for signal in AdmissionsSeedData.internationalSignals {
             XCTAssertGreaterThanOrEqual(signal.dataQuality, 0, signal.collegeID)

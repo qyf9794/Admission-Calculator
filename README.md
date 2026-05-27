@@ -5,6 +5,7 @@ SwiftUI iPhone app for estimating U.S. undergraduate admission chances for Chine
 The v1 model is intentionally transparent:
 
 - AdmissionSight National Universities acceptance rates are the only school statistics seed.
+- The data tab includes per-school source audit notes for the major inputs used in probability math.
 - Hard gates run before probability math; failed required gates return `0%`.
 - Inferred gates are labeled and lower confidence.
 - Global gate rules are filtered by applicant status and major before they can block, warn, or lower confidence.
