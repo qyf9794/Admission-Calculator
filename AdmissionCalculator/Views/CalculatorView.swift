@@ -117,6 +117,9 @@ struct CalculatorView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                Text("修改学生画像或三档数量后，旧自动组合会转为手动组合；需要再次点击按钮才会按新条件生成。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 NavigationLink {
                     CollegePickerView(selectedCollegeIDs: $selectedCollegeIDs, selectionSource: $selectionSource)
                 } label: {
@@ -144,6 +147,9 @@ struct CalculatorView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
+        .onChange(of: profile) { _, _ in
+            selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
+        }
     }
 
     private var requestedRecommendationTotal: Int {

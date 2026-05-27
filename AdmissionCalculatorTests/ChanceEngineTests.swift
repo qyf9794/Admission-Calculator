@@ -473,6 +473,13 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(result.recommendationWarnings.isEmpty)
     }
 
+    func testAutomaticSelectionDemotesAfterProfileEdit() {
+        XCTAssertEqual(PortfolioSelectionSource.automatic.afterProfileEdit(selectedCollegeIDs: Set(["bu"])), .manual)
+        XCTAssertEqual(PortfolioSelectionSource.automatic.afterProfileEdit(selectedCollegeIDs: []), .none)
+        XCTAssertEqual(PortfolioSelectionSource.manual.afterProfileEdit(selectedCollegeIDs: Set(["bu"])), .manual)
+        XCTAssertEqual(PortfolioSelectionSource.none.afterProfileEdit(selectedCollegeIDs: []), .none)
+    }
+
     func testExplicitAutomaticEmptySelectionReportsRecommendationShortages() {
         var profile = StudentProfile.sample
         profile.requestedLikelyCount = 2

@@ -109,6 +109,13 @@ enum PortfolioSelectionSource: String, Codable {
     case none = "尚未选择"
     case manual = "手动选择"
     case automatic = "自动推荐"
+
+    func afterProfileEdit(selectedCollegeIDs: Set<String>) -> PortfolioSelectionSource {
+        guard self == .automatic else {
+            return self
+        }
+        return selectedCollegeIDs.isEmpty ? .none : .manual
+    }
 }
 
 enum GateRuleType: String, Codable {
