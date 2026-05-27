@@ -532,6 +532,23 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(higher.gateResult.passed)
     }
 
+    func testBestSubmittedTestingEquivalentSatisfiesGateAndBenchmark() {
+        let georgetown = AdmissionsSeedData.colleges.first { $0.id == "georgetown" }!
+        var profile = StudentProfile.sample
+        profile.major = .humanities
+        profile.sat = 1400
+        profile.act = 35
+        profile.testOptional = false
+        profile.toefl = 110
+
+        let result = engine.chance(for: georgetown, profile: profile)
+        let fit = result.factors.first { $0.label == "目标校学术匹配" }
+
+        XCTAssertTrue(result.gateResult.passed)
+        XCTAssertFalse(result.gateResult.failedRules.contains { $0.type == .standardizedTest })
+        XCTAssertTrue(fit?.detail.contains("SAT等效 1540") == true)
+    }
+
     func testDatasetIsAdmissionSightScoped() {
         let source = AdmissionsSeedData.admissionsSightURL.absoluteString
         XCTAssertFalse(AdmissionsSeedData.colleges.isEmpty)

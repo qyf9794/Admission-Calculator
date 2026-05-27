@@ -95,7 +95,7 @@ const probabilityRows = [
   ["硬门槛结果", "gateResult.passed", "先按学生身份/专业过滤，再逐校检查 standardized test / English / curriculum / portfolio / round", "失败则 probability = 0", "概率计算前置条件", "Official/CDS/推断规则", "失败原因必须展示"],
   ["失败规则", "failedRules", "未满足且适用于该学生的官方或推断硬门槛", "列表", "解释 0% 原因", "Gate rules", "官方规则和推断规则分开标注"],
   ["推断规则", "inferredRules", "缺官方数据时按同类学校推断，但只披露适用于该学生的规则", "列表", "降低置信度", "同类学校政策推断", "不相关全局规则不得扣置信度"],
-  ["画像总分", "profileScore", "学术、排名、课程、标化、活动等加权；test-free/test-blind 学校按校级政策排除 SAT/ACT", "0-100", "调整普通申请池先验", "学生输入 + 学校政策", "当前实现使用透明固定权重，单校概率使用学校感知画像分"],
+  ["画像总分", "profileScore", "学术、排名、课程、标化、活动等加权；test-free/test-blind 学校按校级政策排除 SAT/ACT；SAT/ACT 同时存在时取最强 SAT 等效分", "0-100", "调整普通申请池先验", "学生输入 + 学校政策", "当前实现使用透明固定权重，单校概率使用学校感知画像分"],
   ["提交画像快照", "profileSnapshot", "计算时的 StudentProfile 副本", "结构化数据", "报告、结果一致性", "计算引擎", "报告必须使用快照，避免新画像搭配旧概率"],
   ["提交选校快照", "selectedCollegeIDs", "计算时的学校 ID 集合", "集合", "结果一致性、过期提示", "计算引擎", "实时选校变化后需提示结果过期"],
   ["组合警告", "selectionWarnings", "无效学校 ID 或组合层面的数据范围问题", "列表", "结果展示、报告", "计算引擎", "不在 AdmissionSight v1 数据集内的学校必须排除并披露"],
@@ -133,7 +133,7 @@ const sourceRows = [
   ["Official College Admissions Pages", "各学校官网", "标化、英语、课程、作品集、轮次硬性要求", "强约束", "硬门槛检查", "官方 required/minimum 未满足即 0%", "后续需持续补齐每校 URL"],
   ["UC Dates & Deadlines", "https://admission.universityofcalifornia.edu/how-to-apply/applying-as-a-freshman/dates-and-deadlines.html", "UC first-year application filing period", "官方规则", "UC 轮次硬门槛", "UC 无 EA/ED；在本 app 中按 RD 处理", "已在引擎中落地"],
   ["UC Test-Free Admissions", "https://admission.universityofcalifornia.edu/how-to-apply/applying-as-a-first-year/filling-out-the-application.html", "UC 不在录取或奖学金决策中考虑 SAT/ACT", "官方规则", "UC 标化计分排除", "SAT/ACT 可用于入学后 placement 或最低资格替代，不作为录取概率加减分", "已在引擎中落地"],
-  ["ACT/SAT Concordance", "https://www.act.org/content/act/en/products-and-services/the-act/scores/act-sat-concordance.html", "ACT Composite 到 SAT Total 官方 concordance", "官方换算", "ACT 等效 SAT gate 和 benchmark", "使用 2018 官方 midpoint 表，不做线性近似", "已在引擎中落地"],
+  ["ACT/SAT Concordance", "https://www.act.org/content/act/en/products-and-services/the-act/scores/act-sat-concordance.html", "ACT Composite 到 SAT Total 官方 concordance", "官方换算", "ACT 等效 SAT gate 和 benchmark", "使用 2018 官方 midpoint 表，不做线性近似；SAT/ACT 同时存在时取最强 SAT 等效分", "已在引擎中落地"],
   ["Common Data Set (CDS)", "各学校 CDS", "国际生比例、测试政策、录取统计", "补充强约束/统计", "硬门槛和置信度", "CDS 字段缺失时降低置信度", "用于官方页面难找时复核"],
   ["Harness", "本仓库 harness.yaml / HARNESS.md", "数据范围、模型约束、AI报告限制、测试标准", "内部约束", "构建和验收", "不能被 UI 或 AI 报告绕过", "已落地"],
   ["用户输入", "App 表单", "学生画像、目标专业、轮次、资助、选校", "运行时输入", "个人概率调整", "主观评分需提示不确定性", "报告只能解释，不改变计算"]
@@ -149,7 +149,7 @@ writeSheet(
 const methodRows = [
   ["1", "数据范围校验", "确认学校在 AdmissionSight National Universities 种子表中", "collegeID in approvedDataset", "不通过则从组合概率排除并写入 selectionWarnings", "防止引入未授权数据"],
   ["2", "硬门槛检查", "先过滤适用于该身份/专业的规则，再检查 required 标化、英语、课程、作品集、轮次", "if failedRules.count > 0 then probability = 0", "输出 0% 和失败原因", "官方规则优先；推断规则必须标注；不相关规则不扣置信度"],
-  ["3", "学校感知画像分计算", "把学生输入压缩为 0-100 分，并按学校 test-free/test-blind 政策排除 SAT/ACT", "profileScore(college) = Σ(componentScore × weight)", "进入 logit 调整", "当前权重见下方权重表；UC 等学校不吃 SAT/ACT 加减分"],
+  ["3", "学校感知画像分计算", "把学生输入压缩为 0-100 分，并按学校 test-free/test-blind 政策排除 SAT/ACT；非 test-free 学校取最强 SAT 等效分", "profileScore(college) = Σ(componentScore × weight)", "进入 logit 调整", "当前权重见下方权重表；UC 等学校不吃 SAT/ACT 加减分"],
   ["4", "学校先验", "使用最新非空 AdmissionSight 录取率", "baseRate = latestNonNullAcceptanceRate", "单校基础概率", "N/A 年份降低数据质量"],
   ["5", "普通申请池先验", "把基础率按国际生、当前轮次中国容量和特殊通道扣除校准", "ordinaryPrior = baseRate × multipliers", "避免把整体录取率当普通中国申请者概率", "容量数据缺分母时保守处理"],
   ["6", "Logit 转换", "把普通申请池先验转成可加和空间", "logitPrior = LN(ordinaryPrior/(1-ordinaryPrior))", "便于叠加修正", "避免直接线性加百分比"],

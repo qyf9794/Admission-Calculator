@@ -149,7 +149,7 @@ struct ChanceEngine {
             switch rule.type {
             case .standardizedTest:
                 if let minimumSAT = rule.minimumSAT {
-                    let satEquivalent = profile.sat ?? actToSat(profile.act)
+                    let satEquivalent = bestSATEquivalent(profile)
                     if profile.testOptional || (satEquivalent ?? 0) < minimumSAT {
                         failed.append(rule)
                     }
@@ -406,7 +406,7 @@ struct ChanceEngine {
         if profile.testOptional {
             return 54
         }
-        let satEquivalent = max(profile.sat ?? 0, actToSat(profile.act) ?? 0)
+        let satEquivalent = bestSATEquivalent(profile) ?? 0
         let testScore = satEquivalent > 0 ? clamp((Double(satEquivalent) - 1050) / 550 * 100, min: 0, max: 100) : 0
         let english = englishScore(profile)
         return testScore * 0.72 + english * 0.28
@@ -436,6 +436,11 @@ struct ChanceEngine {
             return ielts >= 6.5
         }
         return false
+    }
+
+    private func bestSATEquivalent(_ profile: StudentProfile) -> Int? {
+        let submittedScores = [profile.sat, actToSat(profile.act)].compactMap { $0 }
+        return submittedScores.max()
     }
 
     private func actToSat(_ act: Int?) -> Int? {
@@ -541,7 +546,7 @@ struct ChanceEngine {
             clamp((target - profile.classRankPercentile) / 20 * 0.12, min: -0.10, max: 0.10)
         } ?? 0
 
-        let satEquivalent = profile.sat ?? actToSat(profile.act)
+        let satEquivalent = bestSATEquivalent(profile)
         let testDelta: Double
         if isTestFreeForAdmissions(college) {
             testDelta = 0
@@ -579,7 +584,7 @@ struct ChanceEngine {
         let sat = isTestFreeForAdmissions(college) ? "不使用（test-free）" : (benchmark.satBenchmark.map(String.init) ?? "不使用")
         let act = isTestFreeForAdmissions(college) ? "不使用（test-free）" : (benchmark.actBenchmark.map(String.init) ?? "不使用")
         let rigor = benchmark.rigorBenchmark.map(String.init) ?? "缺失"
-        let applicantSAT = isTestFreeForAdmissions(college) ? "不使用（test-free）" : ((profile.sat ?? actToSat(profile.act)).map(String.init) ?? (profile.testOptional ? "Test optional" : "缺失"))
+        let applicantSAT = isTestFreeForAdmissions(college) ? "不使用（test-free）" : (bestSATEquivalent(profile).map(String.init) ?? (profile.testOptional ? "Test optional" : "缺失"))
         let gpaScore = normalizedGPAScore(profile)
         let curriculumScore = curriculumPerformanceIndex(profile)
         let inferred = benchmark.isInferred ? "推断基准" : "官方/核验基准"

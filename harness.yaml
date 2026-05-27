@@ -67,6 +67,7 @@ model_constraints:
     rule: "After hard gates pass, compare GPA, rank, standardized testing, and rigor to the target school's benchmark. Keep this school-specific correction bounded so it cannot override hard gates or dominate holistic factors."
     arts_rule: "Arts applicants receive a reduced academic-benchmark correction because portfolio and creative fit carry more weight."
     test_free_rule: "If a school is officially test-free or test-blind for admissions, SAT/ACT must be excluded from both readiness scoring and academic benchmark adjustment for that school."
+    best_testing_rule: "When both SAT and ACT are present, standardized-test gates, readiness scoring, and academic benchmark fit use the strongest SAT-equivalent submitted score."
   required_outputs:
     - individual_school_probability
     - selected_school_at_least_one_probability
@@ -117,3 +118,5 @@ validation_tests:
     description: "Arts applicants with portfolio should use lower academic emphasis; arts applicants without portfolio remain blocked."
   - id: academic_benchmark_disclosure
     description: "Academic benchmark rows must cover the AdmissionSight dataset, disclose inferred rows, and affect probability directionally."
+  - id: best_testing_equivalent
+    description: "When both SAT and ACT are submitted, gates and benchmark fit must use the strongest SAT-equivalent score."
