@@ -195,6 +195,19 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
     }
 
+    func testReportIncludesSelectedSchoolSourceAudit() {
+        let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(report.contains("逐校数据来源审计"))
+        XCTAssertTrue(report.contains("Boston University：录取率"))
+        XCTAssertTrue(report.contains("AdmissionSight National Universities"))
+        XCTAssertTrue(report.contains("国际生"))
+        XCTAssertTrue(report.contains("中国本科"))
+        XCTAssertTrue(report.contains("学术基准"))
+        XCTAssertTrue(report.contains("硬门槛"))
+    }
+
     private func assertChinaTotal(_ early: Int?, _ rd: Int?, _ total: Int?, _ collegeID: String) {
         guard let early, let rd, let total else {
             return

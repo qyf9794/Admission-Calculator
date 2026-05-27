@@ -28,6 +28,7 @@ The v1 model is intentionally transparent:
 - Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation bucket shortages.
 - AI reports include every selected or auto-recommended school's probability and academic-fit adjustment.
 - AI reports include each selected school's confidence label next to its probability.
+- AI reports include a per-school source audit summary for the data used in probability math.
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.
 - AI reports include computed portfolio warnings and per-school data limitations instead of replacing them with generic advice.
 - Results and AI reports are tied to the submitted profile snapshot; if the live form changes afterward, the app flags the displayed result as stale.

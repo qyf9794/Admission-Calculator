@@ -30,6 +30,7 @@ enum ReportService {
         let gates = blocked.isEmpty
             ? "未发现已选学校的硬门槛失败项。"
             : blocked.map { "\($0.college.name)：\($0.gateResult.failedRules.map(Self.gateRuleSummary).joined(separator: "；"))" }.joined(separator: "\n")
+        let sourceAudit = sourceAuditSummary(for: schoolResults)
         let selectionNotes = result.selectionWarnings.isEmpty
             ? "当前组合内学校均来自 v1 数据集。"
             : result.selectionWarnings.joined(separator: "\n")
@@ -77,6 +78,9 @@ enum ReportService {
         数据限制与警告：
         \(warningNotes)
 
+        逐校数据来源审计：
+        \(sourceAudit)
+
         建议：
         1. 先补齐所有 required 标化、英语或作品集门槛，再优化概率。
         2. 对低概率但未被阻断的学校，先看 GPA/排名/标化/课程难度是否低于目标校基准，再决定是补学术、换梯度，还是加强专业叙事。
@@ -99,6 +103,32 @@ enum ReportService {
         let source = rule.isOfficial ? "官方" : "推断"
         let url = rule.sourceURL.map { " 来源：\($0.absoluteString)" } ?? ""
         return "\(source) \(rule.title)：\(rule.detail)\(url)"
+    }
+
+    private static func sourceAuditSummary(for schoolResults: [ChanceResult]) -> String {
+        guard !schoolResults.isEmpty else {
+            return "尚未选择学校。"
+        }
+
+        return schoolResults.map { result in
+            sourceAuditLine(for: result.college)
+        }.joined(separator: "\n")
+    }
+
+    private static func sourceAuditLine(for college: College) -> String {
+        let internationalSignal = AdmissionsSeedData.internationalSignals.first { $0.collegeID == college.id }
+        let chinaSignal = AdmissionsSeedData.chinaAdmissionSignals.first { $0.collegeID == college.id }
+        let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == college.id }
+        let schoolRules = AdmissionsSeedData.gateRules.filter { $0.collegeID == college.id }
+
+        let internationalNote = internationalSignal.map { "\($0.dataScope)：\($0.sourceNote)" } ?? "缺失：当前没有本科国际生代理行。"
+        let chinaNote = chinaSignal.map { "\($0.dataScope)：\($0.sourceNote)" } ?? "缺失：当前没有中国本科录取人数行。"
+        let benchmarkNote = benchmark.map { "\($0.isInferred ? "推断值" : "官方/学校来源")：\($0.sourceNote)" } ?? "缺失：当前没有学术基准行。"
+        let gateNote = schoolRules.isEmpty
+            ? "未配置学校专属硬门槛；仍按适用身份/专业检查全局推断门槛。"
+            : schoolRules.map { "\($0.title)（\($0.isOfficial ? "官方" : "推断")）" }.joined(separator: "、")
+
+        return "\(college.name)：录取率 \(college.latestAvailableClassYear) 届，AdmissionSight National Universities 表；国际生 \(internationalNote)；中国本科 \(chinaNote)；学术基准 \(benchmarkNote)；硬门槛 \(gateNote)"
     }
 
     private static func warningSummary(result: PortfolioResult) -> String {

@@ -30,6 +30,7 @@ The result is an explainable estimate, not a promise of admission.
 - Results and AI reports must disclose the current portfolio's likely / target / reach / blocked composition, and must warn when the auto-recommendation pool cannot satisfy a requested bucket count.
 - AI reports must include probability and academic-fit lines for every school in the current selected or auto-recommended portfolio, not only a shortened preview.
 - AI reports must include each selected school's computed confidence label next to its probability so uncertainty is not lost outside the results UI.
+- AI reports must include each selected school's source-audit summary for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules.
 - Auto-recommendation shortage warnings must be shown only for an auto-recommended portfolio, not for a manually selected school list.
 - AI reports must include computed portfolio-level warnings and per-school warnings/data limitations; generic advice is not enough to satisfy disclosure.
 - Result pages and AI reports must use the submitted profile snapshot that produced the probabilities. If the live form or selected schools change after calculation, the results view must disclose that the displayed probabilities are stale until recalculated.

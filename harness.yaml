@@ -103,6 +103,7 @@ model_constraints:
       - "Auto-recommendation shortage warnings when selectionSource is automatic"
       - "Per-school warnings and data limitations already produced by the chance engine"
       - "Every selected or auto-recommended school's probability and academic-fit adjustment"
+      - "Every selected or auto-recommended school's source-audit summary for the data used by the probability model"
     forbidden:
       - "Changing computed probabilities"
       - "Adding schools outside the dataset"
@@ -161,3 +162,5 @@ validation_tests:
     description: "AI reports must include each selected school's computed confidence label next to its probability so uncertainty is not lost outside the results UI."
   - id: failed_gate_reason_detail
     description: "Hard-gate failures must disclose the rule title, official/inferred status, explanatory detail, and source when available."
+  - id: report_includes_source_audit
+    description: "AI reports must include each selected school's source-audit summary for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules."
