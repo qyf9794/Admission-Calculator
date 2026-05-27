@@ -135,6 +135,7 @@ const sourceRows = [
   ["UC Test-Free Admissions", "https://admission.universityofcalifornia.edu/how-to-apply/applying-as-a-first-year/filling-out-the-application.html", "UC 不在录取或奖学金决策中考虑 SAT/ACT", "官方规则", "UC 标化计分排除", "SAT/ACT 可用于入学后 placement 或最低资格替代，不作为录取概率加减分", "已在引擎中落地"],
   ["ACT/SAT Concordance", "https://www.act.org/content/act/en/products-and-services/the-act/scores/act-sat-concordance.html", "ACT Composite 到 SAT Total 官方 concordance", "官方换算", "ACT 等效 SAT gate 和 benchmark", "使用 2018 官方 midpoint 表，不做线性近似；SAT/ACT 同时存在时取最强 SAT 等效分", "已在引擎中落地"],
   ["Common Data Set (CDS)", "各学校 CDS", "国际生比例、测试政策、录取统计", "补充强约束/统计", "硬门槛和置信度", "CDS 字段缺失时降低置信度", "用于官方页面难找时复核"],
+  ["China Undergrad Admissions Table", "data/china_undergrad_admissions.csv", "2028-2030 届中国学生早申/RD/总录取", "本科中国录取信号", "中国学生容量和趋势校准", "缺申请人数分母，不能推导精确录取率；early+RD 必须等于 total", "已内置并由生成器校验"],
   ["Harness", "本仓库 harness.yaml / HARNESS.md", "数据范围、模型约束、AI报告限制、测试标准", "内部约束", "构建和验收", "不能被 UI 或 AI 报告绕过", "已落地"],
   ["用户输入", "App 表单", "学生画像、目标专业、轮次、资助、选校", "运行时输入", "个人概率调整", "主观评分需提示不确定性", "报告只能解释，不改变计算"]
 ];
@@ -147,7 +148,7 @@ writeSheet(
 );
 
 const methodRows = [
-  ["1", "数据范围校验", "确认学校在 AdmissionSight National Universities 种子表中", "collegeID in approvedDataset", "不通过则从组合概率排除并写入 selectionWarnings", "防止引入未授权数据"],
+  ["1", "数据范围和数值校验", "确认学校在 AdmissionSight National Universities 种子表中，并校验录取率、rank、share、dataQuality、China early/RD/total", "collegeID in approvedDataset; early + RD = total", "不通过则从组合概率排除或阻断生成", "防止引入未授权数据和数值口径错误"],
   ["2", "硬门槛检查", "先过滤适用于该身份/专业的规则，再检查 required 标化、英语、课程、作品集、轮次", "if failedRules.count > 0 then probability = 0", "输出 0% 和失败原因", "官方规则优先；推断规则必须标注；不相关规则不扣置信度"],
   ["3", "学校感知画像分计算", "把学生输入压缩为 0-100 分，并按学校 test-free/test-blind 政策排除 SAT/ACT；非 test-free 学校取最强 SAT 等效分", "profileScore(college) = Σ(componentScore × weight)", "进入 logit 调整", "当前权重见下方权重表；UC 等学校不吃 SAT/ACT 加减分"],
   ["4", "学校先验", "使用最新非空 AdmissionSight 录取率", "baseRate = latestNonNullAcceptanceRate", "单校基础概率", "N/A 年份降低数据质量"],

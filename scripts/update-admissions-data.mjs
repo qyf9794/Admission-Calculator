@@ -111,6 +111,35 @@ function fail(message) {
   throw new Error(message);
 }
 
+function optionalNumber(row, field, label = field) {
+  const raw = String(row[field] ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    fail(`${label} must be numeric; got ${raw}.`);
+  }
+  return value;
+}
+
+function optionalInteger(row, field, label = field) {
+  const value = optionalNumber(row, field, label);
+  if (value === null) {
+    return null;
+  }
+  if (!Number.isInteger(value)) {
+    fail(`${label} must be an integer; got ${value}.`);
+  }
+  return value;
+}
+
+function requireRange(value, min, max, label) {
+  if (value !== null && (value < min || value > max)) {
+    fail(`${label} must be between ${min} and ${max}; got ${value}.`);
+  }
+}
+
 function dataQuality(row) {
   const missing = classYears.some((year) => String(row[`rate_${year}`] ?? "").trim() === "");
   return missing ? "0.84" : "0.96";
@@ -145,6 +174,12 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     if (!hasRate) {
       fail(`College ${college.id} has no acceptance rates.`);
     }
+    const rank = optionalInteger(college, "rank", `College ${college.id} rank`);
+    requireRange(rank, 1, 500, `College ${college.id} rank`);
+    for (const year of classYears) {
+      const rate = optionalNumber(college, `rate_${year}`, `College ${college.id} rate_${year}`);
+      requireRange(rate, 0.01, 100, `College ${college.id} rate_${year}`);
+    }
   }
 
   for (const gate of gates) {
@@ -173,6 +208,16 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     if (coefficient && (!intlAdmitted || !totalAdmitted)) {
       fail(`International admit coefficient for ${signal.college_id} requires both admitted counts.`);
     }
+    requireRange(optionalNumber(signal, "undergrad_nonresident_share", `International signal ${signal.college_id} undergrad_nonresident_share`), 0, 1, `International signal ${signal.college_id} undergrad_nonresident_share`);
+    requireRange(optionalNumber(signal, "international_admit_coefficient", `International signal ${signal.college_id} international_admit_coefficient`), 0, 1, `International signal ${signal.college_id} international_admit_coefficient`);
+    requireRange(optionalNumber(signal, "data_quality", `International signal ${signal.college_id} data_quality`), 0, 1, `International signal ${signal.college_id} data_quality`);
+    const admitted = optionalInteger(signal, "international_admitted_count", `International signal ${signal.college_id} international_admitted_count`);
+    const total = optionalInteger(signal, "total_admitted_count", `International signal ${signal.college_id} total_admitted_count`);
+    requireRange(admitted, 0, Number.MAX_SAFE_INTEGER, `International signal ${signal.college_id} international_admitted_count`);
+    requireRange(total, 1, Number.MAX_SAFE_INTEGER, `International signal ${signal.college_id} total_admitted_count`);
+    if (admitted !== null && total !== null && admitted > total) {
+      fail(`International admitted count for ${signal.college_id} cannot exceed total admitted count.`);
+    }
     signalIDs.add(signal.college_id);
   }
   for (const id of ids) {
@@ -192,6 +237,12 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     if (benchmark.is_inferred !== "true" && !benchmark.source_url) {
       fail(`Official academic benchmark ${benchmark.college_id} must include source_url.`);
     }
+    requireRange(optionalNumber(benchmark, "gpa_percent_benchmark", `Academic benchmark ${benchmark.college_id} gpa_percent_benchmark`), 0, 100, `Academic benchmark ${benchmark.college_id} gpa_percent_benchmark`);
+    requireRange(optionalNumber(benchmark, "class_rank_percentile_benchmark", `Academic benchmark ${benchmark.college_id} class_rank_percentile_benchmark`), 0, 100, `Academic benchmark ${benchmark.college_id} class_rank_percentile_benchmark`);
+    requireRange(optionalInteger(benchmark, "sat_benchmark", `Academic benchmark ${benchmark.college_id} sat_benchmark`), 400, 1600, `Academic benchmark ${benchmark.college_id} sat_benchmark`);
+    requireRange(optionalInteger(benchmark, "act_benchmark", `Academic benchmark ${benchmark.college_id} act_benchmark`), 1, 36, `Academic benchmark ${benchmark.college_id} act_benchmark`);
+    requireRange(optionalInteger(benchmark, "rigor_benchmark", `Academic benchmark ${benchmark.college_id} rigor_benchmark`), 1, 5, `Academic benchmark ${benchmark.college_id} rigor_benchmark`);
+    requireRange(optionalNumber(benchmark, "data_quality", `Academic benchmark ${benchmark.college_id} data_quality`), 0, 1, `Academic benchmark ${benchmark.college_id} data_quality`);
     benchmarkIDs.add(benchmark.college_id);
   }
   for (const id of ids) {
@@ -212,6 +263,19 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     if (!total2030) {
       fail(`China admission signal ${signal.college_id} must include china_2030_total.`);
     }
+    for (const year of [2028, 2029, 2030]) {
+      const early = optionalInteger(signal, `china_${year}_early`, `China admission signal ${signal.college_id} china_${year}_early`);
+      const rd = optionalInteger(signal, `china_${year}_rd`, `China admission signal ${signal.college_id} china_${year}_rd`);
+      const total = optionalInteger(signal, `china_${year}_total`, `China admission signal ${signal.college_id} china_${year}_total`);
+      requireRange(early, 0, Number.MAX_SAFE_INTEGER, `China admission signal ${signal.college_id} china_${year}_early`);
+      requireRange(rd, 0, Number.MAX_SAFE_INTEGER, `China admission signal ${signal.college_id} china_${year}_rd`);
+      requireRange(total, 0, Number.MAX_SAFE_INTEGER, `China admission signal ${signal.college_id} china_${year}_total`);
+      if (early !== null && rd !== null && total !== null && early + rd !== total) {
+        fail(`China admission signal ${signal.college_id} ${year} total must equal early + RD.`);
+      }
+    }
+    requireRange(optionalNumber(signal, "china_share_of_all_admits", `China admission signal ${signal.college_id} china_share_of_all_admits`), 0, 1, `China admission signal ${signal.college_id} china_share_of_all_admits`);
+    requireRange(optionalNumber(signal, "data_quality", `China admission signal ${signal.college_id} data_quality`), 0, 1, `China admission signal ${signal.college_id} data_quality`);
     chinaSignalIDs.add(signal.college_id);
   }
 

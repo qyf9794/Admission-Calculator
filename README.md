@@ -54,3 +54,4 @@ Edit the reviewed source files in `data/`, then regenerate:
 - `data/source_registry.json`: source roles, confidence, and refresh notes.
 
 The script rejects schools outside the AdmissionSight seed and official gate rules without URLs.
+It also validates numeric ranges for rates, ranks, proxy shares, data quality, and China early/RD totals before regenerating Swift data.

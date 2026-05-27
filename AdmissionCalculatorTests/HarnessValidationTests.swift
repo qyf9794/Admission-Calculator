@@ -19,6 +19,17 @@ final class HarnessValidationTests: XCTestCase {
         }
     }
 
+    func testAdmissionSightRatesAndRanksStayInBounds() {
+        for college in AdmissionsSeedData.colleges {
+            XCTAssertGreaterThan(college.rank, 0, college.name)
+            XCTAssertLessThanOrEqual(college.rank, 500, college.name)
+            for rate in college.acceptanceRates.compactMap(\.rate) {
+                XCTAssertGreaterThan(rate, 0, college.name)
+                XCTAssertLessThanOrEqual(rate, 1, college.name)
+            }
+        }
+    }
+
     func testGeneratedDataKeepsGateTargetsInsideAdmissionSightScope() {
         let collegeIDs = Set(AdmissionsSeedData.colleges.map(\.id))
         for rule in AdmissionsSeedData.gateRules where rule.collegeID != "*" {
@@ -50,6 +61,14 @@ final class HarnessValidationTests: XCTestCase {
         }
     }
 
+    func testChinaAdmissionRoundCountsReconcileWithTotals() {
+        for signal in AdmissionsSeedData.chinaAdmissionSignals {
+            assertChinaTotal(signal.early2028, signal.rd2028, signal.total2028, signal.collegeID)
+            assertChinaTotal(signal.early2029, signal.rd2029, signal.total2029, signal.collegeID)
+            assertChinaTotal(signal.early2030, signal.rd2030, signal.total2030, signal.collegeID)
+        }
+    }
+
     func testChinaShareRequiresAllAdmitsDenominator() {
         for signal in AdmissionsSeedData.chinaAdmissionSignals where signal.chinaShareOfAllAdmits != nil {
             XCTAssertFalse(signal.sourceNote.isEmpty, signal.collegeID)
@@ -63,6 +82,35 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertEqual(benchmarkIDs, collegeIDs)
         XCTAssertTrue(AdmissionsSeedData.academicBenchmarks.allSatisfy { !$0.sourceNote.isEmpty })
         XCTAssertTrue(AdmissionsSeedData.academicBenchmarks.filter(\.isInferred).allSatisfy { $0.dataQuality < 0.6 })
+    }
+
+    func testDataQualityAndProxyValuesStayInBounds() {
+        for signal in AdmissionsSeedData.internationalSignals {
+            XCTAssertGreaterThanOrEqual(signal.dataQuality, 0, signal.collegeID)
+            XCTAssertLessThanOrEqual(signal.dataQuality, 1, signal.collegeID)
+            if let share = signal.undergradNonresidentShare {
+                XCTAssertGreaterThanOrEqual(share, 0, signal.collegeID)
+                XCTAssertLessThanOrEqual(share, 1, signal.collegeID)
+            }
+            if let coefficient = signal.internationalAdmitCoefficient {
+                XCTAssertGreaterThanOrEqual(coefficient, 0, signal.collegeID)
+                XCTAssertLessThanOrEqual(coefficient, 1, signal.collegeID)
+            }
+        }
+
+        for signal in AdmissionsSeedData.chinaAdmissionSignals {
+            XCTAssertGreaterThanOrEqual(signal.dataQuality, 0, signal.collegeID)
+            XCTAssertLessThanOrEqual(signal.dataQuality, 1, signal.collegeID)
+            if let share = signal.chinaShareOfAllAdmits {
+                XCTAssertGreaterThanOrEqual(share, 0, signal.collegeID)
+                XCTAssertLessThanOrEqual(share, 1, signal.collegeID)
+            }
+        }
+
+        for benchmark in AdmissionsSeedData.academicBenchmarks {
+            XCTAssertGreaterThanOrEqual(benchmark.dataQuality, 0, benchmark.collegeID)
+            XCTAssertLessThanOrEqual(benchmark.dataQuality, 1, benchmark.collegeID)
+        }
     }
 
     func testInferredRulesAreExplicitlyMarked() {
@@ -83,5 +131,12 @@ final class HarnessValidationTests: XCTestCase {
 
         XCTAssertTrue(report.contains("不改变概率"))
         XCTAssertTrue(report.contains("不承诺录取"))
+    }
+
+    private func assertChinaTotal(_ early: Int?, _ rd: Int?, _ total: Int?, _ collegeID: String) {
+        guard let early, let rd, let total else {
+            return
+        }
+        XCTAssertEqual(early + rd, total, collegeID)
     }
 }

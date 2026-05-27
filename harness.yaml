@@ -17,6 +17,7 @@ data_sources:
     generator: "scripts/update-admissions-data.mjs"
     output: "AdmissionCalculator/Data/AdmissionsNormalizedData.swift"
     check_command: "node scripts/update-admissions-data.mjs --check"
+    numeric_validation_rule: "Reject out-of-range rates, ranks, shares, data-quality scores, and China early/RD totals that do not reconcile."
   college_statistics:
     required_source: "AdmissionSight College Acceptance Rates"
     url: "https://admissionsight.com/college-acceptance-rates/"
@@ -111,6 +112,8 @@ validation_tests:
     description: "Selected school IDs outside the AdmissionSight seed dataset must be excluded from probability math and disclosed."
   - id: generated_snapshot_current
     description: "Generated Swift data snapshot must match reviewed source files."
+  - id: source_numeric_bounds
+    description: "Source data numeric fields must stay in valid ranges, and China early/RD counts must reconcile to totals."
   - id: international_proxy_disclosure
     description: "International student signals must be undergraduate-only, with missing admit coefficients disclosed."
   - id: china_admit_count_denominator
