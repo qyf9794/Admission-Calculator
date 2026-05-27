@@ -24,7 +24,11 @@ struct ResultsView: View {
                     MissingInputCard(
                         prompts: result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.selectedCollegeIDs)
                     )
-                    SchoolResultsList(results: result.schoolResults)
+                    SchoolResultsList(
+                        results: result.schoolResults,
+                        selectionSource: result.selectionSource,
+                        recommendationWarnings: result.recommendationWarnings
+                    )
                     ReportPanel(result: result, purchaseState: purchaseState)
                 }
                 .padding()
@@ -343,6 +347,8 @@ private struct PriorityAction: Identifiable {
 
 private struct SchoolResultsList: View {
     let results: [ChanceResult]
+    let selectionSource: PortfolioSelectionSource
+    let recommendationWarnings: [String]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -350,7 +356,7 @@ private struct SchoolResultsList: View {
                 .font(.headline)
                 .foregroundStyle(.indigo)
             if results.isEmpty {
-                ContentUnavailableView("尚未选择学校", systemImage: "building.columns", description: Text("请在计算页手选学校，或点击自动推荐组合。"))
+                ContentUnavailableView(emptyTitle, systemImage: emptySystemImage, description: Text(emptyDescription))
                     .frame(maxWidth: .infinity)
             }
             ForEach(results) { result in
@@ -418,6 +424,33 @@ private struct SchoolResultsList: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
+        }
+    }
+
+    private var emptyTitle: String {
+        switch selectionSource {
+        case .automatic:
+            return "自动推荐暂无可用学校"
+        case .manual, .none:
+            return "尚未选择学校"
+        }
+    }
+
+    private var emptySystemImage: String {
+        selectionSource == .automatic ? "wand.and.stars.inverse" : "building.columns"
+    }
+
+    private var emptyDescription: String {
+        switch selectionSource {
+        case .automatic:
+            if recommendationWarnings.isEmpty {
+                return "当前自动推荐没有生成学校；请调整三档数量、学生画像，或改为手动选校。"
+            }
+            return recommendationWarnings.joined(separator: " ")
+        case .manual:
+            return "手动组合当前为空；请回到计算页选择学校后重新计算。"
+        case .none:
+            return "请在计算页手选学校，或点击自动推荐组合。"
         }
     }
 
