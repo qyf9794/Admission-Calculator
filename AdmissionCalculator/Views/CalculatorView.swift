@@ -35,7 +35,7 @@ struct CalculatorView: View {
                     letterGrade: $profile.letterGrade
                 )
                 LabeledContent("年级排名百分位") {
-                    Stepper("前 \(Int(profile.classRankPercentile))%", value: $profile.classRankPercentile, in: 1...80, step: 1)
+                    Stepper("前 \(Int(profile.classRankPercentile))%", value: $profile.classRankPercentile, in: 1...100, step: 1)
                 }
                 Picker("课程体系", selection: $profile.curriculum) {
                     ForEach(CurriculumType.allCases) { item in
@@ -61,10 +61,10 @@ struct CalculatorView: View {
 
                 CardSection(title: "硬指标", subtitle: "标化和语言成绩会先经过硬门槛，再进入概率修正。", systemImage: "target", tint: .teal) {
                 Toggle("Test Optional / 不提交标化", isOn: testOptionalBinding)
-                ScoreField(title: "SAT", value: $profile.sat, range: 900...1600, disabled: profile.testOptional)
-                ScoreField(title: "ACT", value: $profile.act, range: 18...36, disabled: profile.testOptional)
-                ScoreField(title: "TOEFL", value: $profile.toefl, range: 70...120, disabled: false)
-                DecimalScoreField(title: "IELTS", value: $profile.ielts, range: 5.5...9.0, step: 0.5)
+                ScoreField(title: "SAT", value: $profile.sat, range: 400...1600, disabled: profile.testOptional)
+                ScoreField(title: "ACT", value: $profile.act, range: 1...36, disabled: profile.testOptional)
+                ScoreField(title: "TOEFL", value: $profile.toefl, range: 0...120, disabled: false)
+                DecimalScoreField(title: "IELTS", value: $profile.ielts, range: 0...9.0, step: 0.5)
                 if !profile.applicantStatus.requiresEnglishProof {
                     Text("当前申请身份通常不触发国际生英语硬门槛；语言成绩仍可作为学术证明。")
                         .font(.caption)
@@ -421,7 +421,7 @@ private struct GradeScaleInputs: View {
         switch scale {
         case .percent:
             LabeledContent(title) {
-                Stepper("\(Int(percent))", value: $percent, in: 60...100, step: 1)
+                Stepper("\(Int(percent))", value: $percent, in: 0...100, step: 1)
             }
         case .fourPoint:
             LabeledContent(title) {

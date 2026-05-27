@@ -476,6 +476,23 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(engine.studentScore(actProfile), engine.studentScore(satProfile), accuracy: 0.0001)
     }
 
+    func testVeryLowClassRankContinuesToLowerReadinessAndProbability() {
+        let bu = AdmissionsSeedData.colleges.first { $0.id == "bu" }!
+        var lowerRank = StudentProfile.sample
+        lowerRank.major = .humanities
+        lowerRank.classRankPercentile = 80
+        lowerRank.sat = 1350
+
+        var lowestRank = lowerRank
+        lowestRank.classRankPercentile = 100
+
+        XCTAssertLessThan(engine.studentScore(lowestRank, college: bu), engine.studentScore(lowerRank, college: bu))
+        XCTAssertLessThan(
+            engine.chance(for: bu, profile: lowestRank).adjustedProbability,
+            engine.chance(for: bu, profile: lowerRank).adjustedProbability
+        )
+    }
+
     func testEmptySelectionDoesNotImplicitlyAutoRecommendSchools() {
         let result = engine.evaluate(profile: .sample, selectedCollegeIDs: [])
 

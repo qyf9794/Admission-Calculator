@@ -203,7 +203,7 @@ struct ChanceEngine {
 
     func studentScore(_ profile: StudentProfile, college: College? = nil) -> Double {
         let gpa = normalizedGPAScore(profile)
-        let rank = clamp(100 - profile.classRankPercentile, min: 30, max: 100)
+        let rank = clamp(100 - profile.classRankPercentile, min: 0, max: 100)
         let rigor = band(profile.rigor)
         let curriculumPerformance = curriculumPerformanceIndex(profile)
         let testing = testingScore(profile, college: college)
