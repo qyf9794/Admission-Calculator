@@ -23,12 +23,11 @@ struct CollegePickerView: View {
                     filteredCount: filteredColleges.count
                 )
 
-                Picker("筛选", selection: $filter) {
-                    ForEach(CollegePickerFilter.allCases) { item in
-                        Text(item.rawValue).tag(item)
-                    }
-                }
-                .pickerStyle(.segmented)
+                CollegeFilterBar(
+                    filter: $filter,
+                    colleges: colleges,
+                    selectedIDs: selectedCollegeIDs
+                )
 
                 SelectedPortfolioCard(
                     selectedCount: selectedCollegeIDs.count,
@@ -96,6 +95,40 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var systemImage: String {
+        switch self {
+        case .all:
+            return "square.grid.2x2"
+        case .selected:
+            return "checkmark.seal"
+        case .top10:
+            return "star.fill"
+        case .top30:
+            return "chart.bar.fill"
+        case .top50:
+            return "chart.bar.xaxis"
+        case .fiftyPlus:
+            return "plus.circle"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .all:
+            return .indigo
+        case .selected:
+            return .green
+        case .top10:
+            return .purple
+        case .top30:
+            return .blue
+        case .top50:
+            return .teal
+        case .fiftyPlus:
+            return .orange
+        }
+    }
+
     func includes(college: College, selectedIDs: Set<String>) -> Bool {
         switch self {
         case .all:
@@ -111,6 +144,51 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
         case .fiftyPlus:
             return college.rank > 50
         }
+    }
+}
+
+private struct CollegeFilterBar: View {
+    @Binding var filter: CollegePickerFilter
+    let colleges: [College]
+    let selectedIDs: Set<String>
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(CollegePickerFilter.allCases) { item in
+                    Button {
+                        filter = item
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: item.systemImage)
+                                .font(.caption.weight(.semibold))
+                            Text(item.rawValue)
+                                .font(.subheadline.weight(.semibold))
+                            Text("\(count(for: item))")
+                                .font(.caption2.weight(.bold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background((filter == item ? Color.white : item.tint).opacity(filter == item ? 0.22 : 0.12), in: Capsule())
+                        }
+                        .foregroundStyle(filter == item ? .white : item.tint)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(filter == item ? item.tint : Color(.secondarySystemGroupedBackground), in: Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(item.tint.opacity(filter == item ? 0 : 0.22), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(item.rawValue)筛选，\(count(for: item))所学校")
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func count(for item: CollegePickerFilter) -> Int {
+        colleges.filter { item.includes(college: $0, selectedIDs: selectedIDs) }.count
     }
 }
 
