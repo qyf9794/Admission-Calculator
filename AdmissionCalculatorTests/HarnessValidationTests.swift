@@ -250,6 +250,8 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("官方 Required standardized testing"))
         XCTAssertTrue(report.contains("MIT requires SAT/ACT"))
         XCTAssertTrue(report.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
+        XCTAssertTrue(report.contains("Massachusetts Institute of Technology：硬门槛未通过，未进入目标校学术匹配计算。"))
+        XCTAssertFalse(report.contains("Massachusetts Institute of Technology：缺失"))
     }
 
     func testFailedGateDisplaySummaryIncludesSourceURL() {

@@ -31,6 +31,9 @@ enum ReportService {
             ? "尚未选择学校。"
             : schoolResults.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)，置信度 \($0.confidence.rawValue)）" }.joined(separator: "\n")
         let academicFit = schoolResults.isEmpty ? "尚未选择学校。" : schoolResults.map { school in
+            guard school.gateResult.passed else {
+                return "\(school.college.name)：硬门槛未通过，未进入目标校学术匹配计算。"
+            }
             let factor = school.factors.first { $0.label == "目标校学术匹配" }
             let value = factor.map { Self.signed($0.value) } ?? "缺失"
             return "\(school.college.name)：\(value)"
