@@ -61,10 +61,10 @@ enum ReportService {
         画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)，高中背景 \(highSchoolName(profile.highSchoolID))。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。
 
         当前组合内至少一所录取概率：
-        T10：\(percent(result.t10AtLeastOne))
-        T30：\(percent(result.t30AtLeastOne))
-        T50：\(percent(result.t50AtLeastOne))
-        当前组合：\(percent(result.selectedAtLeastOne))
+        T10（当前组合 \(tierCount(in: result, maxRank: 10)) 所）：\(percent(result.t10AtLeastOne))
+        T30（当前组合 \(tierCount(in: result, maxRank: 30)) 所）：\(percent(result.t30AtLeastOne))
+        T50（当前组合 \(tierCount(in: result, maxRank: 50)) 所）：\(percent(result.t50AtLeastOne))
+        当前组合（\(result.schoolResults.count) 所）：\(percent(result.selectedAtLeastOne))
 
         当前组合结构：
         来源：\(result.selectionSource.rawValue)。
@@ -104,6 +104,10 @@ enum ReportService {
 
     private static func percent(_ value: Double) -> String {
         value.formatted(.percent.precision(.fractionLength(0)))
+    }
+
+    private static func tierCount(in result: PortfolioResult, maxRank: Int) -> Int {
+        result.schoolResults.filter { $0.college.rank <= maxRank }.count
     }
 
     private static func signed(_ value: Double) -> String {

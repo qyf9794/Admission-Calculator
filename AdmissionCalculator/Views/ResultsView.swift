@@ -193,10 +193,10 @@ private struct SummaryBand: View {
                 .font(.headline)
                 .foregroundStyle(.blue)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                MetricCell(title: "T10", value: result.t10AtLeastOne, tint: .purple)
-                MetricCell(title: "T30", value: result.t30AtLeastOne, tint: .blue)
-                MetricCell(title: "T50", value: result.t50AtLeastOne, tint: .teal)
-                MetricCell(title: "当前组合", value: result.selectedAtLeastOne, tint: .green)
+                MetricCell(title: "T10", value: result.t10AtLeastOne, count: tierCount(maxRank: 10), tint: .purple)
+                MetricCell(title: "T30", value: result.t30AtLeastOne, count: tierCount(maxRank: 30), tint: .blue)
+                MetricCell(title: "T50", value: result.t50AtLeastOne, count: tierCount(maxRank: 50), tint: .teal)
+                MetricCell(title: "当前组合", value: result.selectedAtLeastOne, count: result.schoolResults.count, tint: .green)
             }
             Text("组合来源：\(result.selectionSource.rawValue)。")
                 .font(.footnote)
@@ -228,11 +228,16 @@ private struct SummaryBand: View {
                 .stroke(Color.blue.opacity(0.16), lineWidth: 1)
         )
     }
+
+    private func tierCount(maxRank: Int) -> Int {
+        result.schoolResults.filter { $0.college.rank <= maxRank }.count
+    }
 }
 
 private struct MetricCell: View {
     let title: String
     let value: Double
+    let count: Int
     let tint: Color
 
     var body: some View {
@@ -243,6 +248,9 @@ private struct MetricCell: View {
             Text(value.formatted(.percent.precision(.fractionLength(0))))
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(tint)
+            Text(count == 0 ? "未包含该层级" : "当前组合 \(count) 所")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)

@@ -274,6 +274,16 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("硬门槛"))
     }
 
+    func testReportTierProbabilitiesIncludeCurrentPortfolioCounts() {
+        let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
+        let report = ReportService.makeReport(result: result)
+
+        XCTAssertTrue(report.contains("T10（当前组合 0 所）：0%"))
+        XCTAssertTrue(report.contains("T30（当前组合 0 所）：0%"))
+        XCTAssertTrue(report.contains("T50（当前组合 1 所）"))
+        XCTAssertTrue(report.contains("当前组合（1 所）"))
+    }
+
     func testReportSourceAuditIncludesStructuredRoundPolicy() {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["mit"]), selectionSource: .manual)
         let report = ReportService.makeReport(result: result)
