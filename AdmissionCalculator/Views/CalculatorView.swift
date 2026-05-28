@@ -35,9 +35,13 @@ struct CalculatorView: View {
                     fivePoint: $profile.gpaFivePoint,
                     letterGrade: $profile.letterGrade
                 )
-                LabeledContent("年级排名百分位") {
-                    Stepper("前 \(Int(profile.classRankPercentile))%", value: $profile.classRankPercentile, in: 1...100, step: 1)
-                }
+	                DecimalSliderInput(
+	                    title: "年级排名百分位",
+	                    value: $profile.classRankPercentile,
+	                    range: 1...100,
+	                    step: 1,
+	                    displayValue: { "前 \(Int($0))%" }
+	                )
                 Picker("课程体系", selection: $profile.curriculum) {
                     ForEach(CurriculumType.allCases) { item in
                         Text(item.rawValue).tag(item)
@@ -71,9 +75,7 @@ struct CalculatorView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                LabeledContent("课程难度") {
-                    Stepper("\(profile.rigor)/5", value: $profile.rigor, in: 1...5)
-                }
+	                IntArrowInput(title: "课程难度", value: $profile.rigor, range: 1...5, suffix: "/5")
             }
 
                 CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", tint: .pink) {
@@ -488,32 +490,26 @@ private struct CurriculumPerformanceInputs: View {
                     letterGrade: $profile.chineseCurriculumLetterGrade
                 )
             case .ap:
-                LabeledContent("AP / 高级课程门数") {
-                    Stepper("\(profile.apCourseCount)", value: $profile.apCourseCount, in: 0...12)
-                }
-                if profile.apCourseCount > 0 {
-                    LabeledContent("AP 平均分") {
-                        Stepper(String(format: "%.1f", profile.apAverageScore), value: $profile.apAverageScore, in: 1...5, step: 0.5)
-                    }
-                } else {
+	                IntSliderInput(title: "AP / 高级课程门数", value: $profile.apCourseCount, range: 0...12, step: 1)
+	                if profile.apCourseCount > 0 {
+	                    DecimalSliderInput(
+	                        title: "AP 平均分",
+	                        value: $profile.apAverageScore,
+	                        range: 1...5,
+	                        step: 0.5,
+	                        displayValue: { String(format: "%.1f", $0) }
+	                    )
+	                } else {
                     Text("AP 课程门数为 0 时，AP 平均分不会计入课程体系成绩。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             case .ib:
-                LabeledContent("IB 预估总分") {
-                    Stepper("\(profile.ibPredictedScore)", value: $profile.ibPredictedScore, in: 24...45)
-                }
-            case .alevel:
-                LabeledContent("A-Level A* 科目") {
-                    Stepper("\(profile.aLevelAStarCount)", value: $profile.aLevelAStarCount, in: aLevelRange(for: profile.aLevelAStarCount))
-                }
-                LabeledContent("A-Level A 科目") {
-                    Stepper("\(profile.aLevelACount)", value: $profile.aLevelACount, in: aLevelRange(for: profile.aLevelACount))
-                }
-                LabeledContent("A-Level B 科目") {
-                    Stepper("\(profile.aLevelBCount)", value: $profile.aLevelBCount, in: aLevelRange(for: profile.aLevelBCount))
-                }
+	                IntSliderInput(title: "IB 预估总分", value: $profile.ibPredictedScore, range: 24...45, step: 1)
+	            case .alevel:
+	                IntArrowInput(title: "A-Level A* 科目", value: $profile.aLevelAStarCount, range: aLevelRange(for: profile.aLevelAStarCount))
+	                IntArrowInput(title: "A-Level A 科目", value: $profile.aLevelACount, range: aLevelRange(for: profile.aLevelACount))
+	                IntArrowInput(title: "A-Level B 科目", value: $profile.aLevelBCount, range: aLevelRange(for: profile.aLevelBCount))
                 Text("A*/A/B 合计最多 \(StudentProfile.maximumALevelSubjectCount) 门；超出上限不会提高课程体系成绩。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -555,25 +551,246 @@ private struct GradeScaleInputs: View {
 
         switch scale {
         case .percent:
-            LabeledContent(title) {
-                Stepper("\(Int(percent))", value: $percent, in: 0...100, step: 1)
-            }
-        case .fourPoint:
-            LabeledContent(title) {
-                Stepper(String(format: "%.1f", fourPoint), value: $fourPoint, in: 0...4, step: 0.1)
-            }
-        case .fivePoint:
-            LabeledContent(title) {
-                Stepper(String(format: "%.1f", fivePoint), value: $fivePoint, in: 0...5, step: 0.1)
-            }
-        case .letter:
-            Picker(title, selection: $letterGrade) {
-                ForEach(LetterGradeBand.allCases) { item in
-                    Text(item.rawValue).tag(item)
+	            DecimalSliderInput(title: title, value: $percent, range: 0...100, step: 1) { "\(Int($0))" }
+	        case .fourPoint:
+	            DecimalSliderInput(title: title, value: $fourPoint, range: 0...4, step: 0.1) { String(format: "%.1f", $0) }
+	        case .fivePoint:
+	            DecimalSliderInput(title: title, value: $fivePoint, range: 0...5, step: 0.1) { String(format: "%.1f", $0) }
+	        case .letter:
+	            OptionArrowInput(title: title, selection: $letterGrade, options: LetterGradeBand.allCases) { $0.rawValue }
+	        }
+	}
+}
+
+private struct DecimalSliderInput: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let displayValue: (Double) -> String
+
+    var body: some View {
+        LabeledContent {
+            SliderControl(
+                value: valueBinding,
+                range: range,
+                step: step,
+                displayText: displayValue(value)
+            )
+        } label: {
+            Text(title)
+        }
+    }
+
+    private var valueBinding: Binding<Double> {
+        Binding(
+            get: { value },
+            set: { value = snapped($0, range: range, step: step) }
+        )
+    }
+}
+
+private struct IntSliderInput: View {
+    let title: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+
+    var body: some View {
+        LabeledContent {
+            SliderControl(
+                value: valueBinding,
+                range: Double(range.lowerBound)...Double(range.upperBound),
+                step: Double(step),
+                displayText: "\(value)"
+            )
+        } label: {
+            Text(title)
+        }
+    }
+
+    private var valueBinding: Binding<Double> {
+        Binding(
+            get: { Double(value) },
+            set: { value = clamped(Int($0.rounded()), range: range) }
+        )
+    }
+}
+
+private struct OptionalIntSliderInput: View {
+    let title: String
+    @Binding var value: Int?
+    let range: ClosedRange<Int>
+    let step: Int
+    let disabled: Bool
+
+    var body: some View {
+        SliderControl(
+            value: valueBinding,
+            range: Double(range.lowerBound)...Double(range.upperBound),
+            step: Double(step),
+            displayText: value.map(String.init) ?? "未填写",
+            disabled: disabled
+        )
+        .accessibilityLabel(title)
+    }
+
+    private var valueBinding: Binding<Double> {
+        Binding(
+            get: { Double(value ?? range.lowerBound) },
+            set: { value = clamped(Int($0.rounded()), range: range) }
+        )
+    }
+}
+
+private struct OptionalDecimalSliderInput: View {
+    let title: String
+    @Binding var value: Double?
+    let range: ClosedRange<Double>
+    let step: Double
+    let displayValue: (Double) -> String
+
+    var body: some View {
+        SliderControl(
+            value: valueBinding,
+            range: range,
+            step: step,
+            displayText: value.map(displayValue) ?? "未填写"
+        )
+        .accessibilityLabel(title)
+    }
+
+    private var valueBinding: Binding<Double> {
+        Binding(
+            get: { value ?? range.lowerBound },
+            set: { value = snapped($0, range: range, step: step) }
+        )
+    }
+}
+
+private struct SliderControl: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let displayText: String
+    var disabled = false
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            Text(displayText)
+                .font(.subheadline.monospacedDigit().weight(.semibold))
+                .foregroundStyle(disabled ? .secondary : .primary)
+                .frame(minWidth: 58, alignment: .trailing)
+
+            HStack(spacing: 8) {
+                IconAdjustButton(systemImage: "minus.circle.fill", disabled: disabled || value <= range.lowerBound) {
+                    value = snapped(value - step, range: range, step: step)
+                }
+
+                Slider(value: $value, in: range, step: step)
+                    .disabled(disabled)
+                    .frame(minWidth: 126)
+
+                IconAdjustButton(systemImage: "plus.circle.fill", disabled: disabled || value >= range.upperBound) {
+                    value = snapped(value + step, range: range, step: step)
                 }
             }
         }
+        .frame(maxWidth: 260)
     }
+}
+
+private struct IntArrowInput: View {
+    let title: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    var suffix = ""
+
+    var body: some View {
+        LabeledContent {
+            HStack(spacing: 12) {
+                IconAdjustButton(systemImage: "chevron.left.circle.fill", disabled: value <= range.lowerBound) {
+                    value = max(range.lowerBound, value - 1)
+                }
+
+                Text("\(value)\(suffix)")
+                    .font(.headline.monospacedDigit())
+                    .frame(minWidth: 54)
+
+                IconAdjustButton(systemImage: "chevron.right.circle.fill", disabled: value >= range.upperBound) {
+                    value = min(range.upperBound, value + 1)
+                }
+            }
+        } label: {
+            Text(title)
+        }
+    }
+}
+
+private struct OptionArrowInput<Option: Equatable>: View {
+    let title: String
+    @Binding var selection: Option
+    let options: [Option]
+    let displayValue: (Option) -> String
+
+    var body: some View {
+        LabeledContent {
+            HStack(spacing: 12) {
+                IconAdjustButton(systemImage: "chevron.left.circle.fill", disabled: currentIndex <= 0) {
+                    move(by: -1)
+                }
+
+                Text(displayValue(selection))
+                    .font(.headline)
+                    .frame(minWidth: 72)
+
+                IconAdjustButton(systemImage: "chevron.right.circle.fill", disabled: currentIndex >= options.count - 1) {
+                    move(by: 1)
+                }
+            }
+        } label: {
+            Text(title)
+        }
+    }
+
+    private var currentIndex: Int {
+        options.firstIndex(of: selection) ?? 0
+    }
+
+    private func move(by delta: Int) {
+        guard !options.isEmpty else { return }
+        selection = options[clamped(currentIndex + delta, range: 0...(options.count - 1))]
+    }
+}
+
+private struct IconAdjustButton: View {
+    let systemImage: String
+    let disabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .frame(width: 34, height: 34)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(disabled ? Color.secondary.opacity(0.45) : Color.blue)
+        .disabled(disabled)
+    }
+}
+
+private func snapped(_ rawValue: Double, range: ClosedRange<Double>, step: Double) -> Double {
+    guard step > 0 else {
+        return min(max(rawValue, range.lowerBound), range.upperBound)
+    }
+    let steps = ((rawValue - range.lowerBound) / step).rounded()
+    let snappedValue = range.lowerBound + steps * step
+    return min(max(snappedValue, range.lowerBound), range.upperBound)
+}
+
+private func clamped(_ value: Int, range: ClosedRange<Int>) -> Int {
+    min(max(value, range.lowerBound), range.upperBound)
 }
 
 private struct ScoreField: View {
@@ -584,22 +801,24 @@ private struct ScoreField: View {
 
     var body: some View {
         LabeledContent(title) {
-            HStack {
-                Button {
-                    value = nil
-                } label: {
-                    Image(systemName: "xmark.circle")
-                }
-                .disabled(value == nil)
+	            HStack {
+	                Button {
+	                    value = nil
+	                } label: {
+	                    Image(systemName: "xmark.circle")
+	                }
+	                .disabled(value == nil || disabled)
 
-                Stepper(value.map(String.init) ?? "未填写", value: Binding(
-                    get: { value ?? range.lowerBound },
-                    set: { value = $0 }
-                ), in: range, step: title == "SAT" ? 10 : 1)
-                .disabled(disabled)
-            }
-        }
-    }
+	                OptionalIntSliderInput(
+	                    title: title,
+	                    value: $value,
+	                    range: range,
+	                    step: title == "SAT" ? 10 : 1,
+	                    disabled: disabled
+	                )
+	            }
+	        }
+	    }
 }
 
 private struct DecimalScoreField: View {
@@ -610,21 +829,24 @@ private struct DecimalScoreField: View {
 
     var body: some View {
         LabeledContent(title) {
-            HStack {
-                Button {
-                    value = nil
-                } label: {
+	            HStack {
+	                Button {
+	                    value = nil
+	                } label: {
                     Image(systemName: "xmark.circle")
                 }
                 .disabled(value == nil)
 
-                Stepper(value.map { String(format: "%.1f", $0) } ?? "未填写", value: Binding(
-                    get: { value ?? range.lowerBound },
-                    set: { value = $0 }
-                ), in: range, step: step)
-            }
-        }
-    }
+	                OptionalDecimalSliderInput(
+	                    title: title,
+	                    value: $value,
+	                    range: range,
+	                    step: step,
+	                    displayValue: { String(format: "%.1f", $0) }
+	                )
+	            }
+	        }
+	    }
 }
 
 private struct BandStepper: View {
@@ -632,8 +854,6 @@ private struct BandStepper: View {
     @Binding var value: Int
 
     var body: some View {
-        LabeledContent(title) {
-            Stepper("\(value)/5", value: $value, in: 1...5)
-        }
-    }
-}
+	        IntArrowInput(title: title, value: $value, range: 1...5, suffix: "/5")
+	    }
+	}

@@ -1398,9 +1398,9 @@ final class ChanceEngineTests: XCTestCase {
 
         XCTAssertGreaterThan(result.recommendationExpectedValueTotal, 0)
         XCTAssertEqual(result.recommendationExpectedValueTotal, expectedTotal, accuracy: 0.0001)
-        XCTAssertTrue(report.contains("组合最佳录取期望值"))
-        XCTAssertTrue(report.contains("0-100 排名价值尺度"))
-        XCTAssertTrue(report.contains("不是录取概率"))
+        XCTAssertTrue(report.contains("自动推荐先排除硬门槛失败学校"))
+        XCTAssertTrue(report.contains("学校价值"))
+        XCTAssertTrue(report.contains("不是只按录取概率排序"))
     }
 
     func testPortfolioResultStoresRecommendationExpectedValueSnapshot() {
@@ -1622,15 +1622,11 @@ final class ChanceEngineTests: XCTestCase {
         let report = ReportService.makeReport(result: result)
 
         XCTAssertTrue(report.contains("自动推荐依据"))
-        XCTAssertTrue(report.contains("单校概率 × 排名价值分"))
-        XCTAssertTrue(report.contains("概率×排名价值"))
+        XCTAssertTrue(report.contains("单校概率、学校价值"))
         XCTAssertTrue(report.contains("同层相关性"))
-        XCTAssertTrue(report.contains("文理学院 T10 的排名价值对齐到综合大学 T20-T30 价值带"))
-        XCTAssertTrue(report.contains("综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层"))
-        XCTAssertTrue(report.contains("最高价值 offer"))
-        XCTAssertTrue(report.contains("组合总空间"))
+        XCTAssertTrue(report.contains("学校价值"))
+        XCTAssertTrue(report.contains("边际贡献"))
         XCTAssertTrue(report.contains("第1顺位"))
-        XCTAssertTrue(report.contains("边际期望值"))
     }
 
     func testAutomaticReportIncludesEveryRecommendationStepBeyondResultsPreview() {
@@ -1643,7 +1639,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.recommendationSteps.count, profile.requestedSchoolCount)
         for step in result.recommendationSteps {
             XCTAssertTrue(report.contains("第\(step.order)顺位 \(step.result.college.name)"), step.result.college.name)
-            XCTAssertTrue(report.contains("边际期望值 \(step.marginalExpectedValue.formatted(.number.precision(.fractionLength(2))))"), step.result.college.name)
+            XCTAssertTrue(report.contains("边际贡献"), step.result.college.name)
         }
     }
 

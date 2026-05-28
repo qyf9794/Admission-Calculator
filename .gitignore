@@ -4,6 +4,7 @@
 !.env.example
 *.xcuserstate
 xcuserdata/
+AdmissionCalculator.xcodeproj/xcshareddata/xcschemes/*.xcscheme
 DerivedData/
 .build/
 build/

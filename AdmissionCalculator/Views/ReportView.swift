@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ReportView: View {
     let result: PortfolioResult?
@@ -7,6 +8,8 @@ struct ReportView: View {
     var client = OpenAIReportClient()
 
     @State private var reportText: String?
+    @State private var pdfURL: URL?
+    @State private var pdfErrorMessage: String?
     @State private var isGenerating = false
     @State private var errorMessage: String?
     @State private var showingDataSources = false
@@ -40,7 +43,12 @@ struct ReportView: View {
 
                     if result.profileSnapshot.round == .regularDecision {
                         if let reportText {
-                            ReportTextCard(text: reportText)
+                            ReportTextCard(
+                                text: reportText,
+                                pdfURL: pdfURL,
+                                pdfErrorMessage: pdfErrorMessage,
+                                onExportPDF: { exportPDF(text: reportText, result: result) }
+                            )
                         } else {
                             ReportTemplatePreview(result: result)
                         }
@@ -79,6 +87,8 @@ struct ReportView: View {
         purchaseState.unlockForPrototype()
         isGenerating = true
         errorMessage = nil
+        pdfURL = nil
+        pdfErrorMessage = nil
 
         Task {
             do {
@@ -86,17 +96,38 @@ struct ReportView: View {
                 let generated = try await client.generateReport(prompt: prompt)
                 await MainActor.run {
                     reportText = generated
+                    pdfURL = nil
                     isGenerating = false
                 }
             } catch {
                 await MainActor.run {
                     reportText = ReportService.makeReport(result: result)
+                    pdfURL = nil
                     errorMessage = "OpenAI 生成失败，已显示本地模板报告：\(error.localizedDescription)"
                     isGenerating = false
                 }
             }
         }
     }
+
+    private func exportPDF(text: String, result: PortfolioResult) {
+        do {
+            pdfURL = try ReportPDFRenderer.write(
+                text: text,
+                result: result,
+                fileName: "Admission-Report-\(Self.pdfDateFormatter.string(from: result.generatedAt)).pdf"
+            )
+            pdfErrorMessage = nil
+        } catch {
+            pdfErrorMessage = "PDF 生成失败：\(error.localizedDescription)"
+        }
+    }
+
+    private static let pdfDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmm"
+        return formatter
+    }()
 }
 
 private struct ReportHero: View {
@@ -196,7 +227,16 @@ private struct ReportActionCard: View {
                 Button {
                     onGenerate()
                 } label: {
-                    Label(isGenerating ? "正在生成" : (purchaseState.isUnlocked ? "重新生成报告" : "付费生成报告"), systemImage: purchaseState.isUnlocked ? "arrow.clockwise" : "lock.open")
+                    HStack(spacing: 8) {
+                        if isGenerating {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: purchaseState.isUnlocked ? "arrow.clockwise" : "lock.open")
+                        }
+                        Text(isGenerating ? "正在生成" : (purchaseState.isUnlocked ? "重新生成报告" : "付费生成报告"))
+                    }
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -213,6 +253,17 @@ private struct ReportActionCard: View {
             Text(purchaseState.statusText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if isGenerating {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("AI 正在整理不足项、申请策略和学校简表，请保持页面打开。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.purple.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            }
             if result.schoolResults.isEmpty {
                 Label("当前没有进入计算的学校，请先选择学校并重新计算。", systemImage: "exclamationmark.triangle")
                     .font(.footnote)
@@ -292,7 +343,7 @@ private struct ReportTemplatePreview: View {
             Label("报告模板", systemImage: "doc.plaintext")
                 .font(.headline)
                 .foregroundStyle(.blue)
-            Text("生成后报告会覆盖以下内容：测算结果、逐校概率、增加申请数量的影响、差距分析、提升路径、选校策略和家庭沟通版结论。")
+            Text("生成后报告会覆盖以下内容：测算结果、当前不足、申请数量影响、学校简表、提升动作、选校策略和家庭沟通版结论。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Text(ReportService.makeReport(result: result))
@@ -308,12 +359,36 @@ private struct ReportTemplatePreview: View {
 
 private struct ReportTextCard: View {
     let text: String
+    let pdfURL: URL?
+    let pdfErrorMessage: String?
+    let onExportPDF: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("生成报告", systemImage: "doc.text")
                 .font(.headline)
                 .foregroundStyle(.green)
+            HStack(spacing: 10) {
+                Button {
+                    onExportPDF()
+                } label: {
+                    Label(pdfURL == nil ? "生成 PDF" : "重新生成 PDF", systemImage: "doc.richtext")
+                }
+                .buttonStyle(.bordered)
+
+                if let pdfURL {
+                    ShareLink(item: pdfURL) {
+                        Label("下载 PDF", systemImage: "square.and.arrow.down")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+            }
+            if let pdfErrorMessage {
+                Label(pdfErrorMessage, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
             Text(text)
                 .font(.callout)
                 .textSelection(.enabled)
@@ -324,5 +399,96 @@ private struct ReportTextCard: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.green.opacity(0.16), lineWidth: 1)
         )
+    }
+}
+
+private enum ReportPDFRenderer {
+    static func write(text: String, result: PortfolioResult, fileName: String) throws -> URL {
+        let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)
+        let margin: CGFloat = 44
+        let contentWidth = pageRect.width - margin * 2
+        let bottomLimit = pageRect.height - margin
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+
+        try renderer.writePDF(to: url) { context in
+            context.beginPage()
+            var y = drawHeader(result: result, in: pageRect, margin: margin)
+
+            for rawLine in text.components(separatedBy: .newlines) {
+                let displayLine = normalizeMarkdown(rawLine)
+                let attributes = attributesForLine(rawLine)
+                let lineHeight = height(for: displayLine, width: contentWidth, attributes: attributes)
+                let spacing = displayLine.isEmpty ? CGFloat(6) : CGFloat(8)
+
+                if y + lineHeight > bottomLimit {
+                    context.beginPage()
+                    y = drawHeader(result: result, in: pageRect, margin: margin)
+                }
+
+                let drawRect = CGRect(x: margin, y: y, width: contentWidth, height: lineHeight)
+                (displayLine as NSString).draw(with: drawRect, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes, context: nil)
+                y += lineHeight + spacing
+            }
+        }
+
+        return url
+    }
+
+    private static func drawHeader(result: PortfolioResult, in pageRect: CGRect, margin: CGFloat) -> CGFloat {
+        let title = "Admission Report"
+        let subtitle = "Generated \(result.generatedAt.formatted(date: .abbreviated, time: .shortened)) · \(result.schoolResults.count) schools · At least one \(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))"
+        (title as NSString).draw(
+            at: CGPoint(x: margin, y: margin),
+            withAttributes: [
+                .font: UIFont.systemFont(ofSize: 22, weight: .bold),
+                .foregroundColor: UIColor.label
+            ]
+        )
+        (subtitle as NSString).draw(
+            in: CGRect(x: margin, y: margin + 28, width: pageRect.width - margin * 2, height: 24),
+            withAttributes: [
+                .font: UIFont.systemFont(ofSize: 9.5, weight: .regular),
+                .foregroundColor: UIColor.secondaryLabel
+            ]
+        )
+        return margin + 66
+    }
+
+    private static func normalizeMarkdown(_ line: String) -> String {
+        var text = line
+        while text.hasPrefix("#") {
+            text.removeFirst()
+        }
+        return text
+            .replacingOccurrences(of: "**", with: "")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func attributesForLine(_ line: String) -> [NSAttributedString.Key: Any] {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 3
+        paragraph.paragraphSpacing = 2
+
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let isHeading = trimmed.hasPrefix("#") || trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil || trimmed.hasSuffix("：")
+        return [
+            .font: isHeading ? UIFont.systemFont(ofSize: 13.5, weight: .semibold) : UIFont.systemFont(ofSize: 10.8, weight: .regular),
+            .foregroundColor: UIColor.label,
+            .paragraphStyle: paragraph
+        ]
+    }
+
+    private static func height(for text: String, width: CGFloat, attributes: [NSAttributedString.Key: Any]) -> CGFloat {
+        guard !text.isEmpty else {
+            return 6
+        }
+        let rect = (text as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes,
+            context: nil
+        )
+        return ceil(rect.height)
     }
 }
