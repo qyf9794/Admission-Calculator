@@ -259,7 +259,7 @@ enum ReportService {
         \(recommendationStrategySummary(result: result))
 
         学校简表：
-        图标说明：▲ 高于本校内部/平均基准；● 接近；▼ 低于；— 暂无可比基准或不适用。
+        比较说明：高于本校基准、接近本校基准、低于本校基准、暂无可比基准或不适用。
         \(schoolBriefs)
 
         逐校精简判断：
@@ -292,10 +292,10 @@ enum ReportService {
         - 画像诊断：学生当前最强证据和最薄弱证据，不要泛泛鼓励。
         - 测算结果总览：原样保留综合大学 T10/T11-T30/T30/T50、文理学院 T10/T30、全部已选至少一所概率；解释同层相关性折扣。
         - 当前不足优先级：按“必须立即处理、明显拖累概率、材料优化项”归纳，不要机械逐校重复。
-        - 学校简表：每所学校都要出现，包含学校名、单校概率、分档、硬门槛状态、基准比较图标、关键风险和优先动作。
+        - 学校简表：每所学校都要出现，包含学校名、单校概率、分档、硬门槛状态、基准比较文字、关键风险和优先动作。
         - 逐校策略：只写每所学校最值得家长和学生关注的判断，不要把每所大学写成长篇百科。
         - 提升方案：按 0-1 个月、1-3 个月、3-6 个月列行动，并说明影响路径，例如硬门槛、学术匹配、画像分、专业竞争、轮次/资助、选校结构。
-        - 选校组合策略：说明保底/目标/争取/阻断结构、申请数量对至少一所概率的方向性影响，以及为什么只增加极高难度学校边际收益有限。
+        - 选校组合策略：说明保底/目标/争取/阻断结构、申请数量对至少一所概率的方向性影响、当前学校的边际收益测算，以及为什么精力有限时不是越多越好。
         - 家庭沟通版结论：克制、清楚、可执行，不制造焦虑。
 
         强制约束：
@@ -344,7 +344,8 @@ enum ReportService {
         文理学院 T30 至少一所（当前组合 \(tierCount(in: result, category: .liberalArtsCollege, maxRank: 30)) 所）：\(percent(result.liberalArtsT30AtLeastOne))
         全部已选至少一所：\(percent(result.selectedAtLeastOne))
         分档规则：争取 <20%，目标 20%-60%，保底 >=60%；保底不是保证。
-        申请数量影响：\(applicationCountImpactSummary(result: result))
+        申请数量与边际收益：
+        \(applicationCountImpactSummary(result: result))
 
         ## 待补资料与警示
         待补资料：
@@ -370,7 +371,7 @@ enum ReportService {
         \(recommendationStrategySummary(result: result))
 
         ## 逐校计算事实
-        图标说明：▲ 高于本校内部/平均基准；● 接近；▼ 低于；— 暂无可比基准或不适用。
+        比较说明：高于本校基准、接近本校基准、低于本校基准、暂无可比基准或不适用。
         \(schoolFactBlocks(result: result))
 
         ## 本地基础报告
@@ -449,30 +450,30 @@ enum ReportService {
         let warnings = unique(school.warnings)
         let riskLines = schoolRiskLines(profile: profile, school: school, benchmark: benchmark)
         let actionLines = schoolActionLines(profile: profile, school: school, benchmark: benchmark)
-        let academicIcon = benchmarkComparisonIcon(
+        let academicComparison = benchmarkComparisonText(
             value: academicIndex(profile),
             target: benchmark?.gpaPercentBenchmark,
             higherIsBetter: true,
             closeThreshold: 2
         )
-        let rankIcon = benchmarkComparisonIcon(
+        let rankComparison = benchmarkComparisonText(
             value: profile.classRankPercentile,
             target: benchmark?.classRankPercentileBenchmark,
             higherIsBetter: false,
             closeThreshold: 3
         )
-        let testingIcon: String
+        let testingComparison: String
         if isTestFreeCollege(school.college) || profile.testOptional {
-            testingIcon = "—"
+            testingComparison = "暂无可比基准或不适用"
         } else {
-            testingIcon = benchmarkComparisonIcon(
+            testingComparison = benchmarkComparisonText(
                 value: submittedSATEquivalent(profile).map(Double.init),
                 target: benchmark?.satBenchmark.map(Double.init),
                 higherIsBetter: true,
                 closeThreshold: 30
             )
         }
-        let rigorIcon = benchmarkComparisonIcon(
+        let rigorComparison = benchmarkComparisonText(
             value: Double(profile.rigor),
             target: benchmark?.rigorBenchmark.map(Double.init),
             higherIsBetter: true,
@@ -486,7 +487,7 @@ enum ReportService {
         单校调整后概率：\(percent(school.adjustedProbability))
         分档：\(school.bucket.rawValue)
         硬门槛：\(gateStatus)
-        与学校平均/内部基准比较：学术 \(academicIcon)，排名 \(rankIcon)，标化 \(testingIcon)，课程难度 \(rigorIcon)
+        与学校平均/内部基准比较：学术 \(academicComparison)，排名 \(rankComparison)，标化 \(testingComparison)，课程难度 \(rigorComparison)
         学术匹配说明：\(academicFitSummary(for: school))
         学校平均/内部基准明细：
         \(academicComparisonLines(profile: profile, school: school, benchmark: benchmark).joined(separator: "\n"))
@@ -587,11 +588,11 @@ enum ReportService {
     private static func schoolBriefLine(for school: ChanceResult, profile: StudentProfile) -> String {
         guard school.gateResult.passed else {
             let failed = school.gateResult.failedRules.map(gateRuleSummary).joined(separator: "；")
-            return "\(school.college.name)：\(percent(school.adjustedProbability))（\(school.bucket.rawValue)）｜硬门槛未通过｜学术 — 标化 — 课程 —｜优先动作：先补齐 \(failed)。"
+            return "\(school.college.name)：\(percent(school.adjustedProbability))（\(school.bucket.rawValue)）｜硬门槛未通过｜学术 暂无可比基准或不适用 标化 暂无可比基准或不适用 课程 暂无可比基准或不适用｜优先动作：先补齐 \(failed)。"
         }
 
         let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
-        let academics = benchmarkComparisonIcon(
+        let academics = benchmarkComparisonText(
             value: academicIndex(profile),
             target: benchmark?.gpaPercentBenchmark,
             higherIsBetter: true,
@@ -599,16 +600,16 @@ enum ReportService {
         )
         let testing: String
         if isTestFreeCollege(school.college) || profile.testOptional {
-            testing = "—"
+            testing = "暂无可比基准或不适用"
         } else {
-            testing = benchmarkComparisonIcon(
+            testing = benchmarkComparisonText(
                 value: submittedSATEquivalent(profile).map(Double.init),
                 target: benchmark?.satBenchmark.map(Double.init),
                 higherIsBetter: true,
                 closeThreshold: 30
             )
         }
-        let rigor = benchmarkComparisonIcon(
+        let rigor = benchmarkComparisonText(
             value: Double(profile.rigor),
             target: benchmark?.rigorBenchmark.map(Double.init),
             higherIsBetter: true,
@@ -620,18 +621,18 @@ enum ReportService {
         return "\(school.college.name)：\(percent(school.adjustedProbability))（\(school.bucket.rawValue)）｜硬门槛通过｜学术 \(academics) 标化 \(testing) 课程 \(rigor)｜关键风险：\(risk)｜优先动作：\(action)"
     }
 
-    private static func benchmarkComparisonIcon(value: Double?, target: Double?, higherIsBetter: Bool, closeThreshold: Double) -> String {
+    private static func benchmarkComparisonText(value: Double?, target: Double?, higherIsBetter: Bool, closeThreshold: Double) -> String {
         guard let value, let target else {
-            return "—"
+            return "暂无可比基准或不适用"
         }
         let gap = higherIsBetter ? value - target : target - value
         if gap > closeThreshold {
-            return "▲"
+            return "高于本校基准"
         }
         if gap < -closeThreshold {
-            return "▼"
+            return "低于本校基准"
         }
-        return "●"
+        return "接近本校基准"
     }
 
     private static func schoolRiskLines(profile: StudentProfile, school: ChanceResult, benchmark: AcademicBenchmark?) -> [String] {
@@ -868,11 +869,20 @@ enum ReportService {
             return "尚未选择学校，无法分析申请数量对组合概率的影响。"
         }
 
+        let marginalRows = marginalAdmissionProbabilityRows(result: result)
         let activeCount = result.schoolResults.filter { $0.adjustedProbability > 0 }.count
         let targetOrLikely = result.selectedBucketCounts.target + result.selectedBucketCounts.likely
         let blocked = result.selectedBucketCounts.blocked
         var lines: [String] = []
         lines.append("当前 \(activeCount) 所学校进入概率合成，全部已选至少一所概率为 \(percent(result.selectedAtLeastOne))。")
+        lines.append("边际收益测算：逐个移除当前学校后重算组合概率，衡量该校对“至少一所录取概率”的当前贡献；这不是新增未计算学校的承诺。")
+        if let strongest = marginalRows.first {
+            lines.append("当前边际贡献最高的是 \(strongest.school.college.name)，约 \(percentagePoints(strongest.delta))；最低的是 \(marginalRows.last.map { "\($0.school.college.name)，约 \(percentagePoints($0.delta))" } ?? "暂无")。")
+        }
+        let tailRows = marginalRows.suffix(3)
+        if !tailRows.isEmpty {
+            lines.append("尾部边际贡献：\(tailRows.map { "\($0.school.college.name) \(percentagePoints($0.delta))" }.joined(separator: "；"))。若新增学校质量低于当前尾部，实际收益通常会更有限。")
+        }
         if blocked > 0 {
             lines.append("当前有 \(blocked) 所学校被硬门槛阻断；先解决阻断项通常比单纯增加学校更有效。")
         }
@@ -883,7 +893,40 @@ enum ReportService {
         } else {
             lines.append("当前已有一定目标/保底结构；若继续增加学校，应优先选择与画像匹配、硬门槛明确通过的学校，同层相关性会让每新增一所的边际收益逐步下降。")
         }
+        if activeCount >= 16 {
+            lines.append("精力约束：当前申请数量已经很高，继续增加学校容易稀释文书定制、推荐信沟通和面试准备；更优策略通常是替换低边际学校，而不是继续堆数量。")
+        } else if activeCount >= 12 {
+            lines.append("精力约束：当前已接近常见申请负荷上限；新增学校前应确认能完成高质量补充文书和逐校适配，否则边际收益可能被材料质量下降抵消。")
+        } else {
+            lines.append("精力约束：申请不是越多越好；在还能保证材料质量的前提下，优先补足目标/保底梯度，比机械增加同层争取校更有效。")
+        }
         return lines.joined(separator: "\n")
+    }
+
+    private static func marginalAdmissionProbabilityRows(result: PortfolioResult) -> [(school: ChanceResult, delta: Double)] {
+        let engine = ChanceEngine()
+        let current = result.selectedAtLeastOne
+        return result.schoolResults
+            .filter { $0.adjustedProbability > 0 }
+            .map { school in
+                let without = result.schoolResults.filter { $0.college.id != school.college.id }
+                let withoutProbability = engine.atLeastOneProbability(without)
+                return (school: school, delta: max(0, current - withoutProbability))
+            }
+            .sorted {
+                if $0.delta == $1.delta {
+                    return $0.school.adjustedProbability > $1.school.adjustedProbability
+                }
+                return $0.delta > $1.delta
+            }
+    }
+
+    private static func percentagePoints(_ value: Double) -> String {
+        let points = value * 100
+        if points > 0, points < 0.5 {
+            return "<0.5 个百分点"
+        }
+        return "\(points.formatted(.number.precision(.fractionLength(1)))) 个百分点"
     }
 
     private static func comprehensiveImprovementPlan(result: PortfolioResult) -> String {
