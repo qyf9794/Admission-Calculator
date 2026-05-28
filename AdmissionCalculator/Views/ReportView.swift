@@ -402,7 +402,7 @@ private struct ReportTextCard: View {
     }
 }
 
-private enum ReportPDFRenderer {
+enum ReportPDFRenderer {
     static func write(text: String, result: PortfolioResult, fileName: String) throws -> URL {
         let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)
         let margin: CGFloat = 44
@@ -412,7 +412,7 @@ private enum ReportPDFRenderer {
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
 
         try renderer.writePDF(to: url) { context in
-            context.beginPage()
+            beginPage(context: context, pageRect: pageRect)
             var y = drawHeader(result: result, in: pageRect, margin: margin)
 
             for rawLine in text.components(separatedBy: .newlines) {
@@ -422,7 +422,7 @@ private enum ReportPDFRenderer {
                 let spacing = displayLine.isEmpty ? CGFloat(6) : CGFloat(8)
 
                 if y + lineHeight > bottomLimit {
-                    context.beginPage()
+                    beginPage(context: context, pageRect: pageRect)
                     y = drawHeader(result: result, in: pageRect, margin: margin)
                 }
 
@@ -435,6 +435,12 @@ private enum ReportPDFRenderer {
         return url
     }
 
+    private static func beginPage(context: UIGraphicsPDFRendererContext, pageRect: CGRect) {
+        context.beginPage()
+        UIColor.white.setFill()
+        context.fill(pageRect)
+    }
+
     private static func drawHeader(result: PortfolioResult, in pageRect: CGRect, margin: CGFloat) -> CGFloat {
         let title = "Admission Report"
         let subtitle = "Generated \(result.generatedAt.formatted(date: .abbreviated, time: .shortened)) · \(result.schoolResults.count) schools · At least one \(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))"
@@ -442,14 +448,14 @@ private enum ReportPDFRenderer {
             at: CGPoint(x: margin, y: margin),
             withAttributes: [
                 .font: UIFont.systemFont(ofSize: 22, weight: .bold),
-                .foregroundColor: UIColor.label
+                .foregroundColor: UIColor.black
             ]
         )
         (subtitle as NSString).draw(
             in: CGRect(x: margin, y: margin + 28, width: pageRect.width - margin * 2, height: 24),
             withAttributes: [
                 .font: UIFont.systemFont(ofSize: 9.5, weight: .regular),
-                .foregroundColor: UIColor.secondaryLabel
+                .foregroundColor: UIColor.darkGray
             ]
         )
         return margin + 66
@@ -474,7 +480,7 @@ private enum ReportPDFRenderer {
         let isHeading = trimmed.hasPrefix("#") || trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil || trimmed.hasSuffix("：")
         return [
             .font: isHeading ? UIFont.systemFont(ofSize: 13.5, weight: .semibold) : UIFont.systemFont(ofSize: 10.8, weight: .regular),
-            .foregroundColor: UIColor.label,
+            .foregroundColor: UIColor.black,
             .paragraphStyle: paragraph
         ]
     }

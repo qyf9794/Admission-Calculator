@@ -1,7 +1,33 @@
 import XCTest
+import PDFKit
 @testable import AdmissionCalculator
 
 final class HarnessValidationTests: XCTestCase {
+    func testReportPDFRendererWritesReadableText() throws {
+        var profile = StudentProfile.sample
+        profile.round = .regularDecision
+        let result = ChanceEngine().evaluate(profile: profile, selectedCollegeIDs: Set(["bu", "mit"]))
+        let report = ReportService.makeReport(result: result)
+        let url = try ReportPDFRenderer.write(
+            text: report,
+            result: result,
+            fileName: "Admission-Report-Test-\(UUID().uuidString).pdf"
+        )
+        defer {
+            try? FileManager.default.removeItem(at: url)
+        }
+
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let fileSize = try XCTUnwrap(attributes[.size] as? NSNumber).intValue
+        XCTAssertGreaterThan(fileSize, 1_000)
+
+        let document = try XCTUnwrap(PDFDocument(url: url))
+        XCTAssertGreaterThan(document.pageCount, 0)
+        let extractedText = document.string ?? ""
+        XCTAssertTrue(extractedText.contains("Admission Report"))
+        XCTAssertTrue(extractedText.contains("Boston University"))
+    }
+
     func testGeneratedDataSnapshotHasMetadataAndSources() {
         XCTAssertFalse(AdmissionsSeedData.dataVersion.isEmpty)
         XCTAssertFalse(AdmissionsSeedData.generatedAt.isEmpty)
@@ -453,11 +479,19 @@ final class HarnessValidationTests: XCTestCase {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu", "mit"]), selectionSource: .manual)
         let prompt = ReportService.makeOpenAIReportPrompt(result: result)
 
+        XCTAssertTrue(prompt.contains("完整事实包"))
+        XCTAssertTrue(prompt.contains("学生画像快照"))
+        XCTAssertTrue(prompt.contains("组合概率与结构"))
+        XCTAssertTrue(prompt.contains("逐校计算事实"))
+        XCTAssertTrue(prompt.contains("学校平均/内部基准比较"))
+        XCTAssertTrue(prompt.contains("提高申请概率的影响因子"))
+        XCTAssertTrue(prompt.contains("本地基础报告"))
+        XCTAssertTrue(prompt.contains("你不是在做模板填空"))
+        XCTAssertTrue(prompt.contains("在大体框架下自由组织语言和段落"))
         XCTAssertTrue(prompt.contains("当前不足优先级"))
         XCTAssertTrue(prompt.contains("学校简表"))
-        XCTAssertTrue(prompt.contains("申请策略与提升动作"))
-        XCTAssertTrue(prompt.contains("每所学校最多 2-3 句"))
-        XCTAssertTrue(prompt.contains("硬门槛、学术匹配"))
+        XCTAssertTrue(prompt.contains("提升方案"))
+        XCTAssertTrue(prompt.contains("硬门槛、学术匹配、画像分"))
         XCTAssertTrue(prompt.contains("证据链"))
         XCTAssertTrue(prompt.contains("选校组合策略"))
         XCTAssertTrue(prompt.contains("极强、强、中、弱、极弱"))
@@ -465,6 +499,7 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Massachusetts Institute of Technology"))
         XCTAssertTrue(prompt.contains("Boston University"))
         XCTAssertTrue(prompt.contains("当前选择学校中至少被一所录取的估算概率"))
+        XCTAssertTrue(prompt.contains("与学校平均/内部基准比较：学术"))
     }
 
     func testOpenAIReportPromptCarriesAutomaticRecommendationExpectedValueSteps() {
@@ -476,7 +511,8 @@ final class HarnessValidationTests: XCTestCase {
         let prompt = ReportService.makeOpenAIReportPrompt(result: result)
 
         XCTAssertFalse(result.recommendationSteps.isEmpty)
-        XCTAssertTrue(prompt.contains("自动推荐会综合"))
+        XCTAssertTrue(prompt.contains("自动推荐/组合策略依据"))
+        XCTAssertTrue(prompt.contains("自动推荐先排除硬门槛失败学校"))
         XCTAssertTrue(prompt.contains("顺位"))
         XCTAssertTrue(prompt.contains("学校价值"))
         XCTAssertTrue(prompt.contains("第1顺位"))
@@ -485,7 +521,7 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(prompt.contains("边际贡献"))
         XCTAssertTrue(prompt.contains("不要展开系统缺失数据、来源审计或置信度说明"))
         XCTAssertTrue(prompt.contains("单校概率、学校价值和同层相关性边际折扣"))
-        XCTAssertTrue(prompt.contains("不要展开内部数值"))
+        XCTAssertTrue(prompt.contains("不要暴露内部调整值、权重、参数或公式"))
     }
 
     func testCalculationFlowDocumentsApproximationAndSharedT10Correlation() throws {

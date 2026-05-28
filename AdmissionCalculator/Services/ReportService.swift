@@ -285,52 +285,219 @@ enum ReportService {
             return makeReport(result: result)
         }
         return """
-        请根据以下已计算结果生成一份付费版精简选校报告。报告重点是目前不足和申请策略，不要写成每所大学的长篇档案。
-        全文必须遵守：不得修改、重算、覆盖或美化输入中的概率、分档和硬门槛；不得承诺录取；不得添加输入中没有的学校；不要展开系统缺失数据、来源审计或置信度说明。
-        除输入中已有的概率、学校数量和硬门槛结果外，不要用数值描述影响强度；影响强弱统一用“极强、强、中、弱、极弱”等档位。
+        请基于下面的完整事实包，生成一份更有针对性、更人性化、更专业的付费版完整选校报告。
 
-        1. 执行摘要
-        - 用 3-5 条说明当前申请组合的整体风险、最重要阻断项、最优先提升方向。
-        - 明确“全部已选至少一所”概率不是单校录取概率，也不是录取承诺。
+        你不是在做模板填空。请把事实包当作唯一事实来源，综合学生画像、本地基础报告、逐校概率、综合概率、学校平均/内部基准比较、提高申请概率的影响因子、硬门槛、警示和行动建议，在大体框架下自由组织语言和段落。可以调整标题和顺序，但必须覆盖这些内容：
+        - 执行摘要：整体风险、最重要不足、最优先策略，并说明概率是估算，不是录取承诺。
+        - 画像诊断：学生当前最强证据和最薄弱证据，不要泛泛鼓励。
+        - 测算结果总览：原样保留综合大学 T10/T11-T30/T30/T50、文理学院 T10/T30、全部已选至少一所概率；解释同层相关性折扣。
+        - 当前不足优先级：按“必须立即处理、明显拖累概率、材料优化项”归纳，不要机械逐校重复。
+        - 学校简表：每所学校都要出现，包含学校名、单校概率、分档、硬门槛状态、基准比较图标、关键风险和优先动作。
+        - 逐校策略：只写每所学校最值得家长和学生关注的判断，不要把每所大学写成长篇百科。
+        - 提升方案：按 0-1 个月、1-3 个月、3-6 个月列行动，并说明影响路径，例如硬门槛、学术匹配、画像分、专业竞争、轮次/资助、选校结构。
+        - 选校组合策略：说明保底/目标/争取/阻断结构、申请数量对至少一所概率的方向性影响，以及为什么只增加极高难度学校边际收益有限。
+        - 家庭沟通版结论：克制、清楚、可执行，不制造焦虑。
 
-        2. 测算结果总览
-        - 原样列出综合大学 T10/T11-T30/T30/T50、文理学院 T10/T30、全部已选的至少一所概率。
-        - 解释组合概率已使用同层相关性折扣，不能把所有学校当作完全独立事件相乘；综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层。
+        强制约束：
+        - 不得修改、重算、覆盖或美化事实包中的概率、分档、硬门槛和学校列表。
+        - 不得添加事实包外的学校；不得把建议申请数据范围外学校写成本报告计算的一部分。
+        - 不得承诺录取，不得把估算说成预测或保证；“保底”也不是保证。
+        - 不要展开系统缺失数据、来源审计或置信度说明。
+        - 除已计算概率、学校数量、硬门槛结果和事实包里的学生/学校基准值外，不要用数字描述影响强度；影响强度用“极强、强、中、弱、极弱”等档位。
+        - 不要暴露内部调整值、权重、参数或公式。
+        - 如果事实包中同一信息在本地报告和结构化事实里重复，以结构化事实包为准。
 
-        3. 当前不足优先级
-        - 按“必须立即处理、会明显拖累概率、可作为材料优化”的层级归纳，不要按学校机械重复。
-        - 重点覆盖硬门槛、学术匹配、标化/英语、课程证据、专业竞争、活动/科研/奖项、文书推荐信、资助需求和选校结构。
-        - 对影响强度用文字档位描述，不要写调整值、影响强度数字或内部参数。
+        完整事实包如下：
 
-        4. 学校简表
-        - 每所学校最多 2-3 句，必须包含：学校名、单校概率、分档、硬门槛是否通过、最关键风险、最优先动作。
-        - 用图标体现与本校内部/平均基准的比较：▲ 高于，● 接近，▼ 低于，— 暂无可比基准或不适用。优先展示学术、标化、课程难度三个比较项。
-        - 不要逐项展开 GPA/学术指数、班级排名、SAT/ACT、课程难度、活动、科研、奖项、文书、推荐信等全部维度；只有当它是该校关键不足时才提。
-        - 被硬门槛阻断的学校必须说明为什么是 0%，并列出失败规则。
+        \(makeOpenAIReportFactPacket(result: result))
+        """
+    }
 
-        5. 申请策略与提升动作
-        - 给出非常详细的行动清单，分为 0-1 个月、1-3 个月、3-6 个月。
-        - 每条行动必须说明会影响哪个模型路径：硬门槛、学术匹配、画像分、专业竞争、申请轮次/资助、选校结构。
-        - 不要停留在“提高活动质量”这种空话；要说明怎样把活动、科研、奖项、文书、推荐信组织成目标专业的一条证据链。
-        - 区分短期可改项（选校、轮次、补成绩、文书、推荐信、材料呈现）和长期可改项（课程难度、真实科研/作品/竞赛、持续影响力）。
-        - 对已经很强的维度说明如何保持并转化成材料表达；对短板说明补救优先级和现实上限。
+    private static func makeOpenAIReportFactPacket(result: PortfolioResult) -> String {
+        let profile = result.profileSnapshot
+        let selectedWarnings = result.selectionWarnings.isEmpty
+            ? "当前组合内学校均已纳入本次计算。"
+            : result.selectionWarnings.joined(separator: "\n")
+        let recommendationWarnings = result.selectionSource == .automatic
+            ? (result.recommendationWarnings.isEmpty ? "自动推荐未产生额外数量/范围警示。" : result.recommendationWarnings.joined(separator: "\n"))
+            : "当前不是自动推荐组合。"
 
-        6. 选校组合策略
-        - 基于当前保底/目标/争取/阻断结构，给出是否需要增加目标校、降低争取校密度、处理保底不足等建议。
-        - 必须说明提高申请数量对“至少一所录取概率”的影响：增加相近梯度学校通常比只增加极高难度学校更有效；同时提醒同层相关性会让边际收益递减。
-        - 若组合来自自动推荐，必须解释自动推荐会综合单校概率、学校价值和同层相关性边际折扣，不是只按录取概率排序；不要展开内部数值。
-        - 强调“保底”只是规划标签，不代表保证。
+        return """
+        ## 事实包总原则
+        - 所有学校、概率、分档和硬门槛均来自本地离线概率引擎。
+        - OpenAI 只能解释和组织这些事实，不能重新计算概率。
+        - 报告应更像专业顾问写给家庭的分析，而不是逐项模板填空。
 
-        7. 申请数量情景分析
-        - 基于当前组合结构，说明如果增加 3 所、5 所、8 所同梯度或更低风险学校，组合概率的方向性变化和边际收益。
-        - 不要自行发明未计算学校的精确概率；可以给方向性策略。
+        ## 学生画像快照
+        \(studentProfileFactBlock(profile))
 
-        8. 家庭沟通版结论
-        - 用清楚、克制的语言总结可执行策略，避免制造焦虑或确定性承诺。
+        ## 组合概率与结构
+        生成时间：\(generatedAtText(result.generatedAt))
+        选校来源：\(result.selectionSource.rawValue)
+        当前计算学校数：\(result.schoolResults.count) 所
+        保底/目标/争取/阻断：\(result.selectedBucketCounts.likely)/\(result.selectedBucketCounts.target)/\(result.selectedBucketCounts.reach)/\(result.selectedBucketCounts.blocked)
+        综合大学 T10 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, maxRank: 10)) 所）：\(percent(result.t10AtLeastOne))
+        综合大学 T11-T30 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, minRankExclusive: 10, maxRank: 30)) 所）：\(percent(result.t11T30AtLeastOne))
+        综合大学 T30 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, maxRank: 30)) 所）：\(percent(result.t30AtLeastOne))
+        综合大学 T50 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, maxRank: 50)) 所）：\(percent(result.t50AtLeastOne))
+        文理学院 T10 至少一所（当前组合 \(tierCount(in: result, category: .liberalArtsCollege, maxRank: 10)) 所）：\(percent(result.liberalArtsT10AtLeastOne))
+        文理学院 T30 至少一所（当前组合 \(tierCount(in: result, category: .liberalArtsCollege, maxRank: 30)) 所）：\(percent(result.liberalArtsT30AtLeastOne))
+        全部已选至少一所：\(percent(result.selectedAtLeastOne))
+        分档规则：争取 <20%，目标 20%-60%，保底 >=60%；保底不是保证。
+        申请数量影响：\(applicationCountImpactSummary(result: result))
 
-        以下是离线概率引擎的原始报告数据，必须作为唯一事实来源：
+        ## 待补资料与警示
+        待补资料：
+        \(missingInputSummary(profile: profile, selectedCollegeIDs: result.calculatedCollegeIDs))
+
+        选校范围警示：
+        \(selectedWarnings)
+
+        自动推荐警示：
+        \(recommendationWarnings)
+
+        逐校计算警示：
+        \(warningSummary(result: result))
+
+        ## 当前不足与概率驱动
+        当前主要不足：
+        \(coreDeficitSummary(result: result))
+
+        提高申请概率的主要影响因子：
+        \(factorHighlightSummary(result: result))
+
+        自动推荐/组合策略依据：
+        \(recommendationStrategySummary(result: result))
+
+        ## 逐校计算事实
+        图标说明：▲ 高于本校内部/平均基准；● 接近；▼ 低于；— 暂无可比基准或不适用。
+        \(schoolFactBlocks(result: result))
+
+        ## 本地基础报告
+        下面是本地生成报告，可作为报告框架和事实校验参考。OpenAI 可以重组表达，但不得更改其中的计算事实。
 
         \(makeReport(result: result))
+        """
+    }
+
+    private static func studentProfileFactBlock(_ profile: StudentProfile) -> String {
+        let testing: String
+        if profile.testOptional {
+            testing = "Test Optional / 不提交标化；残留 SAT/ACT 不进入学术匹配。"
+        } else {
+            let sat = profile.sat.map(String.init) ?? "未填"
+            let act = profile.act.map(String.init) ?? "未填"
+            let equivalent = submittedSATEquivalent(profile).map(String.init) ?? "未形成 SAT 等效分"
+            testing = "SAT \(sat)，ACT \(act)，采用最强 SAT 等效：\(equivalent)。"
+        }
+        let english = [
+            profile.toefl.map { "TOEFL \($0)" },
+            profile.ielts.map { "IELTS \($0.formatted(.number.precision(.fractionLength(1))))" }
+        ].compactMap { $0 }.joined(separator: "，")
+
+        return """
+        身份：\(profile.applicantStatus.rawValue)
+        课程体系：\(profile.curriculum.rawValue)
+        主 GPA/成绩：\(gradeFact(profile))
+        班级排名：前 \(formatNumber(profile.classRankPercentile))%
+        课程难度：\(profile.rigor)/5
+        课程体系成绩证据：\(curriculumEvidenceComment(profile))
+        标化策略：\(testing)
+        英语证明：\(english.isEmpty ? "未填写 TOEFL/IELTS" : english)
+        软性画像：活动 \(profile.activities)/5，科研/项目 \(profile.research)/5，奖项 \(profile.honors)/5，文书 \(profile.essay)/5，推荐信 \(profile.recommendations)/5
+        高中背景：\(highSchoolName(profile.highSchoolID))
+        目标专业：\(profile.major.rawValue)
+        申请轮次：\(profile.round.rawValue)
+        国际生资助需求：\(profile.needsAid ? "需要/会申请资助" : "不申请资助或未标记资助需求")
+        艺术作品集：\(profile.hasPortfolio ? "已标记有作品集" : "未标记作品集")
+        纳入文理学院：\(profile.includeLiberalArtsColleges ? "是" : "否")
+        计划申请学校数：\(profile.requestedSchoolCount)
+        """
+    }
+
+    private static func gradeFact(_ profile: StudentProfile) -> String {
+        switch profile.gradeScale {
+        case .percent:
+            return "\(profile.gpaPercent.formatted(.number.precision(.fractionLength(1))))/100"
+        case .fourPoint:
+            return "\(profile.gpaFourPoint.formatted(.number.precision(.fractionLength(2))))/4.0（仅折算为内部学术指数，不当作真实百分制）"
+        case .fivePoint:
+            return "\(profile.gpaFivePoint.formatted(.number.precision(.fractionLength(2))))/5.0（仅折算为内部学术指数，不当作真实百分制）"
+        case .letter:
+            return "\(profile.letterGrade.rawValue)（仅折算为内部学术指数，不当作真实百分制）"
+        }
+    }
+
+    private static func schoolFactBlocks(result: PortfolioResult) -> String {
+        let profile = result.profileSnapshot
+        guard !result.schoolResults.isEmpty else {
+            return "尚未选择学校。"
+        }
+        return result.schoolResults.map { school in
+            schoolFactBlock(school, profile: profile)
+        }.joined(separator: "\n\n")
+    }
+
+    private static func schoolFactBlock(_ school: ChanceResult, profile: StudentProfile) -> String {
+        let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
+        let gateStatus: String
+        if school.gateResult.passed {
+            gateStatus = "通过"
+        } else {
+            gateStatus = "未通过：\(school.gateResult.failedRules.map(gateRuleSummary).joined(separator: "；"))"
+        }
+        let warnings = unique(school.warnings)
+        let riskLines = schoolRiskLines(profile: profile, school: school, benchmark: benchmark)
+        let actionLines = schoolActionLines(profile: profile, school: school, benchmark: benchmark)
+        let academicIcon = benchmarkComparisonIcon(
+            value: academicIndex(profile),
+            target: benchmark?.gpaPercentBenchmark,
+            higherIsBetter: true,
+            closeThreshold: 2
+        )
+        let rankIcon = benchmarkComparisonIcon(
+            value: profile.classRankPercentile,
+            target: benchmark?.classRankPercentileBenchmark,
+            higherIsBetter: false,
+            closeThreshold: 3
+        )
+        let testingIcon: String
+        if isTestFreeCollege(school.college) || profile.testOptional {
+            testingIcon = "—"
+        } else {
+            testingIcon = benchmarkComparisonIcon(
+                value: submittedSATEquivalent(profile).map(Double.init),
+                target: benchmark?.satBenchmark.map(Double.init),
+                higherIsBetter: true,
+                closeThreshold: 30
+            )
+        }
+        let rigorIcon = benchmarkComparisonIcon(
+            value: Double(profile.rigor),
+            target: benchmark?.rigorBenchmark.map(Double.init),
+            higherIsBetter: true,
+            closeThreshold: 0.5
+        )
+
+        return """
+        ### \(school.college.name)
+        学校类型/排名：\(school.college.category.rawValue) #\(school.college.rank)
+        基础录取率：\(percent(school.baseRate))
+        单校调整后概率：\(percent(school.adjustedProbability))
+        分档：\(school.bucket.rawValue)
+        硬门槛：\(gateStatus)
+        与学校平均/内部基准比较：学术 \(academicIcon)，排名 \(rankIcon)，标化 \(testingIcon)，课程难度 \(rigorIcon)
+        学术匹配说明：\(academicFitSummary(for: school))
+        学校平均/内部基准明细：
+        \(academicComparisonLines(profile: profile, school: school, benchmark: benchmark).joined(separator: "\n"))
+        提高申请概率的影响因子：
+        \(schoolFactorLines(school).joined(separator: "\n"))
+        关键风险：
+        \(riskLines.isEmpty ? "当前没有单项风险特别突出，重点看材料表达和选校结构。" : riskLines.map { "- \($0)" }.joined(separator: "\n"))
+        优先动作：
+        \(actionLines.joined(separator: "\n"))
+        计算警示：
+        \(warnings.isEmpty ? "无额外逐校警示。" : warnings.map { "- \($0)" }.joined(separator: "\n"))
         """
     }
 
