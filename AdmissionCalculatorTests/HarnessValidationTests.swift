@@ -380,6 +380,11 @@ final class HarnessValidationTests: XCTestCase {
         }
         XCTAssertTrue(report.contains("逐校差距与优势"))
         XCTAssertTrue(report.contains("学术匹配"))
+        XCTAssertTrue(report.contains("本校历史平均画像/内部基准对比"))
+        XCTAssertTrue(report.contains("软性画像与材料表达"))
+        XCTAssertTrue(report.contains("针对该校的提升动作"))
+        XCTAssertTrue(report.contains("综合提升概率方法"))
+        XCTAssertTrue(report.contains("0-1 个月优先动作"))
         XCTAssertEqual(result.schoolResults.count, selected.count)
         XCTAssertTrue(report.contains("Boston University"))
     }
@@ -449,7 +454,10 @@ final class HarnessValidationTests: XCTestCase {
 
         XCTAssertTrue(prompt.contains("逐校概率与风险表"))
         XCTAssertTrue(prompt.contains("差距分析"))
-        XCTAssertTrue(prompt.contains("提高概率的努力方向"))
+        XCTAssertTrue(prompt.contains("综合提升概率方法论"))
+        XCTAssertTrue(prompt.contains("必须按学校逐一展开"))
+        XCTAssertTrue(prompt.contains("GPA/学术指数"))
+        XCTAssertTrue(prompt.contains("证据链"))
         XCTAssertTrue(prompt.contains("选校组合策略"))
         XCTAssertTrue(prompt.contains("不得修改、重算、覆盖或美化"))
         XCTAssertTrue(prompt.contains("Massachusetts Institute of Technology"))

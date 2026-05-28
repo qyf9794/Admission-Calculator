@@ -158,7 +158,7 @@ enum ReportService {
             ? "尚未选择学校。"
             : schoolResults.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)）" }.joined(separator: "\n")
         let academicFit = schoolResults.isEmpty ? "尚未选择学校。" : schoolResults.map { school in
-            academicFitSummary(for: school)
+            detailedAcademicFitSummary(for: school, profile: profile)
         }.joined(separator: "\n")
         let gates = blocked.isEmpty
             ? "未发现已选学校的硬门槛失败项。"
@@ -169,6 +169,7 @@ enum ReportService {
         let missingInputNotes = missingInputSummary(profile: profile, selectedCollegeIDs: result.calculatedCollegeIDs)
         let applicationCountImpact = applicationCountImpactSummary(result: result)
         let factorHighlights = factorHighlightSummary(result: result)
+        let improvementPlan = comprehensiveImprovementPlan(result: result)
         let recommendationNotes: String
         switch result.selectionSource {
         case .automatic:
@@ -232,14 +233,17 @@ enum ReportService {
         目前影响概率较大的因素：
         \(factorHighlights)
 
+        综合提升概率方法：
+        \(improvementPlan)
+
         硬门槛：
         \(gates)
 
-        建议：
-        1. 先补齐所有 required 标化、英语或作品集门槛，再优化概率。
-        2. 对低概率但未被阻断的学校，先看 GPA/排名/标化/课程难度是否低于目标校基准，再决定是补学术、换梯度，还是加强专业叙事。
-        3. 若组合概率主要受申请数量限制，可优先增加同梯度目标校，而不是只增加极高难度学校。
-        4. 若组合中阻断学校较多，先解决硬门槛，再增加学校数量。
+        执行原则：
+        1. 先补齐所有 required 标化、英语或作品集门槛，再优化概率；硬门槛失败时单校概率为 0%。
+        2. 对低概率但未被阻断的学校，按“学术基准差距 -> 专业竞争 -> 申请轮次/资助 -> 活动叙事 -> 选校结构”的顺序处理。
+        3. 若组合概率主要受申请数量限制，优先增加同梯度目标校和更低风险学校；只增加极高难度学校会受到同层相关性折扣，边际收益较小。
+        4. 若某校已经接近本校历史/内部基准，下一步重点不只是继续堆分数，而是让专业方向、活动证据、文书主线和推荐信互相证明。
         5. 该报告只解释计算结果，不改变概率，也不承诺录取。
         """
     }
@@ -265,12 +269,17 @@ enum ReportService {
         - 被硬门槛阻断的学校必须说明为什么是 0%，并列出失败规则。
 
         4. 差距分析
-        - 分析 GPA/排名/标化/课程难度/课程体系成绩/活动/科研/奖项/文书/推荐信/高中背景/专业竞争/轮次/资助需求分别如何影响结果。
-        - 对比学生画像与目标校中位水平或内部基准，明确优势和差距。
+        - 必须按学校逐一展开，而不是只做总体概括。
+        - 每所学校至少分析：GPA/学术指数、班级排名、SAT/ACT 或 Test Optional、课程难度、课程体系成绩、活动、科研、奖项、文书、推荐信、高中背景、专业竞争、轮次、资助需求。
+        - 对比学生画像与目标校中位水平、历史平均画像或内部基准；如果输入中标注为推断/代理基准，只能称为“内部基准/代理基准”，不得说成官方录取均值。
+        - 每所学校都要明确列出“优势”“差距/风险”“最优先提升动作”，并解释这些动作影响哪个模型路径。
 
-        5. 提高概率的努力方向
-        - 给出按优先级排序的行动清单，分为 0-1 个月、1-3 个月、3-6 个月。
-        - 每条行动必须说明会影响哪个模型路径：硬门槛、学术匹配、画像分、专业竞争、选校结构。
+        5. 综合提升概率方法论
+        - 给出非常详细的行动清单，分为 0-1 个月、1-3 个月、3-6 个月。
+        - 每条行动必须说明会影响哪个模型路径：硬门槛、学术匹配、画像分、专业竞争、申请轮次/资助、选校结构。
+        - 不要停留在“提高活动质量”这种空话；要说明怎样把活动、科研、奖项、文书、推荐信组织成目标专业的一条证据链。
+        - 区分短期可改项（选校、轮次、补成绩、文书、推荐信、材料呈现）和长期可改项（课程难度、真实科研/作品/竞赛、持续影响力）。
+        - 对已经很强的维度说明如何保持并转化成材料表达；对短板说明补救优先级和现实上限。
 
         6. 选校组合策略
         - 基于当前保底/目标/争取/阻断结构，给出是否需要增加目标校、降低争取校密度、处理保底不足等建议。
@@ -326,6 +335,145 @@ enum ReportService {
             direction = "整体接近目标校内部基准，提升空间主要看单项短板。"
         }
         return "\(school.college.name)：学术匹配 \(signed(factor.value))。\(direction) \(userFacingAcademicDetail(factor.detail))"
+    }
+
+    private static func detailedAcademicFitSummary(for school: ChanceResult, profile: StudentProfile) -> String {
+        guard school.gateResult.passed else {
+            return "\(school.college.name)：硬门槛未通过，优先补齐阻断项后再比较学术匹配。"
+        }
+
+        let fitLine = academicFitSummary(for: school)
+        let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
+        let comparisonLines = academicComparisonLines(profile: profile, school: school, benchmark: benchmark).joined(separator: "\n")
+        let holisticLines = holisticProfileLines(profile: profile, school: school).joined(separator: "\n")
+        let factorLines = schoolFactorLines(school).joined(separator: "\n")
+        let actionLines = schoolActionLines(profile: profile, school: school, benchmark: benchmark).joined(separator: "\n")
+
+        return """
+        \(fitLine)
+        本校历史平均画像/内部基准对比：
+        \(comparisonLines)
+        软性画像与材料表达：
+        \(holisticLines)
+        本校主要概率驱动：
+        \(factorLines)
+        针对该校的提升动作：
+        \(actionLines)
+        """
+    }
+
+    private static func academicComparisonLines(profile: StudentProfile, school: ChanceResult, benchmark: AcademicBenchmark?) -> [String] {
+        let college = school.college
+        let gpaIndex = academicIndex(profile)
+        let rank = profile.classRankPercentile
+        let satEquivalent = submittedSATEquivalent(profile)
+        let curriculumIndex = curriculumPerformanceIndex(profile)
+        var lines: [String] = []
+
+        if let target = benchmark?.gpaPercentBenchmark {
+            lines.append("- GPA/学术指数：申请者 \(profile.gradeScale.rawValue) 折算学术指数 \(formatNumber(gpaIndex))/100；本校基准 \(formatNumber(target))/100；\(gapText(value: gpaIndex - target, unit: "分", positiveIsGood: true, smallThreshold: 2, largeThreshold: 5))")
+        } else {
+            lines.append("- GPA/学术指数：申请者 \(profile.gradeScale.rawValue) 折算学术指数 \(formatNumber(gpaIndex))/100；本校未配置可比较 GPA 基准，报告只把它作为画像强度信号。")
+        }
+
+        if let target = benchmark?.classRankPercentileBenchmark {
+            let gap = rank - target
+            lines.append("- 班级排名：申请者前 \(formatNumber(rank))%；本校基准前 \(formatNumber(target))%；\(rankGapText(gap))")
+        } else {
+            lines.append("- 班级排名：申请者前 \(formatNumber(rank))%；本校未配置排名基准，排名仍进入画像分和强队列判断。")
+        }
+
+        if isTestFreeCollege(college) {
+            lines.append("- 标化：该校按 test-free/test-blind 处理，SAT/ACT 不进入本校概率；语言成绩和课程体系成绩仍然重要。")
+        } else if let target = benchmark?.satBenchmark {
+            if let satEquivalent {
+                let gap = satEquivalent - target
+                lines.append("- 标化：申请者 SAT 等效 \(satEquivalent)；本校 SAT 基准 \(target)；\(gapText(value: Double(gap), unit: "分", positiveIsGood: true, smallThreshold: 30, largeThreshold: 80))")
+            } else if profile.testOptional {
+                lines.append("- 标化：当前选择不提交；本校 SAT 基准 \(target)。若能取得接近或高于基准的成绩，提交会改善学术匹配；若明显低于基准，继续不提交更稳妥。")
+            } else {
+                lines.append("- 标化：未填写 SAT/ACT；本校 SAT 基准 \(target)。若该校要求或强烈看重标化，这是短期优先补齐项。")
+            }
+        } else {
+            lines.append("- 标化：本校未配置 SAT 基准；当前 \(profile.testOptional ? "按 Test Optional 处理" : "SAT/ACT 作为一般画像信号处理")。")
+        }
+
+        if let target = benchmark?.rigorBenchmark {
+            let gap = profile.rigor - target
+            lines.append("- 课程难度：申请者 \(profile.rigor)/5；本校基准 \(target)/5；\(gapText(value: Double(gap), unit: "档", positiveIsGood: true, smallThreshold: 0.5, largeThreshold: 1.5))")
+        } else {
+            lines.append("- 课程难度：申请者 \(profile.rigor)/5；本校未配置课程难度基准。")
+        }
+
+        lines.append("- 课程体系成绩：\(profile.curriculum.rawValue) 体系内成绩指数 \(formatNumber(curriculumIndex))/100；\(curriculumEvidenceComment(profile))")
+        return lines
+    }
+
+    private static func holisticProfileLines(profile: StudentProfile, school: ChanceResult) -> [String] {
+        [
+            "- 活动：\(profile.activities)/5（\(profileLevelText(profile.activities))）。需要能证明持续投入、影响范围和与 \(profile.major.rawValue) 的关系。",
+            "- 科研/项目：\(profile.research)/5（\(profileLevelText(profile.research))）。对 \(profile.major.rawValue) 尤其要避免只有标题，最好呈现问题、方法、产出和个人贡献。",
+            "- 奖项：\(profile.honors)/5（\(profileLevelText(profile.honors))）。优先区分校级、区域级、国家/国际级，以及是否与目标专业相关。",
+            "- 文书：\(profile.essay)/5（\(profileLevelText(profile.essay))）。应把学术兴趣、活动证据和学校适配连成一条主线，而不是重复简历。",
+            "- 推荐信：\(profile.recommendations)/5（\(profileLevelText(profile.recommendations))）。最有价值的是能证明课堂表现、主动性、研究潜力或社区贡献的具体例子。",
+            "- 高中背景：\(highSchoolName(profile.highSchoolID))。该项是校准信号，不是单独保证；如果当前为其他/手动评估学校，建议补充真实高中以减少保守处理。",
+            "- 专业竞争：\(profile.major.rawValue)。本校该项当前\(school.factors.first { $0.label == "专业竞争" }.map { signed($0.value) } ?? "+0.00")，热门专业需要更强的课程、项目和成果闭环。"
+        ]
+    }
+
+    private static func schoolFactorLines(_ school: ChanceResult) -> [String] {
+        let reportableLabels: Set<String> = ["学生画像", "目标校学术匹配", "高中背景", "顶尖高中强队列", "专业竞争", "申请轮次", "资助需求"]
+        let materialFactors = school.factors
+            .filter { reportableLabels.contains($0.label) && abs($0.value) >= 0.01 }
+            .sorted { abs($0.value) > abs($1.value) }
+            .prefix(5)
+            .map { factor in
+                "- \(factor.label)：\(signed(factor.value))。\(userFacingAcademicDetail(factor.detail))"
+            }
+        return materialFactors.isEmpty ? ["- 当前没有明显单项驱动，概率主要由基础率和整体画像共同决定。"] : Array(materialFactors)
+    }
+
+    private static func schoolActionLines(profile: StudentProfile, school: ChanceResult, benchmark: AcademicBenchmark?) -> [String] {
+        var actions: [String] = []
+        let college = school.college
+        let gpaIndex = academicIndex(profile)
+        let satEquivalent = submittedSATEquivalent(profile)
+
+        if let target = benchmark?.gpaPercentBenchmark, gpaIndex < target - 2 {
+            actions.append("- 学术匹配：短期补交最新成绩、解释课程难度和上升趋势；若离基准超过 5 分，应同步增加更稳健学校，不只靠文书弥补。")
+        }
+        if let target = benchmark?.classRankPercentileBenchmark, profile.classRankPercentile > target + 3 {
+            actions.append("- 校内排名：突出最强课程、年级位置和相对进步；如果排名短期难改变，用课程难度、竞赛/项目产出补强学术可信度。")
+        }
+        if !isTestFreeCollege(college), let target = benchmark?.satBenchmark {
+            if let satEquivalent, satEquivalent < target - 30 {
+                actions.append("- 标化：若时间允许，优先把 SAT 等效分提升到 \(target) 附近；低于基准 80 分以上时要谨慎决定是否提交。")
+            } else if satEquivalent == nil && profile.testOptional && college.rank <= 50 {
+                actions.append("- 标化策略：当前不提交。若模考能达到本校基准 \(target) 附近，重新评估提交；否则把精力放到课程成绩和材料证据链。")
+            }
+        }
+        if let target = benchmark?.rigorBenchmark, profile.rigor < target {
+            actions.append("- 课程难度：补充高阶课程、AP/IB/A-Level 预测或在读证明；若申请季已无法加课，文书和推荐信要解释已选课程中的挑战度。")
+        }
+        if curriculumPerformanceIndex(profile) < 70 {
+            actions.append("- 课程体系成绩：补齐 AP/IB/A-Level/校内成绩证据；没有课程证据时，模型会把课程体系表现保守处理。")
+        }
+        if profile.activities < 4 || profile.research < 4 || profile.honors < 4 {
+            actions.append("- 专业证据链：选择 1-2 个最能支持 \(profile.major.rawValue) 的活动/项目深挖，明确问题、行动、产出、影响，不要平均铺开所有经历。")
+        }
+        if profile.essay < 4 {
+            actions.append("- 文书：把“为什么这个专业、为什么这类学校、过去证据是什么、未来贡献是什么”写成一条线；每所学校补充文书要体现具体适配。")
+        }
+        if profile.recommendations < 4 {
+            actions.append("- 推荐信：优先让老师写具体课堂/项目细节，证明学术主动性、协作和抗压，而不是泛泛夸奖。")
+        }
+        if profile.needsAid && profile.applicantStatus.isInternational {
+            actions.append("- 资助策略：逐校核对 need-aware/limited aid 风险；对高风险学校，材料中要更清楚证明匹配度和不可替代性。")
+        }
+        if actions.isEmpty {
+            actions.append("- 当前核心学术项接近或高于本校基准；重点转向材料质量、专业叙事、推荐信细节和选校组合平衡。")
+        }
+        return actions
     }
 
     private static func userFacingAcademicDetail(_ detail: String) -> String {
@@ -414,6 +562,108 @@ enum ReportService {
             lines.append("当前已有一定目标/保底结构；若继续增加学校，应优先选择与画像匹配、硬门槛明确通过的学校，同层相关性会让每新增一所的边际收益逐步下降。")
         }
         return lines.joined(separator: "\n")
+    }
+
+    private static func comprehensiveImprovementPlan(result: PortfolioResult) -> String {
+        let profile = result.profileSnapshot
+        let passed = result.schoolResults.filter(\.gateResult.passed)
+        let blocked = result.schoolResults.filter { !$0.gateResult.passed }
+        let negativeFactorRows = passed.flatMap(\.factors).filter { $0.value < -0.01 }
+        let groupedNegativeFactors = Dictionary(grouping: negativeFactorRows, by: \.label)
+        let negativeFactorAverages = groupedNegativeFactors.mapValues { factors in
+            let total = factors.reduce(0.0) { $0 + $1.value }
+            return total / Double(max(1, factors.count))
+        }
+        let negativeFactors = negativeFactorAverages
+            .sorted { $0.value < $1.value }
+            .prefix(4)
+            .map { label, value in
+                "\(label) \(signed(value))"
+            }
+            .joined(separator: "、")
+        let factorText = negativeFactors.isEmpty ? "当前没有特别集中的负向因子，重点在材料质量和组合结构。" : "当前平均负向较明显的路径是：\(negativeFactors)。"
+
+        var immediate: [String] = []
+        if !blocked.isEmpty {
+            immediate.append("硬门槛：先处理 \(blocked.count) 所阻断学校的 required 标化、英语、作品集或轮次问题；阻断项未解决前，其他提升不会改变这些学校的 0% 结果。")
+        }
+        if profile.applicantStatus.requiresEnglishProof && profile.toefl == nil && profile.ielts == nil {
+            immediate.append("英语证明：补 TOEFL 或 IELTS；这是国际生最典型的硬门槛/材料完整性问题。")
+        }
+        if !profile.testOptional && profile.sat == nil && profile.act == nil {
+            immediate.append("标化口径：决定提交 SAT/ACT 还是明确 Test Optional，避免既无成绩又未选择不提交。")
+        }
+        if profile.highSchoolID == "unknown" {
+            immediate.append("高中背景：补真实高中；当前使用其他/手动评估学校的保守代理，会影响高中背景和强队列校准。")
+        }
+        if profile.essay < 4 {
+            immediate.append("文书主线：先完成一版专业叙事地图，把课程、项目、活动、奖项和未来方向连成同一个申请主题。")
+        }
+        if immediate.isEmpty {
+            immediate.append("材料核查：确认每所学校硬门槛、申请轮次、专业限制和资助策略都与当前 RD 组合一致。")
+        }
+
+        var oneToThree: [String] = []
+        if profile.activities < 4 || profile.research < 4 || profile.honors < 4 {
+            oneToThree.append("证据链补强：围绕 \(profile.major.rawValue) 选择 1-2 个最强项目深挖，补充可验证产出，例如论文/报告/代码/作品集/竞赛结果/社区影响数据。")
+        }
+        if profile.recommendations < 4 {
+            oneToThree.append("推荐信：给推荐老师提供课程表现、项目贡献、困难情境和成长证据清单，让推荐信证明具体能力。")
+        }
+        if profile.curriculum == .ap && profile.apCourseCount == 0 {
+            oneToThree.append("AP 证据：AP 门数为 0 时 AP 平均分不会计入课程体系成绩；应补充真实 AP/高级课程记录或改用更准确课程体系。")
+        }
+        if profile.curriculum == .alevel && profile.aLevelSubjectCount == 0 {
+            oneToThree.append("A-Level 证据：补科目与预测/实考成绩；没有科目数会按缺少课程证据保守处理。")
+        }
+        if profile.rigor < 4 {
+            oneToThree.append("课程难度：能加课则补高阶课程；不能加课时，在材料中解释选课约束，并用高质量项目证明学术挑战度。")
+        }
+        if oneToThree.isEmpty {
+            oneToThree.append("学校适配：逐校改写 Why major / Why school，把同一条专业证据链落到不同学校的课程、研究机会和社区贡献上。")
+        }
+
+        var threeToSix: [String] = []
+        if academicIndex(profile) < 94 {
+            threeToSix.append("成绩趋势：继续提高或稳定核心课成绩，特别是目标专业相关课程；如果总 GPA 难快速改变，要强调最近学期和高阶课程表现。")
+        }
+        if let sat = submittedSATEquivalent(profile), sat < 1500, !profile.testOptional {
+            threeToSix.append("标化提升：若目标校多为 T30/T50，争取把 SAT 等效提升到 1500+；若目标校基准更高，则逐校决定是否提交。")
+        }
+        if profile.major == .computerScience || profile.major == .engineering || profile.major == .business {
+            threeToSix.append("热门专业差异化：用项目深度、真实问题、产出质量和影响力证明不是泛泛“喜欢热门专业”；避免活动列表散而浅。")
+        }
+        if profile.major == .arts {
+            threeToSix.append("艺术方向：作品集质量优先级高于普通学术堆分；需要用作品集、艺术陈述和推荐信形成一致表达。")
+        }
+        if threeToSix.isEmpty {
+            threeToSix.append("维持优势：当前核心硬指标较稳，后续重点是让活动、文书、推荐信与专业方向互相印证。")
+        }
+
+        var selection: [String] = []
+        if result.selectedBucketCounts.likely == 0 {
+            selection.append("保底不足：当前没有 >=60% 的学校；如果家庭需要更稳结果，应增加更低风险学校或扩大 T50/LAC 目标范围。")
+        }
+        if result.selectedBucketCounts.reach > result.selectedBucketCounts.target + result.selectedBucketCounts.likely {
+            selection.append("争取校偏多：继续加校时优先补目标/稳健梯度；同层相关性会让一组高难度学校的边际收益递减。")
+        }
+        if result.selectionSource == .automatic {
+            selection.append("自动推荐：保留概率 × 排名价值分 × 同层边际折扣带来的顺位逻辑，不要只按单校概率删改。")
+        } else {
+            selection.append("手动选校：每新增学校先看是否硬门槛通过、是否与画像匹配、是否与已有学校同层高度相关，再判断边际收益。")
+        }
+
+        return """
+        诊断：\(factorText)
+        0-1 个月优先动作：
+        \(numberedLines(immediate))
+        1-3 个月提升动作：
+        \(numberedLines(oneToThree))
+        3-6 个月积累动作：
+        \(numberedLines(threeToSix))
+        选校组合动作：
+        \(numberedLines(selection))
+        """
     }
 
     private static func factorHighlightSummary(result: PortfolioResult) -> String {
@@ -533,6 +783,214 @@ enum ReportService {
     private static func unique(_ values: [String]) -> [String] {
         var seen = Set<String>()
         return values.filter { seen.insert($0).inserted }
+    }
+
+    private static func numberedLines(_ values: [String]) -> String {
+        values.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+    }
+
+    private static func formatNumber(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0)))
+    }
+
+    private static func gapText(value: Double, unit: String, positiveIsGood: Bool, smallThreshold: Double, largeThreshold: Double) -> String {
+        let adjusted = positiveIsGood ? value : -value
+        let absolute = abs(value)
+        let raw = "\(value >= 0 ? "+" : "")\(formatNumber(value))\(unit)"
+        if adjusted >= largeThreshold {
+            return "高于基准 \(raw)，属于明显优势。"
+        }
+        if adjusted >= smallThreshold {
+            return "略高于基准 \(raw)，属于小幅优势。"
+        }
+        if adjusted <= -largeThreshold {
+            return "低于基准 \(raw)，是主要差距。"
+        }
+        if adjusted <= -smallThreshold {
+            return "略低于基准 \(raw)，需要在材料中补强。"
+        }
+        return "与基准接近（差距约 \(formatNumber(absolute))\(unit)）。"
+    }
+
+    private static func rankGapText(_ gap: Double) -> String {
+        if gap <= -5 {
+            return "明显优于本校排名基准，是强优势。"
+        }
+        if gap <= -2 {
+            return "略优于本校排名基准。"
+        }
+        if gap >= 8 {
+            return "明显低于本校排名基准，是重要风险。"
+        }
+        if gap >= 3 {
+            return "略低于本校排名基准，需要用课程难度和专业证据补强。"
+        }
+        return "与本校排名基准接近。"
+    }
+
+    private static func profileLevelText(_ value: Int) -> String {
+        switch value {
+        case ...1:
+            return "明显偏弱"
+        case 2:
+            return "偏弱"
+        case 3:
+            return "中等"
+        case 4:
+            return "较强"
+        default:
+            return "很强"
+        }
+    }
+
+    private static func curriculumEvidenceComment(_ profile: StudentProfile) -> String {
+        switch profile.curriculum {
+        case .ap:
+            if profile.apCourseCount == 0 {
+                return "AP 门数为 0，AP 平均分不会计入课程体系成绩，是可补资料项。"
+            }
+            return "AP \(profile.apCourseCount) 门，平均 \(profile.apAverageScore.formatted(.number.precision(.fractionLength(1))))，重点看高阶课程数量与目标专业相关性。"
+        case .ib:
+            return "IB 预估 \(profile.ibPredictedScore)，重点看 HL 科目是否支撑目标专业。"
+        case .alevel:
+            let capped = profile.cappedALevelGradeCounts
+            if profile.aLevelSubjectCount == 0 {
+                return "A-Level 科目数为 0，课程体系成绩按缺少证据保守处理。"
+            }
+            return "A-Level 按最多 5 门计入：A* \(capped.aStar) 门，A \(capped.a) 门，B \(capped.b) 门。"
+        case .chinese:
+            return "中国课程体系成绩按所选成绩制折算为内部指数，重点看核心课和目标专业相关课。"
+        }
+    }
+
+    private static func academicIndex(_ profile: StudentProfile) -> Double {
+        gradeScaleScore(
+            scale: profile.gradeScale,
+            percent: profile.gpaPercent,
+            fourPoint: profile.gpaFourPoint,
+            fivePoint: profile.gpaFivePoint,
+            letterGrade: profile.letterGrade
+        )
+    }
+
+    private static func curriculumPerformanceIndex(_ profile: StudentProfile) -> Double {
+        switch profile.curriculum {
+        case .chinese:
+            return gradeScaleScore(
+                scale: profile.curriculumGradeScale,
+                percent: profile.chineseCurriculumScore,
+                fourPoint: profile.chineseCurriculumGPAFourPoint,
+                fivePoint: profile.chineseCurriculumGPAFivePoint,
+                letterGrade: profile.chineseCurriculumLetterGrade
+            )
+        case .ap:
+            guard profile.apCourseCount > 0 else {
+                return 0
+            }
+            let scoreComponent = piecewiseScore(
+                profile.apAverageScore,
+                points: [(1.0, 12), (2.0, 24), (3.0, 40), (4.0, 58), (4.5, 68), (5.0, 76)]
+            )
+            let firstFive = min(profile.apCourseCount, 5) * 4
+            let nextThree = max(0, min(profile.apCourseCount - 5, 3)) * 2
+            let finalTwo = max(0, min(profile.apCourseCount - 8, 2))
+            return clamp(scoreComponent + Double(firstFive + nextThree + finalTwo), min: 0, max: 100)
+        case .ib:
+            return piecewiseScore(
+                Double(profile.ibPredictedScore),
+                points: [(24, 36), (28, 46), (30, 55), (34, 68), (38, 82), (42, 94), (45, 100)]
+            )
+        case .alevel:
+            let capped = profile.cappedALevelGradeCounts
+            let courseCount = capped.aStar + capped.a + capped.b
+            let raw = Double(capped.aStar) * 32 + Double(capped.a) * 24 + Double(capped.b) * 14
+            let coursePenalty = max(0, 3 - courseCount) * 12
+            return clamp(raw - Double(coursePenalty), min: 0, max: 100)
+        }
+    }
+
+    private static func gradeScaleScore(
+        scale: GradeScale,
+        percent: Double,
+        fourPoint: Double,
+        fivePoint: Double,
+        letterGrade: LetterGradeBand
+    ) -> Double {
+        switch scale {
+        case .percent:
+            return clamp(percent, min: 0, max: 100)
+        case .fourPoint:
+            return piecewiseScore(
+                fourPoint,
+                points: [(0, 0), (1.0, 45), (2.0, 70), (2.7, 78), (3.0, 82), (3.3, 87), (3.5, 90), (3.7, 93), (3.9, 97), (4.0, 100)]
+            )
+        case .fivePoint:
+            return piecewiseScore(
+                fivePoint,
+                points: [(0, 0), (1.0, 40), (2.5, 68), (3.0, 74), (3.5, 80), (3.7, 83), (4.0, 87), (4.2, 90), (4.5, 93), (4.7, 96), (5.0, 100)]
+            )
+        case .letter:
+            switch letterGrade {
+            case .aPlus: return 98
+            case .a: return 95
+            case .aMinus: return 91
+            case .bPlus: return 87
+            case .b: return 83
+            case .bMinus: return 79
+            case .cPlus: return 74
+            case .c: return 70
+            case .d: return 55
+            case .f: return 25
+            case .cOrBelow: return 60
+            }
+        }
+    }
+
+    private static func submittedSATEquivalent(_ profile: StudentProfile) -> Int? {
+        guard !profile.testOptional else {
+            return nil
+        }
+        return [profile.sat, actToSat(profile.act)].compactMap { $0 }.max()
+    }
+
+    private static func actToSat(_ act: Int?) -> Int? {
+        guard let act else {
+            return nil
+        }
+        let concordance = [
+            36: 1590, 35: 1540, 34: 1500, 33: 1460, 32: 1430, 31: 1400,
+            30: 1370, 29: 1340, 28: 1310, 27: 1280, 26: 1240, 25: 1210,
+            24: 1180, 23: 1140, 22: 1110, 21: 1080, 20: 1040, 19: 1010,
+            18: 970, 17: 930, 16: 890, 15: 850, 14: 800, 13: 760,
+            12: 710, 11: 670, 10: 630, 9: 590
+        ]
+        return concordance[act] ?? concordance[min(36, max(9, act))]
+    }
+
+    private static func piecewiseScore(_ value: Double, points: [(Double, Double)]) -> Double {
+        guard let first = points.first else {
+            return 0
+        }
+        if value <= first.0 {
+            return first.1
+        }
+        for index in 1..<points.count {
+            let lower = points[index - 1]
+            let upper = points[index]
+            if value <= upper.0 {
+                let progress = (value - lower.0) / (upper.0 - lower.0)
+                return lower.1 + progress * (upper.1 - lower.1)
+            }
+        }
+        return points.last?.1 ?? first.1
+    }
+
+    private static func clamp(_ value: Double, min minValue: Double, max maxValue: Double) -> Double {
+        Swift.min(maxValue, Swift.max(minValue, value))
+    }
+
+    private static func isTestFreeCollege(_ college: College) -> Bool {
+        ["uc_berkeley", "ucla", "ucsd", "uc_davis", "uc_irvine"].contains(college.id)
     }
 
     private static func highSchoolName(_ id: String) -> String {
