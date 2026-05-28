@@ -36,12 +36,14 @@ struct ReportView: View {
                         onShowDataSources: { showingDataSources = true }
                     )
 
-                    ReportSchoolProbabilityList(results: result.schoolResults)
+                    ReportSchoolProbabilityList(results: result.schoolResults, round: result.profileSnapshot.round)
 
-                    if let reportText {
-                        ReportTextCard(text: reportText)
-                    } else {
-                        ReportTemplatePreview(result: result)
+                    if result.profileSnapshot.round == .regularDecision {
+                        if let reportText {
+                            ReportTextCard(text: reportText)
+                        } else {
+                            ReportTemplatePreview(result: result)
+                        }
                     }
                 }
                 .padding()
@@ -54,7 +56,7 @@ struct ReportView: View {
         .sheet(isPresented: $showingDataSources) {
             NavigationStack {
                 DataSourcesView()
-                    .navigationTitle("数据来源")
+                    .navigationTitle("数据与模型说明")
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("完成") {
@@ -68,6 +70,10 @@ struct ReportView: View {
 
     private func generateReport(for result: PortfolioResult) {
         guard !isStale else {
+            return
+        }
+        guard result.profileSnapshot.round == .regularDecision else {
+            errorMessage = "综合报告仅支持 RD 轮次；EA/ED 结果只显示本轮概率，不生成综合报告。"
             return
         }
         purchaseState.unlockForPrototype()
@@ -111,7 +117,7 @@ private struct ReportHero: View {
             .padding(.trailing, 18)
 
             VStack(alignment: .leading, spacing: 14) {
-                Label("付费 AI 综合报告", systemImage: "doc.text.magnifyingglass")
+                Label("付费 AI 综合报告 · \(result.profileSnapshot.round.rawValue)", systemImage: "doc.text.magnifyingglass")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.82))
                 Text("Application Report")
@@ -119,7 +125,9 @@ private struct ReportHero: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                Text("逐校解释概率、差距、提升路径和选校组合策略；AI 只解释已计算结果，不改变概率。")
+                Text(result.profileSnapshot.round == .regularDecision
+                     ? "逐校解释概率、差距、提升路径和选校组合策略；AI 只解释已计算结果，不改变概率。"
+                     : "EA/ED 只提供本轮次概率结果；综合报告仅开放给 RD 轮次。")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.86))
                     .fixedSize(horizontal: false, vertical: true)
@@ -176,9 +184,14 @@ private struct ReportActionCard: View {
             Label("报告生成", systemImage: "sparkles")
                 .font(.headline)
                 .foregroundStyle(.purple)
-            Text("付费报告会调用 OpenAI Responses API，根据离线概率引擎结果生成详细解释。报告不得更改概率、添加学校或承诺录取。")
+            Text("报告会围绕逐校概率、组合概率、差距优势和提升路径展开；AI 只解释已计算结果，不改变概率。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            if result.profileSnapshot.round != .regularDecision {
+                Label("综合报告仅针对 RD 轮次。当前为 \(result.profileSnapshot.round.rawValue)，可查看本轮逐校概率，但不能生成综合报告。", systemImage: "lock.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
             HStack(spacing: 10) {
                 Button {
                     onGenerate()
@@ -188,12 +201,12 @@ private struct ReportActionCard: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.purple)
-                .disabled(isStale || isGenerating || result.schoolResults.isEmpty)
+                .disabled(isStale || isGenerating || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)
 
                 Button {
                     onShowDataSources()
                 } label: {
-                    Label("数据来源", systemImage: "tablecells")
+                    Label("说明", systemImage: "info.circle")
                 }
                 .buttonStyle(.bordered)
             }
@@ -222,13 +235,14 @@ private struct ReportActionCard: View {
 
 private struct ReportSchoolProbabilityList: View {
     let results: [ChanceResult]
+    let round: ApplicationRound
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("逐校概率", systemImage: "building.2.crop.circle")
+            Label("逐校概率 · \(round.rawValue)", systemImage: "building.2.crop.circle")
                 .font(.headline)
                 .foregroundStyle(.indigo)
-            Text("单校概率仅在报告页展示；每项仍需结合硬门槛、置信度和来源审计阅读。")
+            Text("以下概率只对应 \(round.rawValue) 轮次；不会混合其他轮次。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             if results.isEmpty {
@@ -239,7 +253,7 @@ private struct ReportSchoolProbabilityList: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(result.college.name)
                             .font(.subheadline.weight(.semibold))
-                        Text("#\(result.college.rank) · \(result.college.tierDisplayName) · \(result.bucket.rawValue) · 置信度 \(result.confidence.rawValue)")
+                        Text("#\(result.college.rank) · \(result.college.tierDisplayName) · \(result.bucket.rawValue)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -278,7 +292,7 @@ private struct ReportTemplatePreview: View {
             Label("报告模板", systemImage: "doc.plaintext")
                 .font(.headline)
                 .foregroundStyle(.blue)
-            Text("生成后报告会覆盖以下内容：测算结果、逐校概率、差距分析、提升路径、选校策略、数据来源与可信度、家庭沟通版结论。")
+            Text("生成后报告会覆盖以下内容：测算结果、逐校概率、增加申请数量的影响、差距分析、提升路径、选校策略和家庭沟通版结论。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Text(ReportService.makeReport(result: result))

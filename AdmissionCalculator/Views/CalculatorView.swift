@@ -97,16 +97,16 @@ struct CalculatorView: View {
                     .foregroundStyle(.secondary)
             }
 
-                CardSection(title: "选校数量", subtitle: "设置计划申请数量；手动选校没有数量上限。", systemImage: "slider.horizontal.3", tint: .blue) {
+                CardSection(title: "选校数量", subtitle: selectionCountSubtitle, systemImage: "slider.horizontal.3", tint: .blue) {
                 Toggle("纳入文理学院", isOn: $profile.includeLiberalArtsColleges)
                 UnboundedCountStepper(title: "计划选择大学", value: $profile.requestedSchoolCount)
-                LabeledContent("自动生成数量", value: "\(profile.requestedSchoolCount) 所")
+                LabeledContent("自动生成数量", value: "\(automaticGeneratedCount) 所")
                 Text(profile.includeLiberalArtsColleges
                      ? "自动推荐和手动目录会同时包含综合大学与文理学院。"
                      : "关闭后，自动推荐、手动目录和至少一所概率都只考虑综合大学。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("自动推荐会尽量生成与计划选择数量一致的学校组合；若当前画像下合格学校不足，会在结果中披露缺口。")
+                Text(automaticGenerationNote)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -115,12 +115,12 @@ struct CalculatorView: View {
                 Button {
                     onAutoRecommend()
                 } label: {
-                    Label("自动生成 \(profile.requestedSchoolCount) 所", systemImage: "wand.and.stars")
+                    Label("自动生成 \(automaticGeneratedCount) 所", systemImage: "wand.and.stars")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
-                .disabled(profile.requestedSchoolCount == 0)
+                .disabled(automaticGeneratedCount == 0)
                 if selectionSource == .automatic {
                     Label("已自动推荐 \(selectedCollegeIDs.count) 所学校", systemImage: "checkmark.circle.fill")
                         .font(.caption)
@@ -162,7 +162,8 @@ struct CalculatorView: View {
                 CollegePickerView(
                     selectedCollegeIDs: $selectedCollegeIDs,
                     selectionSource: $selectionSource,
-                    includeLiberalArtsColleges: profile.includeLiberalArtsColleges
+                    includeLiberalArtsColleges: profile.includeLiberalArtsColleges,
+                    applicationRound: profile.round
                 )
                     .navigationTitle("大学目录")
                     .toolbar {
@@ -183,12 +184,61 @@ struct CalculatorView: View {
                     return college.category != .liberalArtsCollege
                 }
             }
+            selectedCollegeIDs = selectedCollegeIDs.filter { id in
+                guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
+                    return true
+                }
+                return allowsCurrentRound(college)
+            }
+            if profile.round == .earlyDecision, selectedCollegeIDs.count > 1 {
+                let firstSelected = AdmissionsSeedData.colleges
+                    .map(\.id)
+                    .first { selectedCollegeIDs.contains($0) }
+                selectedCollegeIDs = firstSelected.map { Set([$0]) } ?? []
+            }
             selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
         }
     }
 
+    private var selectionCountSubtitle: String {
+        if profile.round == .earlyDecision {
+            return "ED/ED2 是绑定申请；同一轮只能保留 1 所。"
+        }
+        return "设置计划申请数量；EA/RD 和手动选校可多所。"
+    }
+
     private var requestedRecommendationTotal: Int {
-        profile.requestedSchoolCount
+        automaticGeneratedCount
+    }
+
+    private var automaticGeneratedCount: Int {
+        guard profile.round == .earlyDecision else {
+            return profile.requestedSchoolCount
+        }
+        return min(profile.requestedSchoolCount, 1)
+    }
+
+    private var automaticGenerationNote: String {
+        if profile.round == .earlyDecision {
+            return "ED/ED2 是绑定申请；自动推荐同一轮最多生成 1 所 ED 学校。EA 可以多所，手动选校没有数量上限但会提示无效 ED 组合。"
+        }
+        return "自动推荐会尽量生成与计划选择数量一致的学校组合；若当前画像下合格学校不足，会在结果中披露缺口。"
+    }
+
+    private func allowsCurrentRound(_ college: College) -> Bool {
+        let rules = AdmissionsSeedData.gateRules.filter { $0.collegeID == college.id && $0.type == .round }
+        guard !rules.isEmpty else {
+            return profile.round == .regularDecision
+        }
+        return rules.contains { rule in
+            if !rule.allowedRounds.isEmpty {
+                return rule.allowedRounds.contains(profile.round)
+            }
+            if let requiredRound = rule.requiredRound {
+                return requiredRound == profile.round
+            }
+            return profile.round == .regularDecision
+        }
     }
 
     private var completionPrompts: [ProfileCompletionPrompt] {
@@ -315,14 +365,14 @@ private struct ProfileReadinessCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(prompts.isEmpty ? "关键资料已就绪" : "需要补充的关键信息")
                         .font(.headline)
-                    Text(prompts.isEmpty ? "可以直接计算，也可以继续微调选校组合。" : "这些信息会影响硬门槛、置信度或推荐组合。")
+                    Text(prompts.isEmpty ? "可以直接计算，也可以继续微调选校组合。" : "这些信息会影响硬门槛、概率或推荐组合。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
             if prompts.isEmpty {
-                Text("系统仍会在结果页披露数据缺口、推断基准和来源审计。")
+                Text("结果页会显示组合概率；逐校概率和提升建议在报告页查看。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
@@ -368,7 +418,7 @@ private struct ProfileReadinessCard: View {
         case .probability:
             return .blue
         case .confidence:
-            return .orange
+            return .blue
         case .portfolio:
             return .purple
         }

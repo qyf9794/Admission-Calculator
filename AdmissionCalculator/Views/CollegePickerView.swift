@@ -4,12 +4,16 @@ struct CollegePickerView: View {
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
     let includeLiberalArtsColleges: Bool
+    let applicationRound: ApplicationRound
     @State private var searchText = ""
     @State private var filter: CollegePickerFilter = .all
     private let colleges = AdmissionsSeedData.colleges
 
     private var availableColleges: [College] {
-        colleges.filter { includeLiberalArtsColleges || $0.category != .liberalArtsCollege }
+        colleges.filter { college in
+            (includeLiberalArtsColleges || college.category != .liberalArtsCollege) &&
+                allowsCurrentRound(college)
+        }
     }
 
     private var filteredColleges: [College] {
@@ -26,7 +30,8 @@ struct CollegePickerView: View {
                     selectedCount: selectedCollegeIDs.count,
                     totalCount: availableColleges.count,
                     filteredCount: filteredColleges.count,
-                    includeLiberalArtsColleges: includeLiberalArtsColleges
+                    includeLiberalArtsColleges: includeLiberalArtsColleges,
+                    applicationRound: applicationRound
                 )
 
                 CollegeFilterBar(
@@ -38,19 +43,20 @@ struct CollegePickerView: View {
 
                 SelectedPortfolioCard(
                     selectedCount: selectedCollegeIDs.count,
-                    selectedColleges: selectedColleges
+                    selectedColleges: selectedColleges,
+                    applicationRound: applicationRound
                 )
 
                 VStack(alignment: .leading, spacing: 12) {
                     Label("学校列表", systemImage: "building.columns")
                         .font(.headline)
                         .foregroundStyle(.indigo)
-                    Text("仅显示已审核 v1 数据集内学校；这里的录取率是学校基础统计，不是个人概率。")
+                    Text("仅显示已审核 v1 数据集内且开放 \(applicationRound.rawValue) 轮次的学校；这里的录取率是学校基础统计，不是个人概率。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     if filteredColleges.isEmpty {
-                        ContentUnavailableView("没有匹配学校", systemImage: "magnifyingglass", description: Text("调整搜索词或筛选范围。"))
+                        ContentUnavailableView("没有匹配学校", systemImage: "magnifyingglass", description: Text("调整搜索词、筛选范围或申请轮次。"))
                     }
 
                     ForEach(filteredColleges) { college in
@@ -82,11 +88,31 @@ struct CollegePickerView: View {
         availableColleges.filter { selectedCollegeIDs.contains($0.id) }
     }
 
+    private func allowsCurrentRound(_ college: College) -> Bool {
+        let rules = AdmissionsSeedData.gateRules.filter { $0.collegeID == college.id && $0.type == .round }
+        guard !rules.isEmpty else {
+            return applicationRound == .regularDecision
+        }
+        return rules.contains { rule in
+            if !rule.allowedRounds.isEmpty {
+                return rule.allowedRounds.contains(applicationRound)
+            }
+            if let requiredRound = rule.requiredRound {
+                return requiredRound == applicationRound
+            }
+            return applicationRound == .regularDecision
+        }
+    }
+
     private func toggle(_ id: String) {
         if selectedCollegeIDs.contains(id) {
             selectedCollegeIDs.remove(id)
         } else {
-            selectedCollegeIDs.insert(id)
+            if applicationRound == .earlyDecision {
+                selectedCollegeIDs = Set([id])
+            } else {
+                selectedCollegeIDs.insert(id)
+            }
         }
         selectionSource = selectedCollegeIDs.isEmpty ? .none : .manual
     }
@@ -223,6 +249,7 @@ private struct CollegePickerHero: View {
     let totalCount: Int
     let filteredCount: Int
     let includeLiberalArtsColleges: Bool
+    let applicationRound: ApplicationRound
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -247,9 +274,7 @@ private struct CollegePickerHero: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-                Text(includeLiberalArtsColleges
-                     ? "用搜索和分层筛选整理综合大学与文理学院；计算仍只使用 v1 审核数据集。"
-                     : "当前未纳入文理学院；目录、自动推荐和计算只使用综合大学。")
+                Text(heroDetail)
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.86))
                     .fixedSize(horizontal: false, vertical: true)
@@ -268,6 +293,14 @@ private struct CollegePickerHero: View {
     private func heroColor(_ index: Int) -> Color {
         let colors: [Color] = [.cyan, .mint, .yellow, .orange, .pink, .purple, .blue, .green]
         return colors[index % colors.count]
+    }
+
+    private var heroDetail: String {
+        if applicationRound == .earlyDecision {
+            return "ED/ED2 为绑定申请；选择新学校会替换当前 ED 学校。"
+        }
+        let categoryText = includeLiberalArtsColleges ? "综合大学与文理学院" : "综合大学"
+        return "当前只显示开放 \(applicationRound.rawValue) 轮次的\(categoryText)；计算只使用这一轮次概率。"
     }
 }
 
@@ -291,6 +324,7 @@ private struct HeroBadge: View {
 private struct SelectedPortfolioCard: View {
     let selectedCount: Int
     let selectedColleges: [College]
+    let applicationRound: ApplicationRound
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -300,7 +334,7 @@ private struct SelectedPortfolioCard: View {
             Text(selectedCount == 0 ? "尚未选择学校" : selectedColleges.prefix(4).map(\.name).joined(separator: "、"))
                 .font(.subheadline.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
-            Text("手动改动会把组合来源切换为手动选择；自动推荐缺口提示只会出现在自动推荐组合里。")
+            Text(selectionNote)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if selectedColleges.count > 4 {
@@ -315,6 +349,13 @@ private struct SelectedPortfolioCard: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.green.opacity(0.18), lineWidth: 1)
         )
+    }
+
+    private var selectionNote: String {
+        if applicationRound == .earlyDecision {
+            return "ED/ED2 同一轮只保留 1 所；手动选择新学校会替换原 ED 学校。"
+        }
+        return "手动改动会把组合来源切换为手动选择；自动推荐缺口提示只会出现在自动推荐组合里。"
     }
 }
 

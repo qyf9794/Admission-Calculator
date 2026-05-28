@@ -52,14 +52,14 @@ data_sources:
         url: "https://nces.ed.gov/ipeds/reported-data/html/"
         scope: "Official alternate review source for current and future Liberal Arts College base-rate replacement via surveyNumber=12 reported Percent admitted pages."
     allowed_scope: "AdmissionSight National Universities plus reviewed IMG_0749.JPG 2026 U.S. News T50 National Universities supplement plus reviewed Top30 Liberal Arts Colleges list/rank table for v1; supplemental National University and LAC base rates may be official Scorecard/IPEDS replacements only after exact school identity review."
-    missing_policy: "Use latest non-empty class-year acceptance rate and lower confidence; label user-provided LAC rate rows as proxy reviewed data when official Scorecard/IPEDS replacements have not been applied; supplemental National University rank/image rows may not provide base rates without official Scorecard/IPEDS data."
+    missing_policy: "Use latest non-empty class-year acceptance rate; keep confidence/source completeness out of school-probability math. Label user-provided LAC rate rows as proxy reviewed data in the data/model explanation sheet when official Scorecard/IPEDS replacements have not been applied; supplemental National University rank/image rows may not provide base rates without official Scorecard/IPEDS data."
   chancing_fields:
     reference_only: "CollegeVine"
     url: "https://www.collegevine.com/admissions-calculator"
     rule: "Use field categories and explainable chancing philosophy only; do not copy proprietary model weights."
   academic_benchmarks:
     scope: "GPA, class-rank percentile, SAT/ACT, and course-rigor comparison against school-level admitted-student benchmarks."
-    rule: "Use official CDS/class-profile values when available; otherwise mark benchmark rows as inferred and lower confidence."
+    rule: "Use official CDS/class-profile values when available; otherwise mark benchmark rows as inferred in the data/model explanation sheet without changing probability through confidence."
     prohibited: "Do not describe inferred benchmarks as official admitted-student averages."
     mixed_source_rule: "If a benchmark row combines official fields with inferred fields, disclose the mixed scope instead of labeling the whole row as official or wholly inferred."
   curriculum_performance:
@@ -77,6 +77,7 @@ data_sources:
     official_source_required: true
     round_policy_rule: "Do not grant EA/ED probability boosts without school-specific round policy data; missing round policy data must be disclosed instead of generalized."
     round_advantage_rule: "School-specific round policy data must distinguish allowed rounds from explicit probability advantages; an allowed early round does not imply an EA/ED boost."
+    round_calibration_rule: "Explicit EA/ED probability adjustments are bounded observational calibrations, not official causal guarantees; binding ED/ED2 may be stronger than non-binding EA, restrictive EA may sit between ordinary EA and ED, and official no-advantage policies must keep a zero adjustment."
     ui_english_inputs_required: "The app form must expose both TOEFL and IELTS inputs because either can satisfy the English proof gate."
     inferred_english_floor:
       toefl: 90
@@ -97,7 +98,7 @@ data_sources:
 model_constraints:
   hard_gate_first: true
   hard_gate_failure_probability: 0
-  gate_applicability_rule: "A gate rule must apply to the applicant's status, major, and school before it can block probability, appear as an inferred warning, or reduce confidence."
+  gate_applicability_rule: "A gate rule must apply to the applicant's status, major, and school before it can block probability or appear in the data/model explanation sheet."
   probability_range: [0, 1]
   no_machine_learning_v1: true
   arts_profile_weighting:
@@ -119,9 +120,7 @@ model_constraints:
     - t50_at_least_one_probability
     - liberal_arts_t10_at_least_one_probability
     - liberal_arts_t30_at_least_one_probability
-    - confidence_label
     - failed_gate_reasons
-    - missing_data_warnings
     - per_school_source_audit
   multi_school_correlation:
     rule: "Do not multiply all independent probabilities directly; apply same-tier correlation discount."
@@ -136,9 +135,9 @@ model_constraints:
     recommendation_steps_rule: "Automatic portfolio results should carry the exact marginal expected-value steps only when the selected school set still matches the submitted profile snapshot's regenerated automatic recommendation."
     recommendation_steps_trust_rule: "Supplied automatic recommendation steps may be reused only when they match current school results and the regenerated automatic recommendation order/value metadata for the submitted profile snapshot."
     recommendation_single_pass_rule: "The explicit auto-recommend action may generate recommendation steps once and carry those exact generated steps into the result to avoid a second large-portfolio recommendation pass."
-    per_school_result_rule: "Result pages must display every calculated school's probability after dataset and Liberal Arts College toggle exclusions."
+    per_school_result_rule: "Result pages must not display every calculated school's probability; per-school probabilities belong on the report page. The main result page should show portfolio probabilities and user-needed missing inputs."
     recommendation_count_rule: "Automatic recommendation uses the user-requested total school count, with no artificial maximum; when enough eligible schools exist, the generated school count must equal that requested count."
-    recommendation_value_rule: "Automatic recommendation must not sort only by admission probability or fixed bucket quotas. It should score each eligible school by estimated admission probability times a rank-value score, then select the requested count by expected best-admit value with confidence/reliability discounting and same-tier correlation discounting. For app responsiveness, exact search is intentionally limited to small requested counts with a modest bounded total combination space; recommendation quality should favor fast, deterministic approximation over maximum mathematical precision. When the exact limit is met, it may use deterministic exhaustive search for the highest expected best-admit value, using the same best-ordering comparison for each candidate combination. For larger combination spaces, it should use a fast approximation: marginal greedy selection over a bounded confidence-adjusted candidate window with rank-value and single-school-probability guardrails, followed by bounded deterministic one-school replacement passes over the same kind of guarded candidate shortlist and a fixed-size removal shortlist; each accepted replacement must improve the portfolio's expected best-admit value. Replacement trials and final ordering may compare current, marginal-greedy, and rank-value-priority orderings, then keep the ordering with the highest expected best-admit value without expanding into exhaustive search. Rank-value scores must use comparable fixed rank curves across National Universities and Liberal Arts Colleges, not each category's current maximum rank; Liberal Arts College T10 rank value should sit near the National Universities T20-T30 band rather than the National Universities T10 band."
+    recommendation_value_rule: "Automatic recommendation must not sort only by admission probability or fixed bucket quotas. It should score each eligible school by estimated admission probability times a rank-value score, then select the requested count by expected best-admit value with same-tier correlation discounting. Confidence/reliability must not discount school probability or recommendation value. For app responsiveness, exact search is intentionally limited to small requested counts with a modest bounded total combination space; recommendation quality should favor fast, deterministic approximation over maximum mathematical precision. When the exact limit is met, it may use deterministic exhaustive search for the highest expected best-admit value, using the same best-ordering comparison for each candidate combination. For larger combination spaces, it should use a fast approximation: marginal greedy selection over a bounded candidate window with rank-value and single-school-probability guardrails, followed by bounded deterministic one-school replacement passes over the same kind of guarded candidate shortlist and a fixed-size removal shortlist; each accepted replacement must improve the selected portfolio's expected best-admit value. Replacement trials and final ordering may compare current, marginal-greedy, and rank-value-priority orderings, then keep the ordering with the highest expected best-admit value without expanding into exhaustive search. Rank-value scores must use comparable fixed rank curves across National Universities and Liberal Arts Colleges, not each category's current maximum rank; Liberal Arts College T10 rank value should sit near the National Universities T20-T30 band rather than the National Universities T10 band."
     recommendation_value_total_rule: "Automatic recommendation results must expose the selected portfolio's expected best-admit value for the requested school count, so multiple offers are not simply double-counted."
     manual_selection_rule: "Manual selection opens a selectable/selected college directory and has no artificial count cap."
     bucket_rule: "Use conservative planning buckets: reach below 20%, target 20%-60%, likely at least 60%, and disclose that likely/safety is not a guarantee."
@@ -147,14 +146,13 @@ model_constraints:
       - selection_strategy
       - risk_explanation
       - improvement_advice
-      - data_limitations_summary
+      - application_count_impact
     required_disclosures:
-      - "Computed portfolio selection warnings"
       - "Auto-recommendation shortage warnings when selectionSource is automatic"
       - "Auto-recommendation expected-value rationale when selectionSource is automatic"
-      - "Per-school warnings and data limitations already produced by the chance engine"
       - "Every selected or auto-recommended school's probability and academic-fit adjustment"
-      - "Every selected or auto-recommended school's source-audit summary for the data used by the probability model"
+      - "Student-vs-school benchmark gaps and advantages"
+      - "Major probability drivers and concrete improvement actions"
     forbidden:
       - "Changing computed probabilities"
       - "Adding schools outside the dataset"
@@ -166,9 +164,9 @@ validation_tests:
   - id: weak_but_eligible_nonzero
     description: "A weak applicant who satisfies gates may receive a low but non-zero probability."
   - id: inferred_gate_disclosure
-    description: "Inferred hard gates must be labeled and reduce confidence."
+    description: "Inferred hard gates must be labeled in the data/model explanation sheet and must not discount probability through confidence."
   - id: irrelevant_gate_no_penalty
-    description: "Inferred global gates that do not apply to the applicant must not be disclosed or reduce confidence."
+    description: "Inferred global gates that do not apply to the applicant must not be disclosed in main flow or penalize probability."
   - id: portfolio_bounds
     description: "At-least-one probability must be >= max individual and <= sum individual probabilities."
   - id: dataset_scope
@@ -204,7 +202,7 @@ validation_tests:
   - id: alevel_subject_cap
     description: "A-Level A*/A/B subject counts must share a total cap of 5 subjects, and overflow data must be capped and disclosed rather than increasing probability."
   - id: report_includes_computed_warnings
-    description: "AI reports must include computed portfolio-level and per-school warnings/data limitations instead of replacing them with generic advice."
+    description: "AI reports must focus on per-school probability, application-count impact, key drivers, gaps/advantages, and improvement actions instead of generic advice or system data-limit disclosures."
   - id: conservative_bucket_thresholds
     description: "Recommendation buckets must not label sub-60% chances as likely/safety, and UI/report copy must state that likely is not a guarantee."
   - id: recommendation_result_scope
@@ -212,7 +210,7 @@ validation_tests:
   - id: recommendation_total_count
     description: "Automatic recommendation should generate the user-requested total number of schools when enough eligible schools exist, while manual selection remains uncapped."
   - id: recommendation_expected_value
-    description: "Automatic recommendation should use probability multiplied by a rank-value score, with confidence/reliability discounting, same-tier marginal discounting, expected-best-offer marginal value, exact search only when requested count is small and total combination space remains modestly bounded for app responsiveness, with each exact candidate combination evaluated through the same best-ordering comparison, marginal greedy selection over a bounded confidence-adjusted candidate window with rank-value and single-school-probability guardrails, bounded fast deterministic one-school replacement passes over the same kind of guarded candidate shortlist and a fixed-size removal shortlist for larger combination spaces, and final ordering that chooses the best expected best-admit value among current, marginal-greedy, and rank-value-priority orderings, rather than selecting only by probability bucket."
+    description: "Automatic recommendation should use probability multiplied by a rank-value score, with same-tier marginal discounting, expected-best-offer marginal value, exact search only when requested count is small and total combination space remains modestly bounded for app responsiveness, with each exact candidate combination evaluated through the same best-ordering comparison, marginal greedy selection over a bounded candidate window with rank-value and single-school-probability guardrails, bounded fast deterministic one-school replacement passes over the same kind of guarded candidate shortlist and a fixed-size removal shortlist for larger combination spaces, and final ordering that chooses the best expected best-admit value among current, marginal-greedy, and rank-value-priority orderings, rather than selecting only by probability bucket. Confidence/reliability must not discount probability or recommendation value."
   - id: recommendation_expected_value_total
     description: "Automatic recommendation results and reports should expose the expected best-admit value for the requested school count."
   - id: recommendation_steps_trust_boundary
@@ -242,10 +240,10 @@ validation_tests:
   - id: round_allowed_without_advantage
     description: "Official round-policy data may allow an early round while giving no probability boost; disallowed rounds must be blocked by a hard gate."
   - id: report_includes_confidence_label
-    description: "AI reports must include each selected school's computed confidence label next to its probability so uncertainty is not lost outside the results UI."
+    description: "AI reports must not display confidence labels next to per-school probability; confidence belongs only in the data/model explanation sheet."
   - id: failed_gate_reason_detail
     description: "Hard-gate failures must disclose the rule title, official/inferred status, explanatory detail, and source when available."
   - id: report_includes_source_audit
-    description: "AI reports must include each selected school's source-audit summary for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules."
+    description: "AI reports must not include source-audit summaries in the report body; source audit belongs in the data/model explanation sheet."
   - id: source_audit_discloses_round_policy
     description: "Per-school source audit must disclose structured round policy fields, including allowed rounds and any explicit EA/ED probability adjustments."

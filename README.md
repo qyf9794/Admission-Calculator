@@ -5,12 +5,12 @@ SwiftUI iPhone app for estimating U.S. undergraduate admission chances for Chine
 The v1 model is intentionally transparent:
 
 - AdmissionSight National Universities plus the reviewed user-provided 2026 U.S. News T50 image supplement and the reviewed user-provided Top30 Liberal Arts Colleges list/rank table define the v1 school scope; supplemental National University rows and LAC base rates use reviewed official College Scorecard/IPEDS data where AdmissionSight is missing or where LAC rates have been officially replaced.
-- The report tab exposes per-school source audit notes in a data-source sheet for the major inputs used in probability math.
+- Confidence, system data gaps, and per-school source audit notes are available from a separate data/model explanation sheet, not in the main result content.
 - Source audit includes structured round-policy fields such as allowed rounds and explicit EA/ED adjustments.
 - Hard gates run before probability math; failed required gates return `0%`.
 - Hard-gate failures show the rule, official/inferred status, explanation, and source when available.
-- Inferred gates are labeled and lower confidence.
-- Global gate rules are filtered by applicant status and major before they can block, warn, or lower confidence.
+- Inferred gates are labeled in the explanation sheet and do not discount probability through confidence.
+- Global gate rules are filtered by applicant status and major before they can block or appear in the explanation sheet.
 - Default profiles use `其他/手动评估学校` for high-school background so named-school proxy advantages are never applied by default.
 - The unknown high-school fallback is validated as conservative and cannot carry a first-tier track-record boost.
 - The form exposes both TOEFL and IELTS because either can satisfy the English proof gate.
@@ -24,6 +24,7 @@ The v1 model is intentionally transparent:
 - Test Optional / 不提交标化 clears SAT/ACT in the form and ignores residual SAT/ACT values in readiness and academic fit.
 - EA/ED does not receive a generic probability boost unless school-specific round policy data exists; missing round data is disclosed.
 - School-specific round data separates allowed rounds from explicit probability advantages, so an allowed early round does not automatically create a boost.
+- Explicit early-round adjustments use a bounded observational calibration: binding ED/ED2 is stronger than non-binding EA, restrictive EA sits between ordinary EA and ED, and schools whose official materials say early review has no individual advantage keep a zero round adjustment.
 - Chinese international applicants use a conservative ordinary-applicant prior instead of the raw overall admit rate, with round-specific China admit-count capacity caps when applicant denominators are missing.
 - For top-decile students at first-tier Chinese international high schools, the model applies a separate strong-cohort calibration for non-T10 T30 schools so a 15-school T11-T30 portfolio can approach or exceed 90% at-least-one probability when no major negative condition applies. This calibration does not lift T10 capacity caps.
 - That strong-cohort calibration is limited to National Universities; Liberal Arts Colleges keep separate LAC probabilities and are not lifted by the National Universities T11-T30 calibration without school/category-specific evidence.
@@ -32,7 +33,7 @@ The v1 model is intentionally transparent:
 - Selected schools outside the v1 dataset are excluded from probability math and disclosed as portfolio warnings.
 - Recommendation buckets use conservative planning thresholds: `争取` below 20%, `目标` 20%-60%, and `保底` at least 60%; `保底` is still not a guarantee.
 - Auto recommendation is an explicit action: users choose one total school count and tap a button; when enough eligible schools exist, the generated count matches that number.
-- Auto recommendation scores each eligible school by estimated admission probability × rank-value score and optimizes expected best-admit value with confidence/reliability discounting and same-tier correlation discounting. For app responsiveness, exact search is intentionally limited to small requested counts with a modest bounded total combination space; larger combination spaces use a bounded fast approximation with marginal greedy selection over a confidence-adjusted candidate window that also keeps rank-value and single-school-probability guardrails, plus deterministic one-school replacement passes over guarded candidate/removal shortlists, then keeps the best expected-value ordering among current, marginal-greedy, and rank-value-priority orderings.
+- Auto recommendation scores each eligible school by estimated admission probability × rank-value score and optimizes expected best-admit value with same-tier correlation discounting. Confidence/reliability does not discount school probability or recommendation value. For app responsiveness, exact search is intentionally limited to small requested counts with a modest bounded total combination space; larger combination spaces use a bounded fast approximation with marginal greedy selection over a candidate window that also keeps rank-value and single-school-probability guardrails, plus deterministic one-school replacement passes over guarded candidate/removal shortlists, then keeps the best expected-value ordering among current, marginal-greedy, and rank-value-priority orderings.
 - The explicit auto-recommend action carries the just-generated recommendation steps directly into the result, so large portfolios do not run the recommendation search twice.
 - Rank-value scores use comparable fixed curves across comprehensive universities and liberal arts colleges, rather than scaling each list to its current last ranked school; Liberal Arts College T10 value is aligned near the comprehensive-university T20-T30 band.
 - Automatic results show the expected best-admit value for the requested school count, alongside the per-school recommendation order, so multiple offers are not simply double-counted.
@@ -40,13 +41,12 @@ The v1 model is intentionally transparent:
 - Manual and empty portfolio results do not carry hidden auto-recommendation school lists.
 - Results disclose the portfolio's likely / target / reach / blocked composition and any auto-recommendation total-count shortage.
 - Automatic results carry the matching marginal expected-value steps so the result page and report explain the same recommendation order.
-- Results include the per-school calculated probability list for every calculated school in the current portfolio.
+- Main results show portfolio probabilities and user-needed missing inputs; per-school calculated probabilities are shown on the report page.
 - Paid AI reports are generated from a dedicated report page and include every selected or auto-recommended school's probability and academic-fit adjustment.
-- AI reports for automatic portfolios explain the recommendation basis: single-school probability, rank-value score, confidence/reliability discounting, same-tier marginal discounting, and expected best-admit value.
-- AI reports include each selected school's confidence label next to its probability.
-- AI reports include a per-school source audit summary for the data used in probability math.
+- AI reports for automatic portfolios explain the recommendation basis: single-school probability, rank-value score, same-tier marginal discounting, and expected best-admit value.
+- AI reports omit confidence labels, system missing-data explanations, and source audit from the report body; those details remain in the data/model explanation sheet.
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.
-- AI reports include computed portfolio warnings and per-school data limitations instead of replacing them with generic advice.
+- AI reports focus on per-school probability, application-count impact, key probability drivers, student-vs-school gaps/advantages, improvement actions, and portfolio strategy.
 - Report generation is wired to the OpenAI Responses API; Debug builds need an `OPENAI_API_KEY` environment variable, while production should use a server-side proxy rather than embedding secrets in the app.
 - Results and AI reports are tied to the submitted profile snapshot; if the live form changes afterward, the app flags the displayed result as stale.
 - Multi-school probability uses same-tier correlation discounting.

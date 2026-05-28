@@ -59,7 +59,7 @@ struct ChanceEngine {
     }
 
     func evaluateAutomaticRecommendation(profile: StudentProfile) -> PortfolioResult {
-        let recommendationSteps = recommendationSteps(for: profile, count: profile.requestedSchoolCount)
+        let recommendationSteps = recommendationSteps(for: profile, count: effectiveRequestedSchoolCount(for: profile))
         return evaluate(
             profile: profile,
             selectedCollegeIDs: Set(recommendationSteps.map(\.result.college.id)),
@@ -90,7 +90,7 @@ struct ChanceEngine {
             automaticRecommendationStepsWereJustGenerated &&
             suppliedStepsAreCurrent
         let regeneratedRecommendationSteps = resolvedSource == .automatic && !suppliedStepsAreTrustedGeneratedSteps
-            ? recommendationSteps(for: profile, count: profile.requestedSchoolCount)
+            ? recommendationSteps(for: profile, count: effectiveRequestedSchoolCount(for: profile))
             : []
         let suppliedStepsMatchRegenerated = suppliedStepsAreTrustedGeneratedSteps || (suppliedStepsAreCurrent &&
             recommendationSteps(suppliedRecommendationSteps, matchRegenerated: regeneratedRecommendationSteps)
@@ -129,6 +129,14 @@ struct ChanceEngine {
             recommendationExpectedValueTotal: recommendationBestOfferExpectedValue(for: matchingRecommendationSteps),
             generatedAt: Date()
         )
+    }
+
+    func effectiveRequestedSchoolCount(for profile: StudentProfile, requested count: Int? = nil) -> Int {
+        let requested = max(0, count ?? profile.requestedSchoolCount)
+        guard profile.round == .earlyDecision else {
+            return requested
+        }
+        return min(requested, 1)
     }
 
     private func recommendationSteps(_ steps: [RecommendationStep], match currentResults: [ChanceResult]) -> Bool {
@@ -273,13 +281,8 @@ struct ChanceEngine {
         let aidDelta = aidAdjustment(profile: profile, signal: internationalSignal)
         let internationalDelta = internationalAdjustment(profile: profile, signal: internationalSignal)
         let chinaAdmissionDelta = chinaAdmissionAdjustment(profile: profile, signal: chinaSignal)
-        let internationalDataPenalty = profile.applicantStatus.isInternational ? (1 - internationalSignal.dataQuality) * -0.08 : 0
-        let chinaDataPenalty = profile.applicantStatus.usesChinaProxy ? (1 - chinaSignal.dataQuality) * -0.05 : 0
-        let benchmarkDataPenalty = (1 - benchmark.dataQuality) * -0.04
-        let uncertaintyPenalty = (1 - college.dataQuality) * -0.12 + internationalDataPenalty + chinaDataPenalty + benchmarkDataPenalty + gate.confidenceImpact
-
         let logitPrior = logit(clamp(ordinaryPrior, min: 0.001, max: 0.72))
-        let adjustedLogit = logitPrior + readinessDelta + academicBenchmarkDelta + highSchoolDelta + topCohortDelta + majorDelta + roundDelta + aidDelta + internationalDelta + chinaAdmissionDelta + uncertaintyPenalty
+        let adjustedLogit = logitPrior + readinessDelta + academicBenchmarkDelta + highSchoolDelta + topCohortDelta + majorDelta + roundDelta + aidDelta + internationalDelta + chinaAdmissionDelta
         let probability = clamp(logistic(adjustedLogit), min: 0.001, max: probabilityCap(for: college, profile: profile, chinaSignal: chinaSignal))
 
         let factors = [
@@ -353,7 +356,9 @@ struct ChanceEngine {
             }
         }
 
-        if isUCCampus(college), profile.round != .regularDecision {
+        if isUCCampus(college),
+           profile.round != .regularDecision,
+           !failed.contains(where: { $0.type == .round && $0.collegeID == college.id }) {
             failed.append(Self.ucSingleFilingPeriodRule(collegeID: college.id))
         }
 
@@ -417,7 +422,7 @@ struct ChanceEngine {
     }
 
     func recommendedColleges(for profile: StudentProfile, count: Int) -> [College] {
-        let requested = max(0, count)
+        let requested = effectiveRequestedSchoolCount(for: profile, requested: count)
         guard requested > 0 else {
             return []
         }
@@ -426,7 +431,7 @@ struct ChanceEngine {
     }
 
     func recommendationSteps(for profile: StudentProfile, count: Int) -> [RecommendationStep] {
-        let requested = max(0, count)
+        let requested = effectiveRequestedSchoolCount(for: profile, requested: count)
         guard requested > 0 else {
             return []
         }
@@ -872,18 +877,11 @@ struct ChanceEngine {
     }
 
     private func recommendationReplacementPrefilterValue(for result: ChanceResult) -> Double {
-        recommendationExpectedValue(for: result) * recommendationConfidenceMultiplier(for: result)
+        recommendationExpectedValue(for: result)
     }
 
     func recommendationConfidenceMultiplier(for result: ChanceResult) -> Double {
-        switch result.confidence {
-        case .high:
-            return 1.00
-        case .medium:
-            return 0.94
-        case .low:
-            return 0.85
-        }
+        1.0
     }
 
     func recommendationBestOfferExpectedValue(for steps: [RecommendationStep]) -> Double {
@@ -900,13 +898,13 @@ struct ChanceEngine {
         }
 
         for step in sorted {
-            let reliabilityAdjustedProbability = clamp(
+            let effectiveProbability = clamp(
                 step.result.adjustedProbability * step.sameTierDiscount * step.confidenceMultiplier,
                 min: 0,
                 max: 0.98
             )
-            expectedValue += failureOfHigherValueOffers * reliabilityAdjustedProbability * step.rankScore
-            failureOfHigherValueOffers *= (1 - reliabilityAdjustedProbability)
+            expectedValue += failureOfHigherValueOffers * effectiveProbability * step.rankScore
+            failureOfHigherValueOffers *= (1 - effectiveProbability)
         }
         return expectedValue
     }
@@ -936,27 +934,35 @@ struct ChanceEngine {
 
     private func selectionWarnings(profile: StudentProfile, requestedIDs: Set<String>) -> [String] {
         let requestedKnownColleges = colleges.filter { requestedIDs.contains($0.id) }
-        let excludedLiberalArtsCount = requestedKnownColleges.filter { !isSelectable($0, for: profile) }.count
+        let excludedLiberalArtsCount = requestedKnownColleges.filter { !profile.includeLiberalArtsColleges && $0.category == .liberalArtsCollege }.count
+        let excludedRoundCount = requestedKnownColleges.filter { !allowsRound($0, profile.round) }.count
+        let selectedEDCount = requestedKnownColleges.filter { isSelectable($0, for: profile) }.count
         let knownIDs = Set(requestedKnownColleges.map(\.id))
         let unknownCount = requestedIDs.subtracting(knownIDs).count
         var items: [String] = []
-        guard unknownCount > 0 else {
-            if excludedLiberalArtsCount > 0 {
-                items.append("已关闭文理学院选项，\(excludedLiberalArtsCount) 所文理学院已从概率计算和至少一所概率中排除。")
-            }
-            return items
+        if profile.round == .earlyDecision && selectedEDCount > 1 {
+            items.append("ED/ED2 为绑定申请，同一轮最多选择 1 所 ED 学校；请保留 1 所 ED 学校，或切换到 EA/RD 后再计算组合概率。")
         }
-        items.append("选校列表包含 \(unknownCount) 个不在已审核 v1 数据集内的学校，已从概率计算中排除。")
+        if unknownCount > 0 {
+            items.append("选校列表包含 \(unknownCount) 个不在已审核 v1 数据集内的学校，已从概率计算中排除。")
+        }
         if excludedLiberalArtsCount > 0 {
             items.append("已关闭文理学院选项，\(excludedLiberalArtsCount) 所文理学院已从概率计算和至少一所概率中排除。")
+        }
+        if excludedRoundCount > 0 {
+            items.append("\(excludedRoundCount) 所学校未开放 \(profile.round.rawValue) 轮次，已从本轮概率计算中排除。")
         }
         return items
     }
 
     private func recommendationWarnings(profile: StudentProfile, recommendedResults: [ChanceResult]) -> [String] {
         var items: [String] = []
-        if recommendedResults.count < profile.requestedSchoolCount {
-            items.append("自动推荐数量不足：计划 \(profile.requestedSchoolCount) 所，当前生成 \(recommendedResults.count) 所。")
+        let effectiveRequested = effectiveRequestedSchoolCount(for: profile)
+        if profile.round == .earlyDecision && profile.requestedSchoolCount > effectiveRequested {
+            items.append("ED/ED2 为绑定申请，同一轮最多选择 1 所 ED 学校；自动推荐已按 1 所生成。")
+        }
+        if recommendedResults.count < effectiveRequested {
+            items.append("自动推荐数量不足：计划 \(effectiveRequested) 所，当前生成 \(recommendedResults.count) 所。")
         }
         return items
     }
@@ -1027,7 +1033,24 @@ struct ChanceEngine {
     }
 
     private func isSelectable(_ college: College, for profile: StudentProfile) -> Bool {
-        profile.includeLiberalArtsColleges || college.category != .liberalArtsCollege
+        (profile.includeLiberalArtsColleges || college.category != .liberalArtsCollege) &&
+            allowsRound(college, profile.round)
+    }
+
+    private func allowsRound(_ college: College, _ round: ApplicationRound) -> Bool {
+        let rules = roundPolicyRules(for: college)
+        guard !rules.isEmpty else {
+            return round == .regularDecision
+        }
+        return rules.contains { rule in
+            if !rule.allowedRounds.isEmpty {
+                return rule.allowedRounds.contains(round)
+            }
+            if let requiredRound = rule.requiredRound {
+                return requiredRound == round
+            }
+            return round == .regularDecision
+        }
     }
 
     private func highSchoolContext(for profile: StudentProfile) -> HighSchoolContext {
@@ -1042,19 +1065,10 @@ struct ChanceEngine {
         if college.acceptanceRates.contains(where: { $0.rate == nil }) {
             items.append("该校最新年份存在 N/A，已使用最近非空录取率。")
         }
-        if !gate.inferredRules.isEmpty {
-            items.append("包含 \(gate.inferredRules.count) 条推断硬门槛，结果置信度已下调。")
-        }
-        if college.dataQuality < 0.8 {
-            items.append("学校统计数据存在缺口，建议后续补官方 CDS/招生页面。")
-        }
         if benchmarkHasOfficialFields(benchmark), benchmark.isInferred {
             items.append("目标校学术基准含部分官方字段，其余缺失字段仍为推断值；不得视作完整官方录取均值。")
         } else if benchmark.isInferred {
             items.append("目标校学术基准为推断值，用于相对比较 GPA、排名、标化和课程难度；不是官方录取均值。")
-        }
-        if benchmark.dataQuality < 0.5 {
-            items.append("目标校学术基准置信度较低，建议后续补官方 CDS 或 class profile。")
         }
         if profile.gradeScale != .percent || (profile.curriculum == .chinese && profile.curriculumGradeScale != .percent) {
             items.append("绩点或等级制成绩已转换为内部学术指数；该指数用于相对比较，不等同于真实百分制成绩。")
@@ -1088,9 +1102,6 @@ struct ChanceEngine {
             items.append("国际生数据仅使用本科口径；录取系数只有在本科国际生 admitted 数和总 admitted 数同时可用时才参与计算。")
             if internationalSignal.internationalAdmitCoefficient == nil {
                 items.append("该校缺少本科国际生录取系数，当前使用本科 nonresident 占比作为弱代理。")
-            }
-            if internationalSignal.dataQuality < 0.5 || internationalSignal.undergradNonresidentShare == nil {
-                items.append("该校国际生代理数据缺失或置信度低，当前主要依赖整体录取率。")
             }
         }
         if profile.applicantStatus.usesChinaProxy {
@@ -1318,7 +1329,7 @@ struct ChanceEngine {
             return "未触发：只对中国籍国际生的一流高中强队列做保守校准。"
         }
 
-        return "\(schoolContext.name) 属于一流国际学校代理样本，申请者校内排名前\(String(format: "%.0f", profile.classRankPercentile))%；对 \(college.tierDisplayName) 使用强队列校准，但仍受硬门槛、专业、资助和数据置信度约束。"
+        return "\(schoolContext.name) 属于一流国际学校代理样本，申请者校内排名前\(String(format: "%.0f", profile.classRankPercentile))%；对 \(college.tierDisplayName) 使用强队列校准，但仍受硬门槛、专业和资助约束。"
     }
 
     private func eliteHighSchoolCohortScale(profile: StudentProfile, schoolContext: HighSchoolContext) -> Double {
@@ -1722,10 +1733,26 @@ struct ChanceEngine {
         case .some:
             capacityCap = college.rank <= 20 ? 0.240 : 0.420
         case .none:
-            capacityCap = college.rank <= 20 ? 0.080 : 0.180
+            capacityCap = missingChinaCapacityCap(for: college)
         }
 
         return min(0.82, capacityCap + eliteHighSchoolCapacityLift(profile: profile, college: college))
+    }
+
+    private func missingChinaCapacityCap(for college: College) -> Double {
+        guard college.category == .nationalUniversity else {
+            return 0.180
+        }
+        switch college.rank {
+        case ...20:
+            return 0.080
+        case 21...30 where college.latestAvailableRate >= 0.20:
+            return 0.240
+        case 31...50 where college.latestAvailableRate >= 0.30:
+            return 0.300
+        default:
+            return 0.180
+        }
     }
 
     private func eliteHighSchoolCapacityLift(profile: StudentProfile, college: College) -> Double {

@@ -405,8 +405,33 @@ struct HighSchoolContext: Identifiable, Hashable, Codable {
     let transparency: Int
 
     var calibration: Double {
-        let score = Double(resources + counseling + top30TrackRecord + transparency) / 20.0
-        return (score - 0.55) * 0.18
+        let weightedScore = (
+            Double(top30TrackRecord) * 0.50 +
+            Double(resources) * 0.25 +
+            Double(counseling) * 0.15 +
+            Double(transparency) * 0.10
+        ) / 5.0
+        let bandOffset: Double
+        let bandCap: Double
+        switch admitRankingBand {
+        case 1:
+            bandOffset = 0.010
+            bandCap = 0.075
+        case 2:
+            bandOffset = 0.002
+            bandCap = 0.045
+        case 3:
+            bandOffset = -0.006
+            bandCap = 0.025
+        case 4:
+            bandOffset = -0.014
+            bandCap = 0.010
+        default:
+            bandOffset = -0.022
+            bandCap = 0.0
+        }
+        let rawAdjustment = (weightedScore - 0.60) * 0.16 + bandOffset
+        return min(bandCap, max(-0.040, rawAdjustment))
     }
 }
 
@@ -516,7 +541,7 @@ struct StudentProfile: Hashable, Codable {
 enum ProfileCompletionImpact: String, Hashable, Codable {
     case gate = "硬门槛"
     case probability = "概率计算"
-    case confidence = "置信度校准"
+    case confidence = "资料完整度"
     case portfolio = "选校策略"
 }
 
@@ -546,7 +571,7 @@ extension StudentProfile {
             prompts.append(ProfileCompletionPrompt(
                 id: "english-proof",
                 title: "补充 TOEFL 或 IELTS",
-                detail: "国际生英语硬门槛接受任一语言成绩；缺失时部分学校会被阻断或降低置信度。",
+                detail: "国际生英语硬门槛接受任一语言成绩；缺失时部分学校会被阻断。",
                 systemImage: "textformat.abc",
                 impact: .gate
             ))
@@ -568,7 +593,7 @@ extension StudentProfile {
                 title: "确认高中背景",
                 detail: "当前使用其他/手动评估学校的保守代理；真实学校资源和升学记录会影响校准。",
                 systemImage: "graduationcap",
-                impact: .confidence
+                impact: .probability
             ))
         }
 

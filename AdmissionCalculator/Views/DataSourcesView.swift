@@ -375,7 +375,7 @@ private struct CollegeSourceAudit: View {
                 SourceAuditRow(
                     title: "国际生本科信号",
                     value: "缺失",
-                    note: "当前生成数据没有该校本科国际生代理行；概率应降低置信度并披露缺口。",
+                    note: "当前生成数据没有该校本科国际生代理行；该信息仅用于数据说明，不通过置信度折扣概率。",
                     url: nil,
                     tint: .orange
                 )
@@ -409,7 +409,7 @@ private struct CollegeSourceAudit: View {
                 SourceAuditRow(
                     title: "目标校学术基准",
                     value: "缺失",
-                    note: "当前没有该校学术基准行；概率应降低置信度并提示补官方 CDS 或 class profile。",
+                    note: "当前没有该校学术基准行；该信息仅用于数据说明，不通过置信度折扣概率。",
                     url: nil,
                     tint: .orange
                 )
@@ -418,7 +418,7 @@ private struct CollegeSourceAudit: View {
                 SourceAuditRow(
                     title: "该校硬门槛",
                     value: "未配置学校专属硬门槛",
-                    note: "仍会按适用身份/专业检查全局推断门槛；缺官方数据会降低置信度。",
+                    note: "仍会按适用身份/专业检查全局推断门槛；缺官方数据不会通过置信度折扣概率。",
                     url: nil,
                     tint: .orange
                 )
@@ -436,7 +436,7 @@ private struct CollegeSourceAudit: View {
             SourceAuditRow(
                 title: "全局推断门槛",
                 value: "\(globalRules.count) 条按身份/专业适用性过滤",
-                note: "全局规则不会无差别扣分；只有适用于该学生身份、专业或学校政策时才检查、披露或降低置信度。",
+                note: "全局规则不会无差别扣分；只有适用于该学生身份、专业或学校政策时才检查或披露。",
                 url: nil,
                 tint: .orange
             )

@@ -77,7 +77,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(ids.contains("ap-evidence"))
         XCTAssertEqual(prompts.first { $0.id == "english-proof" }?.impact, .gate)
         XCTAssertEqual(prompts.first { $0.id == "standardized-test" }?.impact, .gate)
-        XCTAssertEqual(prompts.first { $0.id == "high-school-context" }?.impact, .confidence)
+        XCTAssertEqual(prompts.first { $0.id == "high-school-context" }?.impact, .probability)
         XCTAssertEqual(prompts.first { $0.id == "ap-evidence" }?.impact, .probability)
         XCTAssertEqual(prompts.first { $0.id == "selected-schools" }?.impact, .portfolio)
     }
@@ -195,7 +195,7 @@ final class ChanceEngineTests: XCTestCase {
 
         XCTAssertTrue(result.gateResult.passed)
         XCTAssertTrue(result.gateResult.inferredRules.isEmpty)
-        XCTAssertEqual(result.gateResult.confidenceImpact, -0.05, accuracy: 0.0001)
+        XCTAssertEqual(result.gateResult.confidenceImpact, 0, accuracy: 0.0001)
         XCTAssertFalse(result.warnings.contains { $0.contains("推断硬门槛") })
     }
 
@@ -465,6 +465,45 @@ final class ChanceEngineTests: XCTestCase {
         })
     }
 
+    func testHighSchoolCalibrationUsesConservativeRankingBandCaps() {
+        let bandOne = HighSchoolContext(
+            id: "band_one",
+            name: "Band One",
+            city: "Test",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        )
+        let bandTwo = HighSchoolContext(
+            id: "band_two",
+            name: "Band Two",
+            city: "Test",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        )
+        let bandThree = HighSchoolContext(
+            id: "band_three",
+            name: "Band Three",
+            city: "Test",
+            admitRankingBand: 3,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        )
+        let unknown = AdmissionsSeedData.highSchools.first { $0.id == "unknown" }!
+
+        XCTAssertGreaterThan(bandOne.calibration, bandTwo.calibration)
+        XCTAssertGreaterThan(bandTwo.calibration, bandThree.calibration)
+        XCTAssertLessThanOrEqual(bandThree.calibration, 0.025)
+        XCTAssertLessThan(unknown.calibration, 0)
+    }
+
     func testLowChinaCapacityIvyPlusSchoolIsConservativelyCapped() {
         let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
         let result = engine.chance(for: yale, profile: strongChineseInternationalProfile)
@@ -589,6 +628,25 @@ final class ChanceEngineTests: XCTestCase {
 
         XCTAssertLessThanOrEqual(result.adjustedProbability, 0.025)
         XCTAssertTrue(result.factors.contains { $0.label == "顶尖高中强队列" })
+    }
+
+    func testStrongTopCohortCanReachLikelyBucketWhenMissingChinaCountStillHasHighBaseRate() {
+        let ucDavis = AdmissionsSeedData.colleges.first { $0.id == "uc_davis" }!
+        var profile = strongChineseInternationalProfile
+        profile.highSchoolID = "shsid"
+        profile.classRankPercentile = 5
+        profile.testOptional = false
+        profile.sat = 1580
+        profile.act = 36
+        profile.major = .socialScience
+        profile.needsAid = false
+        profile.round = .regularDecision
+
+        let result = engine.chance(for: ucDavis, profile: profile)
+
+        XCTAssertTrue(result.gateResult.passed)
+        XCTAssertGreaterThanOrEqual(result.adjustedProbability, 0.60)
+        XCTAssertEqual(result.bucket, .likely)
     }
 
     func testEliteTopCohortCalibrationDoesNotLiftLiberalArtsColleges() {
@@ -763,6 +821,83 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.selectionSource, .automatic)
         XCTAssertEqual(result.selectedAtLeastOne, 0)
         XCTAssertTrue(result.recommendationWarnings.contains("自动推荐数量不足：计划 9 所，当前生成 0 所。"))
+    }
+
+    func testEarlyDecisionAutomaticRecommendationCapsAtOneSchool() {
+        var profile = StudentProfile.sample
+        profile.round = .earlyDecision
+        profile.requestedSchoolCount = 12
+
+        let result = engine.evaluateAutomaticRecommendation(profile: profile)
+
+        XCTAssertEqual(result.schoolResults.count, 1)
+        XCTAssertEqual(result.recommendedSchools.count, 1)
+        XCTAssertEqual(result.recommendationSteps.count, 1)
+        XCTAssertTrue(result.recommendationWarnings.contains("ED/ED2 为绑定申请，同一轮最多选择 1 所 ED 学校；自动推荐已按 1 所生成。"))
+    }
+
+    func testEarlyActionAutomaticRecommendationCanReturnMultipleSchools() {
+        var profile = StudentProfile.sample
+        profile.round = .earlyAction
+        profile.requestedSchoolCount = 4
+
+        let recommended = engine.recommendedColleges(for: profile, count: profile.requestedSchoolCount)
+
+        XCTAssertEqual(recommended.count, 4)
+    }
+
+    func testEarlyActionSelectionExcludesSchoolsThatDoNotOfferThatRound() {
+        var profile = StudentProfile.sample
+        profile.round = .earlyAction
+
+        let result = engine.evaluate(
+            profile: profile,
+            selectedCollegeIDs: Set(["mit", "uc_berkeley"]),
+            selectionSource: .manual
+        )
+
+        XCTAssertEqual(result.schoolResults.map(\.college.id), ["mit"])
+        XCTAssertTrue(result.selectionWarnings.contains("1 所学校未开放 EA 轮次，已从本轮概率计算中排除。"))
+    }
+
+    func testEarlyActionAutomaticRecommendationOnlyReturnsEarlyActionSchools() {
+        var profile = StudentProfile.sample
+        profile.round = .earlyAction
+        profile.requestedSchoolCount = 12
+
+        let recommended = engine.recommendedColleges(for: profile, count: profile.requestedSchoolCount)
+        let roundRulesByID = Dictionary(grouping: AdmissionsSeedData.gateRules.filter { $0.type == .round }, by: \.collegeID)
+
+        XCTAssertFalse(recommended.isEmpty)
+        XCTAssertTrue(recommended.allSatisfy { college in
+            roundRulesByID[college.id]?.contains { $0.allowedRounds.contains(.earlyAction) } == true
+        })
+    }
+
+    func testManualEarlyDecisionSelectionWarnsWhenMultipleSchoolsSelected() {
+        var profile = StudentProfile.sample
+        profile.round = .earlyDecision
+
+        let result = engine.evaluate(
+            profile: profile,
+            selectedCollegeIDs: Set(["duke", "northwestern"]),
+            selectionSource: .manual
+        )
+
+        XCTAssertEqual(result.schoolResults.count, 2)
+        XCTAssertTrue(result.selectionWarnings.contains("ED/ED2 为绑定申请，同一轮最多选择 1 所 ED 学校；请保留 1 所 ED 学校，或切换到 EA/RD 后再计算组合概率。"))
+    }
+
+    func testNonRegularDecisionResultDoesNotProvideComprehensiveReport() {
+        var profile = StudentProfile.sample
+        profile.round = .earlyAction
+
+        let result = engine.evaluate(profile: profile, selectedCollegeIDs: Set(["mit"]), selectionSource: .manual)
+        let report = ReportService.makeReport(result: result)
+        let prompt = ReportService.makeOpenAIReportPrompt(result: result)
+
+        XCTAssertTrue(report.contains("综合报告仅支持 RD 轮次"))
+        XCTAssertEqual(prompt, report)
     }
 
     func testAutoRecommendationHonorsRequestedTotalCountWhenAvailable() {
@@ -1398,7 +1533,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertNotEqual(engine.recommendationBestOfferExpectedValue(for: steps), ignoringStoredDiscount, accuracy: 0.0001)
     }
 
-    func testRecommendationValueDiscountsLowConfidenceWithoutChangingProbability() {
+    func testRecommendationValueDoesNotDiscountLowConfidenceOrChangeProbability() {
         var highConfidence = syntheticChanceResult(id: "high_confidence", name: "High Confidence", rank: 20, probability: 0.40, confidence: .high)
         let lowConfidence = syntheticChanceResult(id: "low_confidence", name: "Low Confidence", rank: 20, probability: 0.40, confidence: .low)
         highConfidence = ChanceResult(
@@ -1433,11 +1568,16 @@ final class ChanceEngineTests: XCTestCase {
 
         XCTAssertEqual(highConfidence.adjustedProbability, lowConfidence.adjustedProbability)
         XCTAssertEqual(engine.recommendationExpectedValue(for: highConfidence), engine.recommendationExpectedValue(for: lowConfidence), accuracy: 0.0001)
-        XCTAssertLessThan(engine.recommendationConfidenceMultiplier(for: lowConfidence), engine.recommendationConfidenceMultiplier(for: highConfidence))
-        XCTAssertLessThan(engine.recommendationBestOfferExpectedValue(for: [lowStep]), engine.recommendationBestOfferExpectedValue(for: [highStep]))
+        XCTAssertEqual(engine.recommendationConfidenceMultiplier(for: lowConfidence), 1)
+        XCTAssertEqual(engine.recommendationConfidenceMultiplier(for: highConfidence), 1)
+        XCTAssertEqual(
+            engine.recommendationBestOfferExpectedValue(for: [lowStep]),
+            engine.recommendationBestOfferExpectedValue(for: [highStep]),
+            accuracy: 0.0001
+        )
     }
 
-    func testLowConfidenceOfferUsesReliabilityAdjustedFailureChain() {
+    func testBestOfferExpectedValueUsesUndiscountedFailureChain() {
         let lowConfidenceHighRank = syntheticChanceResult(id: "low_conf_high_rank", name: "Low Confidence High Rank", rank: 1, probability: 0.70, confidence: .low)
         let highConfidenceLowerRank = syntheticChanceResult(id: "high_conf_lower_rank", name: "High Confidence Lower Rank", rank: 30, probability: 0.60, confidence: .high)
         let highRankScore = engine.recommendationRankScore(for: lowConfidenceHighRank.college)
@@ -1467,11 +1607,11 @@ final class ChanceEngineTests: XCTestCase {
 
         let expected = highRankReliability * highRankScore +
             (1 - highRankReliability) * lowerRankReliability * lowerRankScore
-        let staleUnadjustedFailure = highRankReliability * highRankScore +
+        let undiscountedFailure = highRankReliability * highRankScore +
             (1 - lowConfidenceHighRank.adjustedProbability) * lowerRankReliability * lowerRankScore
 
         XCTAssertEqual(engine.recommendationBestOfferExpectedValue(for: steps), expected, accuracy: 0.0001)
-        XCTAssertGreaterThan(engine.recommendationBestOfferExpectedValue(for: steps), staleUnadjustedFailure)
+        XCTAssertEqual(engine.recommendationBestOfferExpectedValue(for: steps), undiscountedFailure, accuracy: 0.0001)
     }
 
     func testAutomaticReportExplainsRecommendationExpectedValue() {
@@ -1489,7 +1629,6 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(report.contains("综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层"))
         XCTAssertTrue(report.contains("最高价值 offer"))
         XCTAssertTrue(report.contains("组合总空间"))
-        XCTAssertTrue(report.contains("排名价值优先顺位"))
         XCTAssertTrue(report.contains("第1顺位"))
         XCTAssertTrue(report.contains("边际期望值"))
     }
@@ -1542,7 +1681,7 @@ final class ChanceEngineTests: XCTestCase {
 
         let report = ReportService.makeReport(result: result)
 
-        XCTAssertTrue(report.contains("NCES/IPEDS Reported Data Admissions"))
+        XCTAssertFalse(report.contains("NCES/IPEDS Reported Data Admissions"))
         XCTAssertFalse(report.contains("Synthetic NCES LAC：基础率 22.0%，已审阅 Top30 Liberal Arts Colleges 用户表"))
     }
 
@@ -1851,7 +1990,7 @@ final class ChanceEngineTests: XCTestCase {
     }
 
     func testChinaCapacityUsesApplicationRoundSpecificCount() {
-        let yale = AdmissionsSeedData.colleges.first { $0.id == "yale" }!
+        let uchicago = AdmissionsSeedData.colleges.first { $0.id == "uchicago" }!
         var rdProfile = strongChineseInternationalProfile
         rdProfile.round = .regularDecision
         rdProfile.testOptional = false
@@ -1860,8 +1999,8 @@ final class ChanceEngineTests: XCTestCase {
         var edProfile = rdProfile
         edProfile.round = .earlyDecision
 
-        let rd = engine.chance(for: yale, profile: rdProfile)
-        let ed = engine.chance(for: yale, profile: edProfile)
+        let rd = engine.chance(for: uchicago, profile: rdProfile)
+        let ed = engine.chance(for: uchicago, profile: edProfile)
 
         XCTAssertLessThanOrEqual(rd.adjustedProbability, 0.025)
         XCTAssertGreaterThan(ed.adjustedProbability, rd.adjustedProbability)
@@ -1991,7 +2130,8 @@ final class ChanceEngineTests: XCTestCase {
     }
 
     func testEarlyRoundDoesNotReceiveGenericBoostWithoutSchoolPolicyData() {
-        let harvard = AdmissionsSeedData.colleges.first { $0.id == "harvard" }!
+        let college = syntheticCollege(id: "synthetic_no_round_policy")
+        let syntheticEngine = ChanceEngine(colleges: [college], gateRules: [])
         var rdProfile = StudentProfile.sample
         rdProfile.applicantStatus = .usCitizenDomestic
         rdProfile.major = .humanities
@@ -2000,8 +2140,8 @@ final class ChanceEngineTests: XCTestCase {
         var edProfile = rdProfile
         edProfile.round = .earlyDecision
 
-        let rd = engine.chance(for: harvard, profile: rdProfile)
-        let ed = engine.chance(for: harvard, profile: edProfile)
+        let rd = syntheticEngine.chance(for: college, profile: rdProfile)
+        let ed = syntheticEngine.chance(for: college, profile: edProfile)
         let rdRound = rd.factors.first { $0.label == "申请轮次" }
         let edRound = ed.factors.first { $0.label == "申请轮次" }
 
@@ -2010,6 +2150,70 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(rd.adjustedProbability, ed.adjustedProbability, accuracy: 0.0001)
         XCTAssertTrue(edRound?.detail.contains("缺少学校级") == true)
         XCTAssertTrue(ed.warnings.contains { $0.contains("缺少学校级 EA/ED 轮次政策数据") })
+    }
+
+    func testDukeRoundPolicyAllowsEDAndBlocksEA() {
+        let duke = AdmissionsSeedData.colleges.first { $0.id == "duke" }!
+        var rdProfile = StudentProfile.sample
+        rdProfile.applicantStatus = .usCitizenDomestic
+        rdProfile.major = .humanities
+        rdProfile.round = .regularDecision
+
+        var edProfile = rdProfile
+        edProfile.round = .earlyDecision
+
+        var eaProfile = rdProfile
+        eaProfile.round = .earlyAction
+
+        let rd = engine.chance(for: duke, profile: rdProfile)
+        let ed = engine.chance(for: duke, profile: edProfile)
+        let ea = engine.chance(for: duke, profile: eaProfile)
+
+        XCTAssertTrue(rd.gateResult.passed)
+        XCTAssertTrue(ed.gateResult.passed)
+        XCTAssertGreaterThan(ed.adjustedProbability, 0)
+        XCTAssertEqual(ea.adjustedProbability, 0)
+        XCTAssertTrue(ea.gateResult.failedRules.contains { $0.type == .round && $0.isOfficial })
+    }
+
+    func testBindingEarlyDecisionUsesObservedRoundCalibration() {
+        let duke = AdmissionsSeedData.colleges.first { $0.id == "duke" }!
+        var rdProfile = StudentProfile.sample
+        rdProfile.applicantStatus = .usCitizenDomestic
+        rdProfile.major = .humanities
+        rdProfile.round = .regularDecision
+
+        var edProfile = rdProfile
+        edProfile.round = .earlyDecision
+
+        let rd = engine.chance(for: duke, profile: rdProfile)
+        let ed = engine.chance(for: duke, profile: edProfile)
+        let edRound = ed.factors.first { $0.label == "申请轮次" }
+
+        XCTAssertTrue(rd.gateResult.passed)
+        XCTAssertTrue(ed.gateResult.passed)
+        XCTAssertEqual(edRound?.value ?? 0, 0.65, accuracy: 0.0001)
+        XCTAssertGreaterThan(ed.adjustedProbability, rd.adjustedProbability)
+    }
+
+    func testRestrictiveEarlyActionUsesBoundedCalibrationWhenPolicyDoesNotDisclaimBoost() {
+        let princeton = AdmissionsSeedData.colleges.first { $0.id == "princeton" }!
+        var rdProfile = StudentProfile.sample
+        rdProfile.applicantStatus = .usCitizenDomestic
+        rdProfile.major = .humanities
+        rdProfile.round = .regularDecision
+
+        var eaProfile = rdProfile
+        eaProfile.round = .earlyAction
+
+        let rd = engine.chance(for: princeton, profile: rdProfile)
+        let ea = engine.chance(for: princeton, profile: eaProfile)
+        let eaRound = ea.factors.first { $0.label == "申请轮次" }
+
+        XCTAssertTrue(rd.gateResult.passed)
+        XCTAssertTrue(ea.gateResult.passed)
+        XCTAssertEqual(eaRound?.value ?? 0, 0.35, accuracy: 0.0001)
+        XCTAssertGreaterThan(ea.adjustedProbability, rd.adjustedProbability)
     }
 
     func testMITRoundPolicyAllowsEAAndRDBlocksEDWithoutGenericBoost() {
@@ -2389,5 +2593,18 @@ final class ChanceEngineTests: XCTestCase {
             return 0.90
         }
         return 0.94
+    }
+
+    private func syntheticCollege(id: String) -> College {
+        College(
+            id: id,
+            name: "Synthetic University",
+            category: .nationalUniversity,
+            rank: 40,
+            acceptanceRates: [AcceptanceRate(classYear: 2029, rate: 0.25)],
+            sourceURL: URL(string: "https://example.edu/admissions")!,
+            sourceNote: "Synthetic fixture for model behavior tests.",
+            dataQuality: 0.8
+        )
     }
 }

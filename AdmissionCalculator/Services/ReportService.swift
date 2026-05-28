@@ -139,37 +139,36 @@ enum GateRuleDisplay {
 enum ReportService {
     static let openAIInstructions = """
     你是美国本科申请规划顾问，专门解释一个离线概率引擎已经算出的结果。你必须遵守：
-    - 不得修改、重算、覆盖或美化输入中的概率、分档、置信度、硬门槛、来源审计和警告。
+    - 不得修改、重算、覆盖或美化输入中的概率、分档和硬门槛。
     - 不得承诺录取，不得把估算称为预测或保证。
     - 必须明确所有概率都是估算；组合概率是“当前选择学校中至少被一所录取”的概率。
-    - 必须披露国际生、中国学生、本科口径、推断基准、缺少分母和数据质量限制。
+    - 报告重点必须放在用户有用的申请策略上，不展开系统缺失数据、来源审计或置信度说明。
     - 不得添加输入中没有的学校；不得建议学生申请数据范围外学校作为本报告计算的一部分。
     - 用中文输出，结构清晰，面向中国高中生家庭，语气务实、细致、可执行。
     """
 
     static func makeReport(result: PortfolioResult) -> String {
         let profile = result.profileSnapshot
+        guard profile.round == .regularDecision else {
+            return "综合报告仅支持 RD 轮次。当前结果为 \(profile.round.rawValue) 轮次，只提供本轮逐校概率和组合概率，不生成综合报告。"
+        }
         let blocked = result.schoolResults.filter { !$0.gateResult.passed }
         let schoolResults = result.schoolResults
         let probabilities = schoolResults.isEmpty
             ? "尚未选择学校。"
-            : schoolResults.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)，置信度 \($0.confidence.rawValue)）" }.joined(separator: "\n")
+            : schoolResults.map { "\($0.college.name)：\(Self.percent($0.adjustedProbability))（\($0.bucket.rawValue)）" }.joined(separator: "\n")
         let academicFit = schoolResults.isEmpty ? "尚未选择学校。" : schoolResults.map { school in
-            guard school.gateResult.passed else {
-                return "\(school.college.name)：硬门槛未通过，未进入目标校学术匹配计算。"
-            }
-            let factor = school.factors.first { $0.label == "目标校学术匹配" }
-            let value = factor.map { Self.signed($0.value) } ?? "缺失"
-            return "\(school.college.name)：\(value)"
+            academicFitSummary(for: school)
         }.joined(separator: "\n")
         let gates = blocked.isEmpty
             ? "未发现已选学校的硬门槛失败项。"
             : blocked.map { "\($0.college.name)：\($0.gateResult.failedRules.map(Self.gateRuleSummary).joined(separator: "；"))" }.joined(separator: "\n")
-        let sourceAudit = sourceAuditSummary(for: schoolResults)
         let selectionNotes = result.selectionWarnings.isEmpty
-            ? "当前组合内学校均来自 v1 数据集。"
+            ? "当前组合内学校均已纳入本次计算。"
             : result.selectionWarnings.joined(separator: "\n")
         let missingInputNotes = missingInputSummary(profile: profile, selectedCollegeIDs: result.calculatedCollegeIDs)
+        let applicationCountImpact = applicationCountImpactSummary(result: result)
+        let factorHighlights = factorHighlightSummary(result: result)
         let recommendationNotes: String
         switch result.selectionSource {
         case .automatic:
@@ -189,16 +188,15 @@ enum ReportService {
         case .none:
             recommendationNotes = "尚未选择学校，未触发自动推荐。"
         }
-        let warningNotes = warningSummary(result: result)
         return """
         综合选校报告
 
         生成时间：\(generatedAtText(result.generatedAt))
-        快照说明：本报告只解释该次提交的学生画像和选校组合；后续修改表单或选校后需要重新计算。
+        快照说明：本报告只解释该次提交的学生画像和选校组合（RD 轮次）；后续修改表单或选校后需要重新计算。
 
         画像摘要：\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue) 课程，目标专业 \(profile.major.rawValue)，申请轮次 \(profile.round.rawValue)，高中背景 \(highSchoolName(profile.highSchoolID))。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。
 
-        当前选择学校中至少被一所录取的估算概率：
+        RD 当前选择学校中至少被一所录取的估算概率：
         综合大学 T10 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, maxRank: 10)) 所）：\(percent(result.t10AtLeastOne))
         综合大学 T11-T30 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, minRankExclusive: 10, maxRank: 30)) 所）：\(percent(result.t11T30AtLeastOne))
         综合大学 T30 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, maxRank: 30)) 所）：\(percent(result.t30AtLeastOne))
@@ -216,6 +214,9 @@ enum ReportService {
         待补资料：
         \(missingInputNotes)
 
+        提高申请数量对概率的影响：
+        \(applicationCountImpact)
+
         自动推荐提示：
         \(recommendationNotes)
 
@@ -225,31 +226,31 @@ enum ReportService {
         逐校重点：
         \(probabilities)
 
-        学术匹配修正：
+        逐校差距与优势：
         \(academicFit)
+
+        目前影响概率较大的因素：
+        \(factorHighlights)
 
         硬门槛：
         \(gates)
 
-        数据限制与警告：
-        \(warningNotes)
-
-        逐校数据来源审计：
-        \(sourceAudit)
-
         建议：
         1. 先补齐所有 required 标化、英语或作品集门槛，再优化概率。
         2. 对低概率但未被阻断的学校，先看 GPA/排名/标化/课程难度是否低于目标校基准，再决定是补学术、换梯度，还是加强专业叙事。
-        3. 国际生和中国学生数据只使用本科口径；中国录取人数缺少申请人数分母时，作为普通申请池先验、容量约束和趋势信号，不计算精确中国录取率。
-        4. 目标校学术基准若标记为推断值，不应当视作官方录取均值。
+        3. 若组合概率主要受申请数量限制，可优先增加同梯度目标校，而不是只增加极高难度学校。
+        4. 若组合中阻断学校较多，先解决硬门槛，再增加学校数量。
         5. 该报告只解释计算结果，不改变概率，也不承诺录取。
         """
     }
 
     static func makeOpenAIReportPrompt(result: PortfolioResult) -> String {
-        """
+        guard result.profileSnapshot.round == .regularDecision else {
+            return makeReport(result: result)
+        }
+        return """
         请根据以下已计算结果生成一份付费版详细选校报告。报告必须包含这些章节：
-        全文必须遵守：不得修改、重算、覆盖或美化输入中的概率、分档、置信度、硬门槛、来源审计和警告；不得承诺录取；不得添加输入中没有的学校。
+        全文必须遵守：不得修改、重算、覆盖或美化输入中的概率、分档和硬门槛；不得承诺录取；不得添加输入中没有的学校；不要展开系统缺失数据、来源审计或置信度说明。
 
         1. 执行摘要
         - 用 3-5 条说明当前申请组合的整体风险、最重要阻断项、最优先提升方向。
@@ -260,26 +261,27 @@ enum ReportService {
         - 解释组合概率已使用同层相关性折扣，不能把所有学校当作完全独立事件相乘；综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层。
 
         3. 逐校概率与风险表
-        - 每所学校单独一行或一段，必须包含：学校名、排名层级、单校概率、分档、置信度、硬门槛是否通过、主要正向因素、主要负向因素、数据限制。
+        - 每所学校单独一行或一段，必须包含：学校名、排名层级、单校概率、分档、硬门槛是否通过、主要正向因素、主要负向因素。
         - 被硬门槛阻断的学校必须说明为什么是 0%，并列出失败规则。
 
         4. 差距分析
         - 分析 GPA/排名/标化/课程难度/课程体系成绩/活动/科研/奖项/文书/推荐信/高中背景/专业竞争/轮次/资助需求分别如何影响结果。
-        - 对推断学术基准要明确说“不是官方录取均值”。
+        - 对比学生画像与目标校中位水平或内部基准，明确优势和差距。
 
         5. 提高概率的努力方向
         - 给出按优先级排序的行动清单，分为 0-1 个月、1-3 个月、3-6 个月。
-        - 每条行动必须说明会影响哪个模型路径：硬门槛、学术匹配、画像分、专业竞争、数据置信度、选校结构。
+        - 每条行动必须说明会影响哪个模型路径：硬门槛、学术匹配、画像分、专业竞争、选校结构。
 
         6. 选校组合策略
         - 基于当前保底/目标/争取/阻断结构，给出是否需要增加目标校、降低争取校密度、处理保底不足等建议。
-        - 若组合来自自动推荐，必须解释自动推荐按“单校概率 × 排名价值分 × 置信度折扣 × 同层相关性边际折扣”筛选，并用“预期最佳录取结果价值”处理多 offer 不重复计值；文理学院 T10 的排名价值对齐到综合大学 T20-T30 价值带，而不是综合大学 T10 价值带；综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层；为保证手机端响应速度，只有小请求量且组合空间较小时才穷举，大候选池会使用有界快速近似、有界候选窗口，并保留“排名价值最高”和“单校概率最高”的护栏候选，避免高排名或高把握学校被大批同层学校挤出候选短名单；同层折扣按入选时的边际贡献固定，替换试算使用较轻量的顺位比较，最终顺位会在当前顺位、边际贪心顺位和排名价值优先顺位中保留组合期望值最高者，不是只按录取概率排序。
-        - 若输入中包含自动推荐顺位，必须引用组合最佳录取期望值，并逐项引用顺位、排名价值分、概率×排名价值、置信度折扣、同层折扣和边际期望值；不得重新排序或重算。
+        - 必须说明提高申请数量对“至少一所录取概率”的影响：增加相近梯度学校通常比只增加极高难度学校更有效；同时提醒同层相关性会让边际收益递减。
+        - 若组合来自自动推荐，必须解释自动推荐按“单校概率 × 排名价值分 × 同层相关性边际折扣”筛选，并用“预期最佳录取结果价值”处理多 offer 不重复计值；不是只按录取概率排序。
+        - 若输入中包含自动推荐顺位，必须引用组合最佳录取期望值，并逐项引用顺位、排名价值分、概率×排名价值、同层折扣和边际期望值；不得重新排序或重算。
         - 强调“保底”只是规划标签，不代表保证。
 
-        7. 数据来源与可信度
-        - 汇总来源审计、缺失数据、推断代理、中国本科录取人数缺少申请人数分母等限制。
-        - 说明哪些信息需要用户或顾问继续补充核验。
+        7. 申请数量情景分析
+        - 基于当前组合结构，说明如果增加 3 所、5 所、8 所同梯度或更低风险学校，组合概率的方向性变化和边际收益。
+        - 不要自行发明未计算学校的精确概率；可以给方向性策略。
 
         8. 家庭沟通版结论
         - 用清楚、克制的语言总结可执行策略，避免制造焦虑或确定性承诺。
@@ -307,6 +309,40 @@ enum ReportService {
         return "\(sign)\(value.formatted(.number.precision(.fractionLength(2))))"
     }
 
+    private static func academicFitSummary(for school: ChanceResult) -> String {
+        guard school.gateResult.passed else {
+            return "\(school.college.name)：硬门槛未通过，优先补齐阻断项后再比较学术匹配。"
+        }
+        guard let factor = school.factors.first(where: { $0.label == "目标校学术匹配" }) else {
+            return "\(school.college.name)：暂未形成学术匹配对比，建议先检查 GPA、排名、标化和课程难度。"
+        }
+
+        let direction: String
+        if factor.value >= 0.04 {
+            direction = "整体高于目标校内部基准，是当前画像优势。"
+        } else if factor.value <= -0.04 {
+            direction = "整体低于目标校内部基准，是优先提升项。"
+        } else {
+            direction = "整体接近目标校内部基准，提升空间主要看单项短板。"
+        }
+        return "\(school.college.name)：学术匹配 \(signed(factor.value))。\(direction) \(userFacingAcademicDetail(factor.detail))"
+    }
+
+    private static func userFacingAcademicDetail(_ detail: String) -> String {
+        var text = detail
+        let replacements: [(String, String)] = [
+            ("部分官方/部分推断基准：", ""),
+            ("推断基准：", ""),
+            ("官方/核验基准：", ""),
+            ("缺失", "未纳入比较"),
+            ("Test optional", "不提交标化")
+        ]
+        replacements.forEach { source, replacement in
+            text = text.replacingOccurrences(of: source, with: replacement)
+        }
+        return text
+    }
+
     private static func recommendationStrategySummary(result: PortfolioResult) -> String {
         switch result.selectionSource {
         case .automatic:
@@ -321,10 +357,10 @@ enum ReportService {
                     guard let school = currentResultsByID[step.result.college.id] else {
                         return nil
                     }
-                    return "第\(step.order)顺位 \(school.college.name)：单校概率 \(percent(school.adjustedProbability))，排名价值分 \(step.rankScore.formatted(.number.precision(.fractionLength(0))))/100，概率×排名价值 \(step.baseExpectedValue.formatted(.number.precision(.fractionLength(2))))，置信度折扣 \(step.confidenceMultiplier.formatted(.percent.precision(.fractionLength(0))))，同层边际折扣 \(step.sameTierDiscount.formatted(.percent.precision(.fractionLength(0))))，边际期望值 \(step.marginalExpectedValue.formatted(.number.precision(.fractionLength(2))))。"
+                    return "第\(step.order)顺位 \(school.college.name)：单校概率 \(percent(school.adjustedProbability))，排名价值分 \(step.rankScore.formatted(.number.precision(.fractionLength(0))))/100，概率×排名价值 \(step.baseExpectedValue.formatted(.number.precision(.fractionLength(2))))，同层边际折扣 \(step.sameTierDiscount.formatted(.percent.precision(.fractionLength(0))))，边际期望值 \(step.marginalExpectedValue.formatted(.number.precision(.fractionLength(2))))。"
                 }.joined(separator: "\n")
                 return """
-                自动推荐先排除硬门槛失败学校，再按单校概率 × 排名价值分计算基础期望值，并在推荐价值中加入置信度折扣和同层相关性边际折扣；文理学院 T10 的排名价值对齐到综合大学 T20-T30 价值带，而不是综合大学 T10 价值带。综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层，不会因为学校类别不同而被当作完全独立。为保证手机端响应速度，请求数量较小且组合总空间仍在较小上限内时才确定性穷举，并对每个候选组合使用相同的顺位比较；组合空间较大时采用有界快速近似：先按概率 × 排名价值分 × 置信度折扣排序，并在有界窗口内做边际贪心初选；窗口还保留排名价值最高和单校概率最高的少量候选作为护栏，避免高排名学校或高把握学校被大批同层学校挡在窗口外。替换阶段使用同一类有界护栏候选短名单，并优先尝试替换当前组合里边际贡献较低的固定数量学校；替换试算使用较轻量的当前顺位/排名价值优先顺位比较，只有组合最佳 offer 期望值提高时才接受替换。最终展示顺位会在当前顺位、边际贪心顺位和排名价值优先顺位中保留组合期望值最高者。组合层面按“若获得多个录取，通常选择最高价值 offer”估算预期最佳录取结果价值，并把每所新增学校的同层折扣固定为入选时的边际贡献，避免把多个 offer 的排名价值简单相加。置信度折扣不改变单校录取概率，但会影响推荐排序和最佳 offer 期望值中的可靠性链条。组合最佳录取期望值使用 0-100 排名价值尺度，不是录取概率，也不是至少一所概率。以下为按当前画像快照确定的入选顺序：
+                自动推荐先排除硬门槛失败学校，再按单校概率 × 排名价值分计算基础期望值，并在推荐价值中加入同层相关性边际折扣；文理学院 T10 的排名价值对齐到综合大学 T20-T30 价值带，而不是综合大学 T10 价值带。综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层，不会因为学校类别不同而被当作完全独立。为保证手机端响应速度，请求数量较小且组合总空间仍在较小上限内时才确定性穷举；组合空间较大时采用有界快速近似。组合层面按“若获得多个录取，通常选择最高价值 offer”估算预期最佳录取结果价值，并把每所新增学校的同层折扣固定为入选时的边际贡献，避免把多个 offer 的排名价值简单相加。组合最佳录取期望值使用 0-100 排名价值尺度，不是录取概率，也不是至少一所概率。以下为按当前画像快照确定的入选顺序：
                 组合最佳录取期望值：\(result.recommendationExpectedValueTotal.formatted(.number.precision(.fractionLength(2)))) / 100 排名价值尺度。
                 \(lines)
                 """
@@ -357,8 +393,46 @@ enum ReportService {
         }
     }
 
+    private static func applicationCountImpactSummary(result: PortfolioResult) -> String {
+        guard !result.schoolResults.isEmpty else {
+            return "尚未选择学校，无法分析申请数量对组合概率的影响。"
+        }
+
+        let activeCount = result.schoolResults.filter { $0.adjustedProbability > 0 }.count
+        let targetOrLikely = result.selectedBucketCounts.target + result.selectedBucketCounts.likely
+        let blocked = result.selectedBucketCounts.blocked
+        var lines: [String] = []
+        lines.append("当前 \(activeCount) 所学校进入概率合成，全部已选至少一所概率为 \(percent(result.selectedAtLeastOne))。")
+        if blocked > 0 {
+            lines.append("当前有 \(blocked) 所学校被硬门槛阻断；先解决阻断项通常比单纯增加学校更有效。")
+        }
+        if targetOrLikely == 0 {
+            lines.append("当前缺少目标/保底梯度学校；增加 3-5 所更匹配的目标校，通常比继续增加高难度争取校更能提升组合概率。")
+        } else if result.selectedBucketCounts.reach > targetOrLikely {
+            lines.append("当前争取校数量高于目标/保底校；继续增加申请数量时，优先补目标校和稳健梯度，边际收益会更稳定。")
+        } else {
+            lines.append("当前已有一定目标/保底结构；若继续增加学校，应优先选择与画像匹配、硬门槛明确通过的学校，同层相关性会让每新增一所的边际收益逐步下降。")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func factorHighlightSummary(result: PortfolioResult) -> String {
+        let passed = result.schoolResults.filter(\.gateResult.passed)
+        guard !passed.isEmpty else {
+            return "当前学校均未进入完整概率计算；优先处理硬门槛。"
+        }
+
+        let factorTotals = Dictionary(grouping: passed.flatMap(\.factors), by: \.label)
+            .mapValues { factors in factors.reduce(0.0) { $0 + abs($1.value) } / Double(max(1, factors.count)) }
+            .sorted { $0.value > $1.value }
+            .prefix(5)
+        let factorLines = factorTotals.map { "\($0.key)：平均影响强度 \($0.value.formatted(.number.precision(.fractionLength(2))))" }
+        return factorLines.isEmpty ? "当前没有明显主导因素。" : factorLines.joined(separator: "\n")
+    }
+
     private static func gateRuleSummary(_ rule: CollegeGateRule) -> String {
-        GateRuleDisplay.failureSummary(rule)
+        let source = rule.isOfficial ? "官方" : "推断"
+        return "\(source) \(rule.title)：\(rule.detail)"
     }
 
     private static func sourceAuditSummary(for schoolResults: [ChanceResult]) -> String {
@@ -445,13 +519,13 @@ enum ReportService {
             lines.append("\(school.college.name)：\(warnings.joined(separator: "；"))")
         }
         let uniqueLines = unique(lines)
-        return uniqueLines.isEmpty ? "未发现额外数据限制或模型警告。" : uniqueLines.joined(separator: "\n")
+        return uniqueLines.isEmpty ? "未发现额外模型提示。" : uniqueLines.joined(separator: "\n")
     }
 
     private static func missingInputSummary(profile: StudentProfile, selectedCollegeIDs: Set<String>) -> String {
         let prompts = profile.completionPrompts(selectedCollegeIDs: selectedCollegeIDs)
         guard !prompts.isEmpty else {
-            return "当前画像没有明显缺失项；仍需逐校查看数据置信度、硬门槛和来源审计。"
+            return "当前画像没有明显需要补充的资料。"
         }
         return prompts.map { "\($0.title)（\($0.impact.rawValue)）：\($0.detail)" }.joined(separator: "\n")
     }

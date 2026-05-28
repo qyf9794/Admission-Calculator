@@ -55,6 +55,35 @@ final class HarnessValidationTests: XCTestCase {
         }
     }
 
+    func testOfficialRoundPoliciesCoverApprovedDataset() {
+        let collegeIDs = Set(AdmissionsSeedData.colleges.map(\.id))
+        let roundRules = AdmissionsSeedData.gateRules.filter { $0.type == .round }
+        let roundIDs = Set(roundRules.map(\.collegeID))
+
+        XCTAssertTrue(collegeIDs.subtracting(roundIDs).isEmpty)
+        XCTAssertTrue(roundRules.allSatisfy { !$0.allowedRounds.isEmpty })
+        XCTAssertTrue(roundRules.allSatisfy { $0.isOfficial })
+        XCTAssertTrue(roundRules.allSatisfy { $0.sourceURL != nil })
+        XCTAssertEqual(AdmissionsSeedData.gateRules
+            .filter { $0.collegeID == "duke" && $0.type == .round }
+            .first?.allowedRounds, [.earlyDecision, .regularDecision])
+        XCTAssertEqual(AdmissionsSeedData.gateRules
+            .filter { $0.collegeID == "duke" && $0.type == .round }
+            .first?.earlyDecisionAdjustment, 0.65)
+        XCTAssertEqual(AdmissionsSeedData.gateRules
+            .filter { $0.collegeID == "princeton" && $0.type == .round }
+            .first?.earlyActionAdjustment, 0.35)
+        XCTAssertEqual(AdmissionsSeedData.gateRules
+            .filter { $0.collegeID == "mit" && $0.type == .round }
+            .first?.allowedRounds, [.earlyAction, .regularDecision])
+        XCTAssertEqual(AdmissionsSeedData.gateRules
+            .filter { $0.collegeID == "mit" && $0.type == .round }
+            .first?.earlyActionAdjustment, 0)
+        XCTAssertEqual(AdmissionsSeedData.gateRules
+            .filter { $0.collegeID == "uc_berkeley" && $0.type == .round }
+            .first?.allowedRounds, [.regularDecision])
+    }
+
     func testNationalUniversityT50SupplementIsCompleteFromUSNewsImage() {
         let expectedSupplementIDs: Set<String> = [
             "wisconsin",
@@ -168,6 +197,24 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertLessThanOrEqual(unknown?.transparency ?? 99, 3)
     }
 
+    func testAdmitRankingHighSchoolContextHasExpandedReviewedCoverage() {
+        let schoolIDs = Set(AdmissionsSeedData.highSchools.map(\.id))
+
+        XCTAssertGreaterThanOrEqual(AdmissionsSeedData.highSchools.count, 90)
+        XCTAssertTrue(schoolIDs.isSuperset(of: [
+            "bnu_experimental",
+            "rdfz_icc",
+            "shsid",
+            "shenzhen_middle",
+            "uwc_changshu",
+            "unknown"
+        ]))
+        XCTAssertLessThan(
+            AdmissionsSeedData.highSchools.filter { $0.admitRankingBand == 1 }.count,
+            AdmissionsSeedData.highSchools.count / 2
+        )
+    }
+
     func testInternationalAdmitCoefficientRequiresAdmittedCounts() {
         for signal in AdmissionsSeedData.internationalSignals where signal.internationalAdmitCoefficient != nil {
             XCTAssertNotNil(signal.internationalAdmittedCount, signal.collegeID)
@@ -219,19 +266,22 @@ final class HarnessValidationTests: XCTestCase {
 
     func testMITAcademicBenchmarkDisclosesMixedOfficialAndInferredFields() {
         let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == "mit" }
+        var profile = StudentProfile.sample
+        profile.testOptional = false
+        profile.sat = 1560
+        profile.toefl = 110
         let result = ChanceEngine().chance(
             for: AdmissionsSeedData.colleges.first { $0.id == "mit" }!,
-            profile: .sample
+            profile: profile
         )
         let detail = result.factors.first { $0.label == "目标校学术匹配" }?.detail ?? ""
-        let report = ReportService.makeReport(result: ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["mit"])))
+        let report = ReportService.makeReport(result: ChanceEngine().evaluate(profile: profile, selectedCollegeIDs: Set(["mit"])))
 
         XCTAssertEqual(benchmark?.satBenchmark, 1550)
         XCTAssertEqual(benchmark?.actBenchmark, 35)
         XCTAssertTrue(benchmark?.sourceFields.contains("official_class_profile_sat_act_midpoint") == true)
         XCTAssertTrue(detail.contains("部分官方/部分推断基准"))
-        XCTAssertTrue(report.contains("部分官方/部分推断"))
-        XCTAssertTrue(report.contains("MIT Class of 2029 official SAT/ACT"))
+        XCTAssertFalse(report.contains("MIT Class of 2029 official SAT/ACT"))
     }
 
     func testPerSchoolSourceAuditDataIsDisplayable() {
@@ -300,7 +350,7 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("保底是相对规划标签，不代表录取保证"))
     }
 
-    func testReportIncludesComputedWarningsAndDataLimitations() {
+    func testReportFocusesOnUsefulInputsInsteadOfSystemDataLimitations() {
         var profile = StudentProfile.sample
         profile.major = .humanities
         profile.curriculum = .ap
@@ -310,10 +360,12 @@ final class HarnessValidationTests: XCTestCase {
         let result = ChanceEngine().evaluate(profile: profile, selectedCollegeIDs: Set(["bu"]))
         let report = ReportService.makeReport(result: result)
 
-        XCTAssertTrue(report.contains("数据限制与警告"))
+        XCTAssertFalse(report.contains("数据限制与警告"))
+        XCTAssertFalse(report.contains("逐校数据来源审计"))
+        XCTAssertTrue(report.contains("提高申请数量对概率的影响"))
+        XCTAssertTrue(report.contains("目前影响概率较大的因素"))
         XCTAssertTrue(report.contains("Boston University"))
-        XCTAssertTrue(report.contains("AP 体系课程门数为 0"))
-        XCTAssertTrue(report.contains("目标校学术基准为推断值"))
+        XCTAssertTrue(report.contains("AP 门数为 0"))
     }
 
     func testReportIncludesEverySelectedSchoolProbabilityAndFit() {
@@ -323,14 +375,16 @@ final class HarnessValidationTests: XCTestCase {
 
         for school in result.schoolResults {
             XCTAssertTrue(report.contains("\(school.college.name)：\(school.adjustedProbability.formatted(.percent.precision(.fractionLength(0))))"))
-            XCTAssertTrue(report.contains("置信度 \(school.confidence.rawValue)"))
+            XCTAssertFalse(report.contains("置信度 \(school.confidence.rawValue)"))
             XCTAssertTrue(report.contains("\(school.college.name)："))
         }
+        XCTAssertTrue(report.contains("逐校差距与优势"))
+        XCTAssertTrue(report.contains("学术匹配"))
         XCTAssertEqual(result.schoolResults.count, selected.count)
         XCTAssertTrue(report.contains("Boston University"))
     }
 
-    func testReportIncludesFailedGateReasonsAndSources() {
+    func testReportIncludesFailedGateReasonsWithoutSourceAudit() {
         var profile = StudentProfile.sample
         profile.testOptional = true
         profile.sat = nil
@@ -342,8 +396,8 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("硬门槛"))
         XCTAssertTrue(report.contains("官方 Required standardized testing"))
         XCTAssertTrue(report.contains("MIT requires SAT/ACT"))
-        XCTAssertTrue(report.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
-        XCTAssertTrue(report.contains("Massachusetts Institute of Technology：硬门槛未通过，未进入目标校学术匹配计算。"))
+        XCTAssertFalse(report.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
+        XCTAssertTrue(report.contains("Massachusetts Institute of Technology：硬门槛未通过，优先补齐阻断项后再比较学术匹配。"))
         XCTAssertFalse(report.contains("Massachusetts Institute of Technology：缺失"))
     }
 
@@ -356,16 +410,14 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(summary.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
     }
 
-    func testReportIncludesSelectedSchoolSourceAudit() {
+    func testReportOmitsSourceAuditFromBody() {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu"]), selectionSource: .manual)
         let report = ReportService.makeReport(result: result)
 
-        XCTAssertTrue(report.contains("逐校数据来源审计"))
-        XCTAssertTrue(report.contains("Boston University：基础率"))
-        XCTAssertTrue(report.contains("AdmissionSight National Universities"))
-        XCTAssertTrue(report.contains("国际生"))
-        XCTAssertTrue(report.contains("中国本科"))
-        XCTAssertTrue(report.contains("学术基准"))
+        XCTAssertFalse(report.contains("逐校数据来源审计"))
+        XCTAssertFalse(report.contains("Boston University：基础率"))
+        XCTAssertFalse(report.contains("AdmissionSight National Universities"))
+        XCTAssertTrue(report.contains("Boston University"))
         XCTAssertTrue(report.contains("硬门槛"))
     }
 
@@ -414,25 +466,19 @@ final class HarnessValidationTests: XCTestCase {
         let prompt = ReportService.makeOpenAIReportPrompt(result: result)
 
         XCTAssertFalse(result.recommendationSteps.isEmpty)
-        XCTAssertTrue(prompt.contains("必须引用组合最佳录取期望值"))
-        XCTAssertTrue(prompt.contains("逐项引用顺位、排名价值分、概率×排名价值、置信度折扣、同层折扣和边际期望值"))
+        XCTAssertTrue(prompt.contains("组合最佳录取期望值"))
+        XCTAssertTrue(prompt.contains("顺位"))
+        XCTAssertTrue(prompt.contains("概率×排名价值"))
         XCTAssertTrue(prompt.contains("第1顺位"))
         XCTAssertTrue(prompt.contains("排名价值分"))
-        XCTAssertTrue(prompt.contains("同层边际折扣"))
+        XCTAssertTrue(prompt.contains("同层"))
         XCTAssertTrue(prompt.contains("边际期望值"))
-        XCTAssertTrue(prompt.contains("候选短名单"))
-        XCTAssertTrue(prompt.contains("概率 × 排名价值分 × 置信度折扣"))
-        XCTAssertTrue(prompt.contains("有界窗口"))
+        XCTAssertTrue(prompt.contains("不要展开系统缺失数据、来源审计或置信度说明"))
+        XCTAssertTrue(prompt.contains("单校概率 × 排名价值分 × 同层相关性边际折扣"))
         XCTAssertTrue(prompt.contains("有界快速近似"))
         XCTAssertTrue(prompt.contains("文理学院 T10 的排名价值对齐到综合大学 T20-T30 价值带"))
         XCTAssertTrue(prompt.contains("综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层"))
         XCTAssertTrue(prompt.contains("手机端响应速度"))
-        XCTAssertTrue(prompt.contains("护栏"))
-        XCTAssertTrue(prompt.contains("排名价值最高"))
-        XCTAssertTrue(prompt.contains("单校概率最高"))
-        XCTAssertTrue(prompt.contains("固定数量学校"))
-        XCTAssertTrue(prompt.contains("替换试算使用较轻量的顺位比较"))
-        XCTAssertTrue(prompt.contains("排名价值优先顺位"))
     }
 
     func testCalculationFlowDocumentsApproximationAndSharedT10Correlation() throws {
@@ -461,14 +507,14 @@ final class HarnessValidationTests: XCTestCase {
         })
     }
 
-    func testReportSourceAuditIncludesStructuredRoundPolicy() {
+    func testReportBodyOmitsStructuredRoundPolicySourceAudit() {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["mit"]), selectionSource: .manual)
         let report = ReportService.makeReport(result: result)
 
-        XCTAssertTrue(report.contains("First-year application rounds"))
-        XCTAssertTrue(report.contains("允许轮次 EA/RD"))
-        XCTAssertTrue(report.contains("EA加分 +0.00"))
-        XCTAssertTrue(report.contains("ED加分 无明确数据"))
+        XCTAssertFalse(report.contains("First-year application rounds"))
+        XCTAssertFalse(report.contains("允许轮次 EA/RD"))
+        XCTAssertFalse(report.contains("EA加分 +0.00"))
+        XCTAssertFalse(report.contains("ED加分 无明确数据"))
     }
 
     func testStudentProfileDoesNotRetainLegacyRecommendationBucketQuotas() {
@@ -480,14 +526,14 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertFalse(labels.contains("requestedReachCount"))
     }
 
-    func testCaltechRoundPolicySourceAuditUsesOfficialDeadlinePage() {
+    func testReportBodyOmitsCaltechRoundPolicySourceAuditURL() {
         let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["caltech"]), selectionSource: .manual)
         let report = ReportService.makeReport(result: result)
 
-        XCTAssertTrue(report.contains("Caltech offers Restrictive Early Action and Regular Decision"))
-        XCTAssertTrue(report.contains("允许轮次 EA/RD"))
-        XCTAssertTrue(report.contains("EA加分 +0.00"))
-        XCTAssertTrue(report.contains("https://www.admissions.caltech.edu/apply/first-year-applicants/deadlines"))
+        XCTAssertFalse(report.contains("Caltech offers Restrictive Early Action and Regular Decision"))
+        XCTAssertFalse(report.contains("允许轮次 EA/RD"))
+        XCTAssertFalse(report.contains("EA加分 +0.00"))
+        XCTAssertFalse(report.contains("https://www.admissions.caltech.edu/apply/first-year-applicants/deadlines"))
     }
 
     private func assertChinaTotal(_ early: Int?, _ rd: Int?, _ total: Int?, _ collegeID: String) {

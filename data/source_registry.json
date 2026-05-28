@@ -86,11 +86,11 @@
     {
       "id": "admitranking_reference",
       "name": "AdmitRanking",
-      "url": "https://admitranking.com/",
-      "role": "Reference for China high school context dimensions.",
-      "refresh_mode": "Manual review",
+      "url": "https://admitranking.com/ranking",
+      "role": "Reference for China high school context dimensions and conservative ranking-band calibration.",
+      "refresh_mode": "Manual review of the public 2026 ranking page and school ranking API fields.",
       "confidence": "low",
-      "note": "High school calibration remains a disclosed proxy when school-specific admissions outcomes are unavailable."
+      "note": "High school calibration maps AdmitRanking's public 2026 indicators conservatively: 升学成果 to top30_track_record, 学术资源 to resources, 数据透明度 to transparency, and counseling inferred from 升学成果/学术资源/学校声誉. Ranking band is a proxy only and never proof of individual outcome."
     },
     {
       "id": "official_cds_gates",
