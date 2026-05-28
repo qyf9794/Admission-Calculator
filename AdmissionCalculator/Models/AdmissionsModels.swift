@@ -133,6 +133,11 @@ enum GateRuleType: String, Codable {
     case round = "轮次"
 }
 
+enum CollegeCategory: String, Codable {
+    case nationalUniversity = "综合大学"
+    case liberalArtsCollege = "文理学院"
+}
+
 struct AcceptanceRate: Identifiable, Hashable, Codable {
     let classYear: Int
     let rate: Double?
@@ -143,9 +148,11 @@ struct AcceptanceRate: Identifiable, Hashable, Codable {
 struct College: Identifiable, Hashable, Codable {
     let id: String
     let name: String
+    let category: CollegeCategory
     let rank: Int
     let acceptanceRates: [AcceptanceRate]
     let sourceURL: URL
+    let sourceNote: String
     let dataQuality: Double
 
     var latestAvailableRate: Double {
@@ -157,14 +164,31 @@ struct College: Identifiable, Hashable, Codable {
     }
 
     var tierName: String {
-        if rank <= 10 { return "T10" }
-        if rank <= 30 { return "T30" }
-        if rank <= 50 { return "T50" }
-        return "Listed"
+        let rankTier: String
+        if rank <= 10 {
+            rankTier = "T10"
+        } else if rank <= 30 {
+            rankTier = "T30"
+        } else if category == .nationalUniversity && rank <= 50 {
+            rankTier = "T50"
+        } else {
+            rankTier = "Listed"
+        }
+        return "\(category.rawValue)-\(rankTier)"
     }
 
     var tierDisplayName: String {
-        tierName == "Listed" ? "综合大学 50+" : "综合大学 \(tierName)"
+        switch category {
+        case .nationalUniversity:
+            if rank <= 10 { return "综合大学 T10" }
+            if rank <= 30 { return "综合大学 T30" }
+            if rank <= 50 { return "综合大学 T50" }
+            return "综合大学 50+"
+        case .liberalArtsCollege:
+            if rank <= 10 { return "文理学院 T10" }
+            if rank <= 30 { return "文理学院 T30" }
+            return "文理学院 30+"
+        }
     }
 
     func matchesPickerQuery(_ query: String) -> Bool {
@@ -174,20 +198,28 @@ struct College: Identifiable, Hashable, Codable {
         }
         let normalized = trimmed.uppercased()
         switch normalized {
-        case "T10", "TOP10", "TOP 10":
-            return rank <= 10
-        case "T30", "TOP30", "TOP 30":
-            return rank <= 30
-        case "T50", "TOP50", "TOP 50":
-            return rank <= 50
+        case "T10", "TOP10", "TOP 10", "综合大学 T10", "NATIONAL UNIVERSITIES T10", "NU T10":
+            return category == .nationalUniversity && rank <= 10
+        case "T30", "TOP30", "TOP 30", "综合大学 T30", "NATIONAL UNIVERSITIES T30", "NU T30":
+            return category == .nationalUniversity && rank <= 30
+        case "T50", "TOP50", "TOP 50", "综合大学 T50", "NATIONAL UNIVERSITIES T50", "NU T50":
+            return category == .nationalUniversity && rank <= 50
         case "LISTED", "50+", "T50+", "TOP50+", "TOP 50+", "综合大学 50+", "NATIONAL UNIVERSITIES 50+", "NU 50+":
-            return rank > 50
+            return category == .nationalUniversity && rank > 50
+        case "LAC", "文理学院", "LIBERAL ARTS", "LIBERAL ARTS COLLEGE":
+            return category == .liberalArtsCollege
+        case "LAC T10", "LA T10", "文理T10", "文理学院 T10", "LIBERAL ARTS T10":
+            return category == .liberalArtsCollege && rank <= 10
+        case "LAC T30", "LA T30", "文理T30", "文理学院 T30", "LIBERAL ARTS T30":
+            return category == .liberalArtsCollege && rank <= 30
         default:
             break
         }
 
         return name.localizedCaseInsensitiveContains(trimmed) ||
             id.localizedCaseInsensitiveContains(trimmed) ||
+            category.rawValue.localizedCaseInsensitiveContains(trimmed) ||
+            tierDisplayName.localizedCaseInsensitiveContains(trimmed) ||
             "#\(rank)".localizedCaseInsensitiveContains(trimmed) ||
             String(rank).localizedCaseInsensitiveContains(trimmed)
     }
@@ -203,7 +235,9 @@ struct College: Identifiable, Hashable, Codable {
         guard !trimmed.isEmpty else {
             return true
         }
-        if matchesPickerQuery(trimmed) || sourceURL.absoluteString.localizedCaseInsensitiveContains(trimmed) {
+        if matchesPickerQuery(trimmed) ||
+            sourceURL.absoluteString.localizedCaseInsensitiveContains(trimmed) ||
+            sourceNote.localizedCaseInsensitiveContains(trimmed) {
             return true
         }
 
@@ -223,6 +257,7 @@ struct College: Identifiable, Hashable, Codable {
         gateRules: [CollegeGateRule]
     ) -> [String] {
         var fields: [String] = []
+        fields.append(sourceNote)
         if let internationalSignal {
             fields.append(internationalSignal.dataScope)
             fields.append(internationalSignal.sourceNote)
@@ -376,6 +411,8 @@ struct HighSchoolContext: Identifiable, Hashable, Codable {
 }
 
 struct StudentProfile: Hashable, Codable {
+    static let maximumALevelSubjectCount = 5
+
     var applicantStatus: ApplicantStatus
     var gradeScale: GradeScale
     var gpaPercent: Double
@@ -411,9 +448,8 @@ struct StudentProfile: Hashable, Codable {
     var round: ApplicationRound
     var needsAid: Bool
     var hasPortfolio: Bool
-    var requestedLikelyCount: Int
-    var requestedTargetCount: Int
-    var requestedReachCount: Int
+    var includeLiberalArtsColleges: Bool
+    var requestedSchoolCount: Int
 
     static let sample = StudentProfile(
         applicantStatus: .chineseInternational,
@@ -451,10 +487,30 @@ struct StudentProfile: Hashable, Codable {
         round: .regularDecision,
         needsAid: false,
         hasPortfolio: false,
-        requestedLikelyCount: 3,
-        requestedTargetCount: 5,
-        requestedReachCount: 4
+        includeLiberalArtsColleges: true,
+        requestedSchoolCount: 12
     )
+
+    var aLevelSubjectCount: Int {
+        aLevelAStarCount + aLevelACount + aLevelBCount
+    }
+
+    var cappedALevelGradeCounts: (aStar: Int, a: Int, b: Int) {
+        var remaining = Self.maximumALevelSubjectCount
+        let aStar = min(max(0, aLevelAStarCount), remaining)
+        remaining -= aStar
+        let a = min(max(0, aLevelACount), remaining)
+        remaining -= a
+        let b = min(max(0, aLevelBCount), remaining)
+        return (aStar, a, b)
+    }
+
+    mutating func clampALevelSubjectCounts() {
+        let capped = cappedALevelGradeCounts
+        aLevelAStarCount = capped.aStar
+        aLevelACount = capped.a
+        aLevelBCount = capped.b
+    }
 }
 
 enum ProfileCompletionImpact: String, Hashable, Codable {
@@ -546,6 +602,16 @@ extension StudentProfile {
             ))
         }
 
+        if curriculum == .alevel && aLevelSubjectCount > StudentProfile.maximumALevelSubjectCount {
+            prompts.append(ProfileCompletionPrompt(
+                id: "alevel-subject-cap",
+                title: "修正 A-Level 科目数",
+                detail: "A-Level A*/A/B 科目合计最多 \(StudentProfile.maximumALevelSubjectCount) 门，超出部分不会提高课程体系成绩。",
+                systemImage: "exclamationmark.triangle",
+                impact: .probability
+            ))
+        }
+
         if needsAid && applicantStatus.isInternational {
             prompts.append(ProfileCompletionPrompt(
                 id: "aid-detail",
@@ -587,6 +653,16 @@ struct ChanceResult: Identifiable, Hashable {
     let gateResult: GateResult
 }
 
+struct RecommendationStep: Hashable {
+    let order: Int
+    let result: ChanceResult
+    let rankScore: Double
+    let confidenceMultiplier: Double
+    let baseExpectedValue: Double
+    let sameTierDiscount: Double
+    let marginalExpectedValue: Double
+}
+
 struct PortfolioBucketCounts: Hashable {
     let likely: Int
     let target: Int
@@ -603,15 +679,20 @@ struct PortfolioResult: Hashable {
     let selectedCollegeIDs: Set<String>
     let schoolResults: [ChanceResult]
     let recommendedSchools: [College]
+    let recommendationSteps: [RecommendationStep]
     let selectionSource: PortfolioSelectionSource
     let selectedBucketCounts: PortfolioBucketCounts
     let selectionWarnings: [String]
     let recommendationWarnings: [String]
     let t10AtLeastOne: Double
+    let t11T30AtLeastOne: Double
     let t30AtLeastOne: Double
     let t50AtLeastOne: Double
+    let liberalArtsT10AtLeastOne: Double
+    let liberalArtsT30AtLeastOne: Double
     let selectedAtLeastOne: Double
     let profileScore: Double
+    let recommendationExpectedValueTotal: Double
     let generatedAt: Date
 
     var calculatedCollegeIDs: Set<String> {

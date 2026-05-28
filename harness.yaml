@@ -8,21 +8,51 @@ data_sources:
   generated_snapshot:
     source_files:
       - "data/admissionsight_colleges.csv"
+      - "data/liberal_arts_colleges.csv"
       - "data/official_gate_rules.csv"
       - "data/international_student_signals.csv"
       - "data/china_undergrad_admissions.csv"
       - "data/academic_benchmarks.csv"
       - "data/china_high_schools.json"
+      - "data/liberal_arts_unitids.json"
       - "data/source_registry.json"
     generator: "scripts/update-admissions-data.mjs"
     output: "AdmissionCalculator/Data/AdmissionsNormalizedData.swift"
     check_command: "node scripts/update-admissions-data.mjs --check"
+    verify_command: "npm run data:verify"
+    lac_official_review_command: "npm run data:scorecard:lac -- --api-key <DATA_GOV_KEY> or npm run data:scorecard:lac -- --scorecard-latest-url / --scorecard-page-html <official College Scorecard data page HTML> --scorecard-latest-url or --scorecard-csv/--scorecard-zip/--scorecard-url <Most-Recent-Cohorts-Institution or raw MERGED> or npm run data:ipeds:lac -- --adm-csv/--adm-zip/--adm-url <ADM2024> or --ipeds-csv/--ipeds-zip/--ipeds-url <DRVADM2024> or --reported-html-dir <NCES admissions HTML> / --reported-url-template <NCES reported-data URL template>"
+    lac_official_apply_command: "npm run data:official:lac:apply -- --dry-run --official <review_csv>, then npm run data:official:lac:apply -- --official <review_csv> after manual review"
+    lac_official_url_manifest_command: "npm run data:lac:official-urls -- --year <year>"
+    lac_official_url_manifest_check_command: "npm run data:lac:official-urls:check"
+    lac_official_workflow_check_command: "npm run data:official:lac:check"
+    lac_unitid_map: "data/liberal_arts_unitids.json"
+    lac_unitid_rule: "Official Liberal Arts College rate import and applied seed rows must match reviewed IPEDS/Scorecard UnitIDs, reviewed official school names, and per-row official source URLs; do not rely on loose name matching, non-HTTPS download URLs, official-looking URLs that point to a different UNITID/component, stale raw Scorecard MERGED CSVs, unknown local Scorecard or IPEDS CSV/ZIP filenames even if they contain plausible columns, official Scorecard data pages whose discovered latest URL is not an institution-level CSV/ZIP, review rows that hide the selected raw Scorecard CSV, applied seed rows that drop that source note when a reviewed UnitID exists, or direct manual seed edits that claim official Scorecard/IPEDS provenance without source URL, UnitID, component, source note, and data-quality consistency."
     numeric_validation_rule: "Reject out-of-range rates, ranks, shares, data-quality scores, and China early/RD totals that do not reconcile."
   college_statistics:
-    required_source: "AdmissionSight College Acceptance Rates"
-    url: "https://admissionsight.com/college-acceptance-rates/"
-    allowed_scope: "National Universities table only for v1"
-    missing_policy: "Use latest non-empty class-year acceptance rate and lower confidence."
+    required_sources:
+      - name: "AdmissionSight College Acceptance Rates"
+        url: "https://admissionsight.com/college-acceptance-rates/"
+        scope: "National Universities table rows covered by AdmissionSight"
+      - name: "Reviewed user-provided 2026 U.S. News Top 100 National Universities image"
+        url: "https://github.com/qyf9794/Admission-Calculator/blob/main/data/admissionsight_colleges.csv"
+        scope: "National Universities T50 list/rank supplement from IMG_0749.JPG; base acceptance rates for added rows must come from reviewed official College Scorecard/IPEDS sources."
+      - name: "Reviewed user-provided Top30 Liberal Arts Colleges table"
+        url: "https://github.com/qyf9794/Admission-Calculator/blob/main/data/liberal_arts_colleges.csv"
+        scope: "Top30 Liberal Arts Colleges list/rank scope from IMG_0742.JPG; original image rates are fallback/reference only when reviewed official rows are not applied."
+      - name: "U.S. Department of Education College Scorecard"
+        url: "https://collegescorecard.ed.gov/data/api/"
+        scope: "Official review source for current and future Liberal Arts College base-rate replacement via latest.admissions.admission_rate.overall / ADM_RATE."
+      - name: "NCES/IPEDS Admissions and Test Scores"
+        url: "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?rtid=7"
+        scope: "Official alternate review source for current and future Liberal Arts College base-rate replacement via ADMSSN / APPLCN."
+      - name: "NCES/IPEDS Selectivity and Admissions Yield"
+        url: "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?rtid=7"
+        scope: "Official alternate review source for current and future Liberal Arts College base-rate replacement via derived admissions-rate fields such as DVADM01."
+      - name: "NCES/IPEDS Reported Data Admissions Component"
+        url: "https://nces.ed.gov/ipeds/reported-data/html/"
+        scope: "Official alternate review source for current and future Liberal Arts College base-rate replacement via surveyNumber=12 reported Percent admitted pages."
+    allowed_scope: "AdmissionSight National Universities plus reviewed IMG_0749.JPG 2026 U.S. News T50 National Universities supplement plus reviewed Top30 Liberal Arts Colleges list/rank table for v1; supplemental National University and LAC base rates may be official Scorecard/IPEDS replacements only after exact school identity review."
+    missing_policy: "Use latest non-empty class-year acceptance rate and lower confidence; label user-provided LAC rate rows as proxy reviewed data when official Scorecard/IPEDS replacements have not been applied; supplemental National University rank/image rows may not provide base rates without official Scorecard/IPEDS data."
   chancing_fields:
     reference_only: "CollegeVine"
     url: "https://www.collegevine.com/admissions-calculator"
@@ -34,11 +64,13 @@ data_sources:
     mixed_source_rule: "If a benchmark row combines official fields with inferred fields, disclose the mixed scope instead of labeling the whole row as official or wholly inferred."
   curriculum_performance:
     rule: "Curriculum-specific achievement inputs may affect readiness only when the related course/exam evidence exists; AP average score is ignored when AP course count is 0."
+    alevel_subject_cap_rule: "A-Level A*/A/B subject counts share one total cap of 5 subjects; the UI must not allow each grade band to add 5 independently, and the model must cap malformed overflow data before scoring."
   china_high_school_context:
     reference_source: "AdmitRanking"
     url: "https://admitranking.com/"
     rule: "Use school background as a calibration signal, never as a standalone guarantee."
     default_rule: "Default sample profiles and ambiguous user input must use the conservative unknown/other school context rather than a named high-performing school."
+    unknown_fallback_rule: "The unknown high-school fallback must remain conservative: admit_ranking_band >= 3, resources/counseling/transparency <= 3, and top30_track_record <= 2."
   hard_gates:
     preferred_source: "Official college admissions pages or CDS"
     fallback: "If official data is missing, infer from peer policy and mark the rule as inferred."
@@ -82,18 +114,33 @@ model_constraints:
     - individual_school_probability
     - selected_school_at_least_one_probability
     - t10_at_least_one_probability
+    - t11_t30_at_least_one_probability
     - t30_at_least_one_probability
     - t50_at_least_one_probability
+    - liberal_arts_t10_at_least_one_probability
+    - liberal_arts_t30_at_least_one_probability
     - confidence_label
     - failed_gate_reasons
     - missing_data_warnings
     - per_school_source_audit
   multi_school_correlation:
     rule: "Do not multiply all independent probabilities directly; apply same-tier correlation discount."
+    tier_decay_rule: "Use stronger correlation discounting for T10 and lighter, still conservative discounting for non-T10 T30 portfolios; a 15-school National Universities T11-T30 portfolio for a top-decile student at a first-tier international high school should approach or exceed 90% when no major negative condition applies."
+    cross_category_t10_rule: "National Universities T10 and Liberal Arts Colleges T10 share one extreme-selectivity correlation tier in combined at-least-one probabilities and automatic recommendation expected value; category labels must not make T10 outcomes independent."
+    lac_elite_calibration_rule: "The first-tier high-school strong-cohort calibration is limited to National Universities. Do not apply the National Universities T11-T30 lift to Liberal Arts Colleges without category-specific evidence."
   portfolio_selection:
-    dataset_scope_rule: "Selected schools outside the approved AdmissionSight v1 dataset must be excluded from calculations and disclosed in portfolio warnings."
+    dataset_scope_rule: "Selected schools outside the approved v1 dataset must be excluded from calculations and disclosed in portfolio warnings. The approved National University dataset is AdmissionSight rows plus reviewed official-source additions needed to complete the user-provided IMG_0749.JPG 2026 U.S. News T50 scope."
+    liberal_arts_toggle_rule: "The applicant profile must expose whether Liberal Arts Colleges are included. When disabled, auto-recommendation, manual picker availability, LAC T10/T30 probabilities, and combined at-least-one probability must exclude Liberal Arts Colleges."
     recommendation_scope_rule: "Auto-recommendation shortage messages may appear only when the current portfolio was produced by explicit automatic recommendation."
     recommendation_result_scope_rule: "Portfolio results must carry recommendedSchools only for explicit automatic recommendation results; manual and empty portfolios must not include hidden recommendation lists."
+    recommendation_steps_rule: "Automatic portfolio results should carry the exact marginal expected-value steps only when the selected school set still matches the submitted profile snapshot's regenerated automatic recommendation."
+    recommendation_steps_trust_rule: "Supplied automatic recommendation steps may be reused only when they match current school results and the regenerated automatic recommendation order/value metadata for the submitted profile snapshot."
+    recommendation_single_pass_rule: "The explicit auto-recommend action may generate recommendation steps once and carry those exact generated steps into the result to avoid a second large-portfolio recommendation pass."
+    per_school_result_rule: "Result pages must display every calculated school's probability after dataset and Liberal Arts College toggle exclusions."
+    recommendation_count_rule: "Automatic recommendation uses the user-requested total school count, with no artificial maximum; when enough eligible schools exist, the generated school count must equal that requested count."
+    recommendation_value_rule: "Automatic recommendation must not sort only by admission probability or fixed bucket quotas. It should score each eligible school by estimated admission probability times a rank-value score, then select the requested count by expected best-admit value with confidence/reliability discounting and same-tier correlation discounting. For app responsiveness, exact search is intentionally limited to small requested counts with a modest bounded total combination space; recommendation quality should favor fast, deterministic approximation over maximum mathematical precision. When the exact limit is met, it may use deterministic exhaustive search for the highest expected best-admit value, using the same best-ordering comparison for each candidate combination. For larger combination spaces, it should use a fast approximation: marginal greedy selection over a bounded confidence-adjusted candidate window with rank-value and single-school-probability guardrails, followed by bounded deterministic one-school replacement passes over the same kind of guarded candidate shortlist and a fixed-size removal shortlist; each accepted replacement must improve the portfolio's expected best-admit value. Replacement trials and final ordering may compare current, marginal-greedy, and rank-value-priority orderings, then keep the ordering with the highest expected best-admit value without expanding into exhaustive search. Rank-value scores must use comparable fixed rank curves across National Universities and Liberal Arts Colleges, not each category's current maximum rank; Liberal Arts College T10 rank value should sit near the National Universities T20-T30 band rather than the National Universities T10 band."
+    recommendation_value_total_rule: "Automatic recommendation results must expose the selected portfolio's expected best-admit value for the requested school count, so multiple offers are not simply double-counted."
+    manual_selection_rule: "Manual selection opens a selectable/selected college directory and has no artificial count cap."
     bucket_rule: "Use conservative planning buckets: reach below 20%, target 20%-60%, likely at least 60%, and disclose that likely/safety is not a guarantee."
   ai_report:
     may_generate:
@@ -104,6 +151,7 @@ model_constraints:
     required_disclosures:
       - "Computed portfolio selection warnings"
       - "Auto-recommendation shortage warnings when selectionSource is automatic"
+      - "Auto-recommendation expected-value rationale when selectionSource is automatic"
       - "Per-school warnings and data limitations already produced by the chance engine"
       - "Every selected or auto-recommended school's probability and academic-fit adjustment"
       - "Every selected or auto-recommended school's source-audit summary for the data used by the probability model"
@@ -124,13 +172,19 @@ validation_tests:
   - id: portfolio_bounds
     description: "At-least-one probability must be >= max individual and <= sum individual probabilities."
   - id: dataset_scope
-    description: "All calculated colleges must appear in the AdmissionSight seed dataset."
+    description: "All calculated colleges must appear in the approved v1 seed dataset."
   - id: invalid_selected_school_disclosure
-    description: "Selected school IDs outside the AdmissionSight seed dataset must be excluded from probability math and disclosed."
+    description: "Selected school IDs outside the approved v1 seed dataset must be excluded from probability math and disclosed."
+  - id: liberal_arts_portfolio_probability
+    description: "Selected Top30 liberal arts colleges must remain selectable as schools and must produce T10/T30 LAC at-least-one probabilities that also contribute to the overall selected at-least-one probability."
+  - id: liberal_arts_toggle_exclusion
+    description: "When the applicant disables Liberal Arts Colleges, manual and automatic portfolios must exclude LACs from school results and all at-least-one probability calculations."
   - id: generated_snapshot_current
     description: "Generated Swift data snapshot must match reviewed source files."
   - id: source_numeric_bounds
     description: "Source data numeric fields must stay in valid ranges, and China early/RD counts must reconcile to totals."
+  - id: official_lac_workflow_check
+    description: "The LAC official-rate fetch/apply workflow must accept UNITID-matched Scorecard institution CSV, Scorecard raw CSV/ZIP, IPEDS ADM, IPEDS DRVADM, and IPEDS Reported Data official rows, discover the current institution-level Scorecard URL from official data-page HTML, select the latest MERGEDYYYY_YY_PP.csv from raw Scorecard ZIPs, disclose that selected CSV in review-row and applied seed source notes, reject unknown local Scorecard and IPEDS CSV/ZIP filenames even if they contain plausible columns, accept the current official Scorecard download host ed-public-download.scorecard.network, reject non-HTTPS, nonofficial download hosts, official data-page discovery URLs outside collegescorecard.ed.gov/data/, and official-host URLs that do not point to an institution CSV/ZIP or raw Scorecard ZIP, generate and check official URL manifests for manual review, reject mismatched UnitIDs, reviewed official school names, or mismatched per-row official source URLs before replacement, and reject direct manual seed edits that claim official Scorecard/IPEDS provenance without source URL, UnitID, component, source note, and data-quality consistency."
   - id: international_proxy_disclosure
     description: "International student signals must be undergraduate-only, with missing admit coefficients disclosed."
   - id: china_admit_count_denominator
@@ -147,16 +201,36 @@ validation_tests:
     description: "The form must expose both TOEFL and IELTS fields because the English gate accepts either proof route."
   - id: curriculum_evidence_required
     description: "AP average score and similar curriculum performance inputs must not add credit when the related course count is 0."
+  - id: alevel_subject_cap
+    description: "A-Level A*/A/B subject counts must share a total cap of 5 subjects, and overflow data must be capped and disclosed rather than increasing probability."
   - id: report_includes_computed_warnings
     description: "AI reports must include computed portfolio-level and per-school warnings/data limitations instead of replacing them with generic advice."
   - id: conservative_bucket_thresholds
     description: "Recommendation buckets must not label sub-60% chances as likely/safety, and UI/report copy must state that likely is not a guarantee."
   - id: recommendation_result_scope
     description: "PortfolioResult.recommendedSchools must be empty for manual or empty portfolios and populated only for explicit automatic recommendation results."
+  - id: recommendation_total_count
+    description: "Automatic recommendation should generate the user-requested total number of schools when enough eligible schools exist, while manual selection remains uncapped."
+  - id: recommendation_expected_value
+    description: "Automatic recommendation should use probability multiplied by a rank-value score, with confidence/reliability discounting, same-tier marginal discounting, expected-best-offer marginal value, exact search only when requested count is small and total combination space remains modestly bounded for app responsiveness, with each exact candidate combination evaluated through the same best-ordering comparison, marginal greedy selection over a bounded confidence-adjusted candidate window with rank-value and single-school-probability guardrails, bounded fast deterministic one-school replacement passes over the same kind of guarded candidate shortlist and a fixed-size removal shortlist for larger combination spaces, and final ordering that chooses the best expected best-admit value among current, marginal-greedy, and rank-value-priority orderings, rather than selecting only by probability bucket."
+  - id: recommendation_expected_value_total
+    description: "Automatic recommendation results and reports should expose the expected best-admit value for the requested school count."
+  - id: recommendation_steps_trust_boundary
+    description: "Automatic evaluation must reject supplied recommendation steps that are self-consistent but do not match the regenerated automatic recommendation order and value metadata."
+  - id: recommendation_single_pass_result
+    description: "The app-facing automatic recommendation evaluation should carry the generated recommendation steps into the result without requiring callers to pass externally supplied steps."
+  - id: recommendation_expected_value_report
+    description: "Reports for automatic portfolios must explain that recommendation uses probability multiplied by rank-value score and same-tier marginal discounting."
+  - id: elite_top_decile_t30_portfolio_calibration
+    description: "A Chinese international applicant in the top decile of a first-tier international high school should approach or exceed 90% at-least-one probability when applying to 15 National Universities ranked T11-T30, while T10 probabilities remain separately conservative."
+  - id: cross_category_t10_correlation
+    description: "Combined at-least-one probabilities and automatic recommendation expected value must apply the same T10 correlation tier across National Universities and Liberal Arts Colleges, instead of treating top-category outcomes as independent."
+  - id: t11_t30_probability_disclosure
+    description: "Results and reports must separately disclose the non-T10 National Universities T11-T30 at-least-one probability so users do not confuse it with the traditional T30-including-T10 view."
   - id: per_school_source_audit
     description: "The data UI must expose per-school source notes for acceptance rates, undergraduate international signals, China undergraduate admit counts, academic benchmarks, and gate rules."
   - id: conservative_high_school_default
-    description: "Sample/default profiles must use the unknown high-school proxy, and UI/report/warnings must disclose that high-school context is a proxy calibration."
+    description: "Sample/default profiles must use the conservative unknown high-school proxy, generated high-school fields must be required and bounded, and UI/report/warnings must disclose that high-school context is a proxy calibration."
   - id: test_optional_ignores_residual_scores
     description: "If testOptional is true, residual SAT/ACT values must not improve readiness or academic benchmark fit, and the UI should clear or disclose ignored scores."
   - id: aid_policy_factor_disclosure

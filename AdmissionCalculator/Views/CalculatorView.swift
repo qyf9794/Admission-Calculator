@@ -7,6 +7,7 @@ struct CalculatorView: View {
     let hasExistingResult: Bool
     let onAutoRecommend: () -> Void
     let onEvaluate: () -> Void
+    @State private var isCollegePickerPresented = false
 
     var body: some View {
         ScrollView {
@@ -96,35 +97,43 @@ struct CalculatorView: View {
                     .foregroundStyle(.secondary)
             }
 
-                CardSection(title: "自动推荐数量", subtitle: "先设定三档数量，再用单独按钮生成组合。", systemImage: "slider.horizontal.3", tint: .blue) {
-                Stepper("保底 \(profile.requestedLikelyCount) 所", value: $profile.requestedLikelyCount, in: 0...10)
-                Stepper("目标 \(profile.requestedTargetCount) 所", value: $profile.requestedTargetCount, in: 0...12)
-                Stepper("争取 \(profile.requestedReachCount) 所", value: $profile.requestedReachCount, in: 0...12)
-                LabeledContent("计划数量", value: "\(requestedRecommendationTotal) 所")
+                CardSection(title: "选校数量", subtitle: "设置计划申请数量；手动选校没有数量上限。", systemImage: "slider.horizontal.3", tint: .blue) {
+                Toggle("纳入文理学院", isOn: $profile.includeLiberalArtsColleges)
+                UnboundedCountStepper(title: "计划选择大学", value: $profile.requestedSchoolCount)
+                LabeledContent("自动生成数量", value: "\(profile.requestedSchoolCount) 所")
+                Text(profile.includeLiberalArtsColleges
+                     ? "自动推荐和手动目录会同时包含综合大学与文理学院。"
+                     : "关闭后，自动推荐、手动目录和至少一所概率都只考虑综合大学。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("自动推荐会尽量生成与计划选择数量一致的学校组合；若当前画像下合格学校不足，会在结果中披露缺口。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
-                CardSection(title: "选校动作", subtitle: "自动推荐不会悄悄触发；手动选校会切换为手动组合。", systemImage: "rectangle.stack.badge.plus", tint: .green) {
+                CardSection(title: "选校动作", subtitle: "先自动生成，也可以在下方手动打开大学目录调整。", systemImage: "rectangle.stack.badge.plus", tint: .green) {
                 Button {
                     onAutoRecommend()
                 } label: {
-                    Label("按三档生成组合", systemImage: "wand.and.stars")
+                    Label("自动生成 \(profile.requestedSchoolCount) 所", systemImage: "wand.and.stars")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
-                .disabled(requestedRecommendationTotal == 0)
+                .disabled(profile.requestedSchoolCount == 0)
                 if selectionSource == .automatic {
                     Label("已自动推荐 \(selectedCollegeIDs.count) 所学校", systemImage: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Text("修改学生画像或三档数量后，旧自动组合会转为手动组合；需要再次点击按钮才会按新条件生成。")
+                Text("修改学生画像或计划数量后，旧自动组合会转为手动组合；需要再次点击按钮才会按新条件生成。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                NavigationLink {
-                    CollegePickerView(selectedCollegeIDs: $selectedCollegeIDs, selectionSource: $selectionSource)
+                Button {
+                    isCollegePickerPresented = true
                 } label: {
-                    Label(selectedCollegeIDs.isEmpty ? "尚未选择学校" : "已选择 \(selectedCollegeIDs.count) 所", systemImage: "building.columns")
+                    Label(selectedCollegeIDs.isEmpty ? "手动选择大学" : "手动调整 \(selectedCollegeIDs.count) 所", systemImage: "building.columns")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 if !selectedCollegeIDs.isEmpty {
@@ -148,13 +157,38 @@ struct CalculatorView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
+        .sheet(isPresented: $isCollegePickerPresented) {
+            NavigationStack {
+                CollegePickerView(
+                    selectedCollegeIDs: $selectedCollegeIDs,
+                    selectionSource: $selectionSource,
+                    includeLiberalArtsColleges: profile.includeLiberalArtsColleges
+                )
+                    .navigationTitle("大学目录")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("完成") {
+                                isCollegePickerPresented = false
+                            }
+                        }
+                    }
+            }
+        }
         .onChange(of: profile) { _, _ in
+            if !profile.includeLiberalArtsColleges {
+                selectedCollegeIDs = selectedCollegeIDs.filter { id in
+                    guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
+                        return true
+                    }
+                    return college.category != .liberalArtsCollege
+                }
+            }
             selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
         }
     }
 
     private var requestedRecommendationTotal: Int {
-        profile.requestedLikelyCount + profile.requestedTargetCount + profile.requestedReachCount
+        profile.requestedSchoolCount
     }
 
     private var completionPrompts: [ProfileCompletionPrompt] {
@@ -237,6 +271,36 @@ private struct HeroMetric: View {
                 .foregroundStyle(.white)
         }
         .frame(minWidth: 56, alignment: .leading)
+    }
+}
+
+private struct UnboundedCountStepper: View {
+    let title: String
+    @Binding var value: Int
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 12) {
+                Button {
+                    value = max(0, value - 1)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title3)
+                }
+                .disabled(value == 0)
+
+                Text("\(value) 所")
+                    .font(.headline.monospacedDigit())
+                    .frame(minWidth: 64)
+
+                Button {
+                    value += 1
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                }
+            }
+        }
     }
 }
 
@@ -362,44 +426,65 @@ private struct CurriculumPerformanceInputs: View {
     @Binding var profile: StudentProfile
 
     var body: some View {
-        switch profile.curriculum {
-        case .chinese:
-            GradeScaleInputs(
-                title: "核心课程成绩",
-                scale: $profile.curriculumGradeScale,
-                percent: $profile.chineseCurriculumScore,
-                fourPoint: $profile.chineseCurriculumGPAFourPoint,
-                fivePoint: $profile.chineseCurriculumGPAFivePoint,
-                letterGrade: $profile.chineseCurriculumLetterGrade
-            )
-        case .ap:
-            LabeledContent("AP / 高级课程门数") {
-                Stepper("\(profile.apCourseCount)", value: $profile.apCourseCount, in: 0...12)
-            }
-            if profile.apCourseCount > 0 {
-                LabeledContent("AP 平均分") {
-                    Stepper(String(format: "%.1f", profile.apAverageScore), value: $profile.apAverageScore, in: 1...5, step: 0.5)
+        Group {
+            switch profile.curriculum {
+            case .chinese:
+                GradeScaleInputs(
+                    title: "核心课程成绩",
+                    scale: $profile.curriculumGradeScale,
+                    percent: $profile.chineseCurriculumScore,
+                    fourPoint: $profile.chineseCurriculumGPAFourPoint,
+                    fivePoint: $profile.chineseCurriculumGPAFivePoint,
+                    letterGrade: $profile.chineseCurriculumLetterGrade
+                )
+            case .ap:
+                LabeledContent("AP / 高级课程门数") {
+                    Stepper("\(profile.apCourseCount)", value: $profile.apCourseCount, in: 0...12)
                 }
-            } else {
-                Text("AP 课程门数为 0 时，AP 平均分不会计入课程体系成绩。")
+                if profile.apCourseCount > 0 {
+                    LabeledContent("AP 平均分") {
+                        Stepper(String(format: "%.1f", profile.apAverageScore), value: $profile.apAverageScore, in: 1...5, step: 0.5)
+                    }
+                } else {
+                    Text("AP 课程门数为 0 时，AP 平均分不会计入课程体系成绩。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            case .ib:
+                LabeledContent("IB 预估总分") {
+                    Stepper("\(profile.ibPredictedScore)", value: $profile.ibPredictedScore, in: 24...45)
+                }
+            case .alevel:
+                LabeledContent("A-Level A* 科目") {
+                    Stepper("\(profile.aLevelAStarCount)", value: $profile.aLevelAStarCount, in: aLevelRange(for: profile.aLevelAStarCount))
+                }
+                LabeledContent("A-Level A 科目") {
+                    Stepper("\(profile.aLevelACount)", value: $profile.aLevelACount, in: aLevelRange(for: profile.aLevelACount))
+                }
+                LabeledContent("A-Level B 科目") {
+                    Stepper("\(profile.aLevelBCount)", value: $profile.aLevelBCount, in: aLevelRange(for: profile.aLevelBCount))
+                }
+                Text("A*/A/B 合计最多 \(StudentProfile.maximumALevelSubjectCount) 门；超出上限不会提高课程体系成绩。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-        case .ib:
-            LabeledContent("IB 预估总分") {
-                Stepper("\(profile.ibPredictedScore)", value: $profile.ibPredictedScore, in: 24...45)
-            }
-        case .alevel:
-            LabeledContent("A-Level A* 科目") {
-                Stepper("\(profile.aLevelAStarCount)", value: $profile.aLevelAStarCount, in: 0...5)
-            }
-            LabeledContent("A-Level A 科目") {
-                Stepper("\(profile.aLevelACount)", value: $profile.aLevelACount, in: 0...5)
-            }
-            LabeledContent("A-Level B 科目") {
-                Stepper("\(profile.aLevelBCount)", value: $profile.aLevelBCount, in: 0...5)
-            }
         }
+        .onAppear(perform: clampALevelSubjectsIfNeeded)
+    }
+
+    private func aLevelRange(for currentValue: Int) -> ClosedRange<Int> {
+        let otherSubjects = profile.aLevelSubjectCount - currentValue
+        let upperBound = max(0, StudentProfile.maximumALevelSubjectCount - otherSubjects)
+        return 0...upperBound
+    }
+
+    private func clampALevelSubjectsIfNeeded() {
+        guard profile.curriculum == .alevel, profile.aLevelSubjectCount > StudentProfile.maximumALevelSubjectCount else {
+            return
+        }
+        var updated = profile
+        updated.clampALevelSubjectCounts()
+        profile = updated
     }
 }
 

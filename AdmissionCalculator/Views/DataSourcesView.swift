@@ -132,7 +132,7 @@ private struct DataSnapshotCard: View {
                 DataMetricCell(title: "学校数量", value: "\(AdmissionsSeedData.colleges.count)", tint: .purple)
                 DataMetricCell(title: "硬门槛", value: "\(AdmissionsSeedData.gateRules.count)", tint: .orange)
             }
-            Text("学校统计范围固定为 AdmissionSight National Universities v1；国际生、中国本科、学术基准和硬门槛来源会在逐校审计中单独披露。")
+            Text("学校统计范围固定为已审核 v1 数据集：AdmissionSight 综合大学与用户提供表格中的 Top30 文理学院；国际生、中国本科、学术基准和硬门槛来源会在逐校审计中单独披露。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -260,10 +260,13 @@ private struct CollegeStatCard: View {
                     .foregroundStyle(.blue)
             }
             HStack(spacing: 10) {
-                DataMetricCell(title: "届别", value: "\(college.latestAvailableClassYear)", tint: .purple)
+                DataMetricCell(title: "数据槽", value: "\(college.latestAvailableClassYear)", tint: .purple)
                 DataMetricCell(title: "质量", value: college.dataQuality.formatted(.number.precision(.fractionLength(2))), tint: .green)
             }
-            Link("AdmissionSight source", destination: college.sourceURL)
+            Text(college.sourceNote)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Link("基础率来源", destination: college.sourceURL)
                 .font(.caption2)
         }
         .padding(16)
@@ -355,8 +358,8 @@ private struct CollegeSourceAudit: View {
         VStack(alignment: .leading, spacing: 10) {
             SourceAuditRow(
                 title: "学校统计",
-                value: "\(college.latestAvailableClassYear) 届录取率 \(college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))))",
-                note: "AdmissionSight National Universities 表；v1 唯一学校统计种子。数据质量 \(college.dataQuality.formatted(.number.precision(.fractionLength(2))))。",
+                value: "最新可用基础录取率 \(college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))))",
+                note: "\(collegeStatsSourceLabel)；\(college.sourceNote)；数据槽 \(college.latestAvailableClassYear)，数据质量 \(college.dataQuality.formatted(.number.precision(.fractionLength(2))))。",
                 url: college.sourceURL,
                 tint: .blue
             )
@@ -439,6 +442,24 @@ private struct CollegeSourceAudit: View {
             )
         }
         .padding(.top, 8)
+    }
+
+    private var collegeStatsSourceLabel: String {
+        switch college.category {
+        case .nationalUniversity:
+            return "AdmissionSight National Universities 表；v1 综合大学统计种子"
+        case .liberalArtsCollege:
+            if college.sourceURL.absoluteString.hasPrefix("https://collegescorecard.ed.gov/school/?") {
+                return "U.S. Department of Education College Scorecard；v1 文理学院基础率来源"
+            }
+            if college.sourceURL.absoluteString.hasPrefix("https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx") {
+                return "NCES/IPEDS DataFiles；v1 文理学院官方基础率来源"
+            }
+            if college.sourceURL.absoluteString.hasPrefix("https://nces.ed.gov/ipeds/reported-data/html/") {
+                return "NCES/IPEDS Reported Data Admissions；v1 文理学院官方基础率来源"
+            }
+            return "已审阅 Top30 Liberal Arts Colleges 用户表；v1 文理学院统计种子"
+        }
     }
 
     private func internationalSignalValue(_ signal: InternationalSignal) -> String {

@@ -3,12 +3,17 @@ import SwiftUI
 struct CollegePickerView: View {
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
+    let includeLiberalArtsColleges: Bool
     @State private var searchText = ""
     @State private var filter: CollegePickerFilter = .all
     private let colleges = AdmissionsSeedData.colleges
 
+    private var availableColleges: [College] {
+        colleges.filter { includeLiberalArtsColleges || $0.category != .liberalArtsCollege }
+    }
+
     private var filteredColleges: [College] {
-        colleges.filter { college in
+        availableColleges.filter { college in
             filter.includes(college: college, selectedIDs: selectedCollegeIDs) &&
             college.matchesPickerQuery(searchText)
         }
@@ -19,14 +24,16 @@ struct CollegePickerView: View {
             VStack(alignment: .leading, spacing: 16) {
                 CollegePickerHero(
                     selectedCount: selectedCollegeIDs.count,
-                    totalCount: colleges.count,
-                    filteredCount: filteredColleges.count
+                    totalCount: availableColleges.count,
+                    filteredCount: filteredColleges.count,
+                    includeLiberalArtsColleges: includeLiberalArtsColleges
                 )
 
                 CollegeFilterBar(
                     filter: $filter,
-                    colleges: colleges,
-                    selectedIDs: selectedCollegeIDs
+                    colleges: availableColleges,
+                    selectedIDs: selectedCollegeIDs,
+                    includeLiberalArtsColleges: includeLiberalArtsColleges
                 )
 
                 SelectedPortfolioCard(
@@ -38,7 +45,7 @@ struct CollegePickerView: View {
                     Label("学校列表", systemImage: "building.columns")
                         .font(.headline)
                         .foregroundStyle(.indigo)
-                    Text("仅显示 AdmissionSight National Universities v1 数据集内学校；这里的录取率是学校基础统计，不是个人概率。")
+                    Text("仅显示已审核 v1 数据集内学校；这里的录取率是学校基础统计，不是个人概率。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -58,7 +65,7 @@ struct CollegePickerView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("目标学校")
+        .navigationTitle("大学目录")
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索学校、排名或分层")
         .toolbar {
             Button {
@@ -72,7 +79,7 @@ struct CollegePickerView: View {
     }
 
     private var selectedColleges: [College] {
-        colleges.filter { selectedCollegeIDs.contains($0.id) }
+        availableColleges.filter { selectedCollegeIDs.contains($0.id) }
     }
 
     private func toggle(_ id: String) {
@@ -92,8 +99,18 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
     case top30 = "综大T30"
     case top50 = "综大T50"
     case fiftyPlus = "综大50+"
+    case lacTop10 = "文理T10"
+    case lacTop30 = "文理T30"
 
     var id: String { rawValue }
+
+    static func availableCases(includeLiberalArtsColleges: Bool) -> [CollegePickerFilter] {
+        let base: [CollegePickerFilter] = [.all, .selected, .top10, .top30, .top50, .fiftyPlus]
+        guard includeLiberalArtsColleges else {
+            return base
+        }
+        return base + [.lacTop10, .lacTop30]
+    }
 
     var systemImage: String {
         switch self {
@@ -101,9 +118,9 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
             return "square.grid.2x2"
         case .selected:
             return "checkmark.seal"
-        case .top10:
+        case .top10, .lacTop10:
             return "star.fill"
-        case .top30:
+        case .top30, .lacTop30:
             return "chart.bar.fill"
         case .top50:
             return "chart.bar.xaxis"
@@ -126,6 +143,10 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
             return .teal
         case .fiftyPlus:
             return .orange
+        case .lacTop10:
+            return .pink
+        case .lacTop30:
+            return .orange
         }
     }
 
@@ -136,13 +157,17 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
         case .selected:
             return selectedIDs.contains(college.id)
         case .top10:
-            return college.rank <= 10
+            return college.category == .nationalUniversity && college.rank <= 10
         case .top30:
-            return college.rank <= 30
+            return college.category == .nationalUniversity && college.rank <= 30
         case .top50:
-            return college.rank <= 50
+            return college.category == .nationalUniversity && college.rank <= 50
         case .fiftyPlus:
-            return college.rank > 50
+            return college.category == .nationalUniversity && college.rank > 50
+        case .lacTop10:
+            return college.category == .liberalArtsCollege && college.rank <= 10
+        case .lacTop30:
+            return college.category == .liberalArtsCollege && college.rank <= 30
         }
     }
 }
@@ -151,11 +176,12 @@ private struct CollegeFilterBar: View {
     @Binding var filter: CollegePickerFilter
     let colleges: [College]
     let selectedIDs: Set<String>
+    let includeLiberalArtsColleges: Bool
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(CollegePickerFilter.allCases) { item in
+                ForEach(CollegePickerFilter.availableCases(includeLiberalArtsColleges: includeLiberalArtsColleges)) { item in
                     Button {
                         filter = item
                     } label: {
@@ -196,6 +222,7 @@ private struct CollegePickerHero: View {
     let selectedCount: Int
     let totalCount: Int
     let filteredCount: Int
+    let includeLiberalArtsColleges: Bool
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -220,7 +247,9 @@ private struct CollegePickerHero: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-                Text("用搜索和分层筛选整理目标学校；计算仍只使用 v1 审核数据集。")
+                Text(includeLiberalArtsColleges
+                     ? "用搜索和分层筛选整理综合大学与文理学院；计算仍只使用 v1 审核数据集。"
+                     : "当前未纳入文理学院；目录、自动推荐和计算只使用综合大学。")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.86))
                     .fixedSize(horizontal: false, vertical: true)
@@ -317,7 +346,7 @@ private struct CollegeSelectionCard: View {
                         MetricPill(title: "基础率", value: college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))), color: .blue)
                         MetricPill(title: "届别", value: "\(college.latestAvailableClassYear)", color: .purple)
                     }
-                    Text("数据质量 \(college.dataQuality.formatted(.number.precision(.fractionLength(2)))) · AdmissionSight v1")
+                    Text("数据质量 \(college.dataQuality.formatted(.number.precision(.fractionLength(2)))) · 已审核 v1")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

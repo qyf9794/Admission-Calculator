@@ -1,0 +1,31 @@
+id,name,rank,ipeds_unitid,scorecard_school_url,nces_reported_admissions_url,reported_html_filename
+williams,Williams College,1,168342,https://collegescorecard.ed.gov/school/?168342,https://nces.ed.gov/ipeds/reported-data/html/168342?year=2024&surveyNumber=12&viewmode=print,168342.html
+amherst,Amherst College,2,164465,https://collegescorecard.ed.gov/school/?164465,https://nces.ed.gov/ipeds/reported-data/html/164465?year=2024&surveyNumber=12&viewmode=print,164465.html
+swarthmore,Swarthmore College,4,216287,https://collegescorecard.ed.gov/school/?216287,https://nces.ed.gov/ipeds/reported-data/html/216287?year=2024&surveyNumber=12&viewmode=print,216287.html
+bowdoin,Bowdoin College,5,161004,https://collegescorecard.ed.gov/school/?161004,https://nces.ed.gov/ipeds/reported-data/html/161004?year=2024&surveyNumber=12&viewmode=print,161004.html
+claremont_mckenna,Claremont McKenna College,7,112260,https://collegescorecard.ed.gov/school/?112260,https://nces.ed.gov/ipeds/reported-data/html/112260?year=2024&surveyNumber=12&viewmode=print,112260.html
+pomona,Pomona College,7,121345,https://collegescorecard.ed.gov/school/?121345,https://nces.ed.gov/ipeds/reported-data/html/121345?year=2024&surveyNumber=12&viewmode=print,121345.html
+wellesley,Wellesley College,7,168218,https://collegescorecard.ed.gov/school/?168218,https://nces.ed.gov/ipeds/reported-data/html/168218?year=2024&surveyNumber=12&viewmode=print,168218.html
+carleton,Carleton College,10,173258,https://collegescorecard.ed.gov/school/?173258,https://nces.ed.gov/ipeds/reported-data/html/173258?year=2024&surveyNumber=12&viewmode=print,173258.html
+harvey_mudd,Harvey Mudd College,10,115409,https://collegescorecard.ed.gov/school/?115409,https://nces.ed.gov/ipeds/reported-data/html/115409?year=2024&surveyNumber=12&viewmode=print,115409.html
+barnard,Barnard College,13,189097,https://collegescorecard.ed.gov/school/?189097,https://nces.ed.gov/ipeds/reported-data/html/189097?year=2024&surveyNumber=12&viewmode=print,189097.html
+davidson,Davidson College,13,198385,https://collegescorecard.ed.gov/school/?198385,https://nces.ed.gov/ipeds/reported-data/html/198385?year=2024&surveyNumber=12&viewmode=print,198385.html
+grinnell,Grinnell College,13,153384,https://collegescorecard.ed.gov/school/?153384,https://nces.ed.gov/ipeds/reported-data/html/153384?year=2024&surveyNumber=12&viewmode=print,153384.html
+hamilton,Hamilton College,13,191515,https://collegescorecard.ed.gov/school/?191515,https://nces.ed.gov/ipeds/reported-data/html/191515?year=2024&surveyNumber=12&viewmode=print,191515.html
+middlebury,Middlebury College,13,230959,https://collegescorecard.ed.gov/school/?230959,https://nces.ed.gov/ipeds/reported-data/html/230959?year=2024&surveyNumber=12&viewmode=print,230959.html
+smith,Smith College,13,167835,https://collegescorecard.ed.gov/school/?167835,https://nces.ed.gov/ipeds/reported-data/html/167835?year=2024&surveyNumber=12&viewmode=print,167835.html
+vassar,Vassar College,13,197133,https://collegescorecard.ed.gov/school/?197133,https://nces.ed.gov/ipeds/reported-data/html/197133?year=2024&surveyNumber=12&viewmode=print,197133.html
+wesleyan,Wesleyan University,13,130697,https://collegescorecard.ed.gov/school/?130697,https://nces.ed.gov/ipeds/reported-data/html/130697?year=2024&surveyNumber=12&viewmode=print,130697.html
+washington_and_lee,Washington and Lee University,21,234207,https://collegescorecard.ed.gov/school/?234207,https://nces.ed.gov/ipeds/reported-data/html/234207?year=2024&surveyNumber=12&viewmode=print,234207.html
+colgate,Colgate University,22,190099,https://collegescorecard.ed.gov/school/?190099,https://nces.ed.gov/ipeds/reported-data/html/190099?year=2024&surveyNumber=12&viewmode=print,190099.html
+richmond,University of Richmond,22,233374,https://collegescorecard.ed.gov/school/?233374,https://nces.ed.gov/ipeds/reported-data/html/233374?year=2024&surveyNumber=12&viewmode=print,233374.html
+bates,Bates College,24,160977,https://collegescorecard.ed.gov/school/?160977,https://nces.ed.gov/ipeds/reported-data/html/160977?year=2024&surveyNumber=12&viewmode=print,160977.html
+colby,Colby College,24,161086,https://collegescorecard.ed.gov/school/?161086,https://nces.ed.gov/ipeds/reported-data/html/161086?year=2024&surveyNumber=12&viewmode=print,161086.html
+haverford,Haverford College,24,212911,https://collegescorecard.ed.gov/school/?212911,https://nces.ed.gov/ipeds/reported-data/html/212911?year=2024&surveyNumber=12&viewmode=print,212911.html
+holy_cross,College of the Holy Cross,27,166124,https://collegescorecard.ed.gov/school/?166124,https://nces.ed.gov/ipeds/reported-data/html/166124?year=2024&surveyNumber=12&viewmode=print,166124.html
+macalester,Macalester College,28,173902,https://collegescorecard.ed.gov/school/?173902,https://nces.ed.gov/ipeds/reported-data/html/173902?year=2024&surveyNumber=12&viewmode=print,173902.html
+mount_holyoke,Mount Holyoke College,29,166939,https://collegescorecard.ed.gov/school/?166939,https://nces.ed.gov/ipeds/reported-data/html/166939?year=2024&surveyNumber=12&viewmode=print,166939.html
+bryn_mawr,Bryn Mawr College,30,211273,https://collegescorecard.ed.gov/school/?211273,https://nces.ed.gov/ipeds/reported-data/html/211273?year=2024&surveyNumber=12&viewmode=print,211273.html
+bucknell,Bucknell University,30,211291,https://collegescorecard.ed.gov/school/?211291,https://nces.ed.gov/ipeds/reported-data/html/211291?year=2024&surveyNumber=12&viewmode=print,211291.html
+colorado_college,Colorado College,30,126678,https://collegescorecard.ed.gov/school/?126678,https://nces.ed.gov/ipeds/reported-data/html/126678?year=2024&surveyNumber=12&viewmode=print,126678.html
+lafayette,Lafayette College,30,213385,https://collegescorecard.ed.gov/school/?213385,https://nces.ed.gov/ipeds/reported-data/html/213385?year=2024&surveyNumber=12&viewmode=print,213385.html

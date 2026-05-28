@@ -49,16 +49,10 @@ struct AppView: View {
     }
 
     private func autoRecommend() {
-        let recommended = engine.recommendedColleges(
-            for: profile,
-            reachCount: profile.requestedReachCount,
-            targetCount: profile.requestedTargetCount,
-            likelyCount: profile.requestedLikelyCount
-        )
-        let recommendedIDs = Set(recommended.map(\.id))
-        selectedCollegeIDs = recommendedIDs
+        let result = engine.evaluateAutomaticRecommendation(profile: profile)
+        selectedCollegeIDs = Set(result.recommendedSchools.map(\.id))
         selectionSource = .automatic
-        latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: recommendedIDs, selectionSource: selectionSource)
+        latestResult = result
     }
 
     private var resultIsStale: Bool {

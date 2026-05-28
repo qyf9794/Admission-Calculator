@@ -4,6 +4,14 @@
   "type": "module",
   "scripts": {
     "data:update": "node scripts/update-admissions-data.mjs",
-    "data:check": "node scripts/update-admissions-data.mjs --check"
+    "data:check": "node scripts/update-admissions-data.mjs --check",
+    "data:verify": "npm run data:check && npm run data:lac:official-urls:check && npm run data:official:lac:check",
+    "data:scorecard:lac": "node scripts/fetch-scorecard-lac-rates.mjs",
+    "data:ipeds:lac": "node scripts/fetch-ipeds-lac-rates.mjs",
+    "data:lac:official-urls": "node scripts/write-lac-official-url-manifest.mjs",
+    "data:lac:official-urls:check": "node scripts/write-lac-official-url-manifest.mjs --check",
+    "data:scorecard:lac:apply": "node scripts/apply-scorecard-lac-rates.mjs",
+    "data:official:lac:apply": "node scripts/apply-scorecard-lac-rates.mjs",
+    "data:official:lac:check": "node scripts/check-lac-official-workflow.mjs"
   }
 }

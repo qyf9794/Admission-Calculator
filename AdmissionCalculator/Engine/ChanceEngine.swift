@@ -1,6 +1,25 @@
 import Foundation
 
 struct ChanceEngine {
+    private static let exactRecommendationRequestedLimit = 8
+    private static let exactRecommendationCombinationLimit = 5_000
+    private static let recommendationGreedyCandidateLimit = 64
+    private static let recommendationRankPriorityCandidateLimit = 24
+    private static let recommendationProbabilityCandidateLimit = 16
+    private static let recommendationReplacementPassLimit = 4
+    private static let recommendationReplacementCandidateLimit = 64
+    private static let recommendationReplacementRemovalLimit = 40
+    private static let conservativeHighSchoolFallback = HighSchoolContext(
+        id: "unknown",
+        name: "其他/手动评估学校",
+        city: "中国",
+        admitRankingBand: 3,
+        resources: 3,
+        counseling: 3,
+        top30TrackRecord: 2,
+        transparency: 2
+    )
+
     let colleges: [College]
     let gateRules: [CollegeGateRule]
     let highSchools: [HighSchoolContext]
@@ -27,31 +46,193 @@ struct ChanceEngine {
     func evaluate(
         profile: StudentProfile,
         selectedCollegeIDs: Set<String>,
-        selectionSource: PortfolioSelectionSource = .manual
+        selectionSource: PortfolioSelectionSource = .manual,
+        automaticRecommendationSteps: [RecommendationStep]? = nil
+    ) -> PortfolioResult {
+        evaluate(
+            profile: profile,
+            selectedCollegeIDs: selectedCollegeIDs,
+            selectionSource: selectionSource,
+            automaticRecommendationSteps: automaticRecommendationSteps,
+            automaticRecommendationStepsWereJustGenerated: false
+        )
+    }
+
+    func evaluateAutomaticRecommendation(profile: StudentProfile) -> PortfolioResult {
+        let recommendationSteps = recommendationSteps(for: profile, count: profile.requestedSchoolCount)
+        return evaluate(
+            profile: profile,
+            selectedCollegeIDs: Set(recommendationSteps.map(\.result.college.id)),
+            selectionSource: .automatic,
+            automaticRecommendationSteps: recommendationSteps,
+            automaticRecommendationStepsWereJustGenerated: true
+        )
+    }
+
+    private func evaluate(
+        profile: StudentProfile,
+        selectedCollegeIDs: Set<String>,
+        selectionSource: PortfolioSelectionSource,
+        automaticRecommendationSteps: [RecommendationStep]?,
+        automaticRecommendationStepsWereJustGenerated: Bool
     ) -> PortfolioResult {
         let profileScore = studentScore(profile)
-        let selected = colleges.filter { selectedCollegeIDs.contains($0.id) }
-        let resolvedSelectedIDs = Set(selected.map(\.id))
+        let selectable = selectableColleges(for: profile)
+        let selected = selectable.filter { selectedCollegeIDs.contains($0.id) }
         let resolvedSource: PortfolioSelectionSource = selectedCollegeIDs.isEmpty && selectionSource != .automatic ? .none : selectionSource
         let schoolResults = selected.map { chance(for: $0, profile: profile) }
             .sorted { $0.adjustedProbability > $1.adjustedProbability }
-        let recommended = resolvedSource == .automatic ? selected : []
+        let currentIDs = Set(schoolResults.map(\.college.id))
+        let selectedIDsFullyResolved = selectedCollegeIDs == currentIDs
+        let suppliedRecommendationSteps = automaticRecommendationSteps ?? []
+        let suppliedStepsAreCurrent = recommendationSteps(suppliedRecommendationSteps, match: schoolResults)
+        let suppliedStepsAreTrustedGeneratedSteps = resolvedSource == .automatic &&
+            automaticRecommendationStepsWereJustGenerated &&
+            suppliedStepsAreCurrent
+        let regeneratedRecommendationSteps = resolvedSource == .automatic && !suppliedStepsAreTrustedGeneratedSteps
+            ? recommendationSteps(for: profile, count: profile.requestedSchoolCount)
+            : []
+        let suppliedStepsMatchRegenerated = suppliedStepsAreTrustedGeneratedSteps || (suppliedStepsAreCurrent &&
+            recommendationSteps(suppliedRecommendationSteps, matchRegenerated: regeneratedRecommendationSteps)
+        )
+        let candidateRecommendationSteps = suppliedStepsMatchRegenerated
+            ? suppliedRecommendationSteps
+            : regeneratedRecommendationSteps
+        let matchingRecommendationSteps = resolvedSource == .automatic &&
+            selectedIDsFullyResolved &&
+            Set(candidateRecommendationSteps.map(\.result.college.id)) == currentIDs
+            ? candidateRecommendationSteps
+            : []
+        let automaticPortfolioWasGenerated = resolvedSource == .automatic &&
+            (!matchingRecommendationSteps.isEmpty || (selectedCollegeIDs.isEmpty && currentIDs.isEmpty))
+        let recommended = resolvedSource == .automatic
+            ? matchingRecommendationSteps.map(\.result.college)
+            : []
         return PortfolioResult(
             profileSnapshot: profile,
             selectedCollegeIDs: selectedCollegeIDs,
             schoolResults: schoolResults,
             recommendedSchools: recommended,
+            recommendationSteps: matchingRecommendationSteps,
             selectionSource: resolvedSource,
             selectedBucketCounts: bucketCounts(for: schoolResults),
-            selectionWarnings: selectionWarnings(requestedIDs: selectedCollegeIDs, resolvedIDs: resolvedSelectedIDs),
-            recommendationWarnings: resolvedSource == .automatic ? recommendationWarnings(profile: profile, recommendedResults: schoolResults) : [],
-            t10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 10 }),
-            t30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 30 }),
-            t50AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.rank <= 50 }),
+            selectionWarnings: selectionWarnings(profile: profile, requestedIDs: selectedCollegeIDs),
+            recommendationWarnings: automaticPortfolioWasGenerated ? recommendationWarnings(profile: profile, recommendedResults: schoolResults) : [],
+            t10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank <= 10 }),
+            t11T30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank > 10 && $0.college.rank <= 30 }),
+            t30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank <= 30 }),
+            t50AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank <= 50 }),
+            liberalArtsT10AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.category == .liberalArtsCollege && $0.college.rank <= 10 }),
+            liberalArtsT30AtLeastOne: atLeastOneProbability(schoolResults.filter { $0.college.category == .liberalArtsCollege && $0.college.rank <= 30 }),
             selectedAtLeastOne: atLeastOneProbability(schoolResults),
             profileScore: profileScore,
+            recommendationExpectedValueTotal: recommendationBestOfferExpectedValue(for: matchingRecommendationSteps),
             generatedAt: Date()
         )
+    }
+
+    private func recommendationSteps(_ steps: [RecommendationStep], match currentResults: [ChanceResult]) -> Bool {
+        let stepIDs = steps.map(\.result.college.id)
+        guard stepIDs.count == currentResults.count, Set(stepIDs).count == stepIDs.count else {
+            return false
+        }
+        let expectedOrders = steps.isEmpty ? [] : Array(1...steps.count)
+        guard steps.map(\.order) == expectedOrders else {
+            return false
+        }
+
+        let currentByID = Dictionary(uniqueKeysWithValues: currentResults.map { ($0.college.id, $0) })
+        guard Set(stepIDs) == Set(currentByID.keys) else {
+            return false
+        }
+
+        var validatedSteps: [RecommendationStep] = []
+        var tierCounts: [String: Int] = [:]
+
+        for step in steps {
+            guard let current = currentByID[step.result.college.id] else {
+                return false
+            }
+
+            guard approximatelyEqual(current.baseRate, step.result.baseRate),
+                  approximatelyEqual(current.adjustedProbability, step.result.adjustedProbability),
+                  current.confidence == step.result.confidence,
+                  current.bucket == step.result.bucket,
+                  current.gateResult.passed == step.result.gateResult.passed else {
+                return false
+            }
+
+            let expectedRankScore = recommendationRankScore(for: current.college)
+            let expectedConfidenceMultiplier = recommendationConfidenceMultiplier(for: current)
+            let expectedBaseExpectedValue = recommendationExpectedValue(for: current)
+            let tierName = correlationTierName(for: current.college)
+            let tierCount = tierCounts[tierName, default: 0]
+            let expectedSameTierDiscount = sameTierCorrelationDiscount(
+                for: tierName,
+                previousSelectionsInTier: tierCount
+            )
+
+            let stepWithoutMarginal = RecommendationStep(
+                order: step.order,
+                result: current,
+                rankScore: expectedRankScore,
+                confidenceMultiplier: expectedConfidenceMultiplier,
+                baseExpectedValue: expectedBaseExpectedValue,
+                sameTierDiscount: expectedSameTierDiscount,
+                marginalExpectedValue: 0
+            )
+            let expectedMarginalExpectedValue = recommendationBestOfferExpectedValue(for: validatedSteps + [stepWithoutMarginal]) -
+                recommendationBestOfferExpectedValue(for: validatedSteps)
+
+            guard approximatelyEqual(step.rankScore, expectedRankScore),
+                  approximatelyEqual(step.confidenceMultiplier, expectedConfidenceMultiplier),
+                  approximatelyEqual(step.baseExpectedValue, expectedBaseExpectedValue),
+                  approximatelyEqual(step.sameTierDiscount, expectedSameTierDiscount),
+                  approximatelyEqual(step.marginalExpectedValue, expectedMarginalExpectedValue) else {
+                return false
+            }
+
+            validatedSteps.append(RecommendationStep(
+                order: step.order,
+                result: current,
+                rankScore: expectedRankScore,
+                confidenceMultiplier: expectedConfidenceMultiplier,
+                baseExpectedValue: expectedBaseExpectedValue,
+                sameTierDiscount: expectedSameTierDiscount,
+                marginalExpectedValue: expectedMarginalExpectedValue
+            ))
+            tierCounts[tierName, default: 0] = tierCount + 1
+        }
+
+        return true
+    }
+
+    private func recommendationSteps(_ supplied: [RecommendationStep], matchRegenerated regenerated: [RecommendationStep]) -> Bool {
+        guard supplied.count == regenerated.count else {
+            return false
+        }
+
+        for (lhs, rhs) in zip(supplied, regenerated) {
+            guard lhs.order == rhs.order,
+                  lhs.result.college.id == rhs.result.college.id,
+                  approximatelyEqual(lhs.result.baseRate, rhs.result.baseRate),
+                  approximatelyEqual(lhs.result.adjustedProbability, rhs.result.adjustedProbability),
+                  lhs.result.confidence == rhs.result.confidence,
+                  lhs.result.bucket == rhs.result.bucket,
+                  lhs.result.gateResult.passed == rhs.result.gateResult.passed,
+                  approximatelyEqual(lhs.rankScore, rhs.rankScore),
+                  approximatelyEqual(lhs.confidenceMultiplier, rhs.confidenceMultiplier),
+                  approximatelyEqual(lhs.baseExpectedValue, rhs.baseExpectedValue),
+                  approximatelyEqual(lhs.sameTierDiscount, rhs.sameTierDiscount),
+                  approximatelyEqual(lhs.marginalExpectedValue, rhs.marginalExpectedValue) else {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func approximatelyEqual(_ lhs: Double, _ rhs: Double, tolerance: Double = 0.0000001) -> Bool {
+        abs(lhs - rhs) <= tolerance
     }
 
     func chance(for college: College, profile: StudentProfile, profileScore: Double? = nil) -> ChanceResult {
@@ -61,7 +242,7 @@ struct ChanceEngine {
         let baseFactor = ChanceFactor(
             label: "学校基础率",
             value: baseRate,
-            detail: "AdmissionSight \(college.latestAvailableClassYear) 届最新可用录取率。"
+            detail: "\(college.category.rawValue) 最新可用基础录取率；数据槽 \(college.latestAvailableClassYear)，来源备注：\(college.sourceNote)。"
         )
 
         guard gate.passed else {
@@ -78,7 +259,7 @@ struct ChanceEngine {
             )
         }
 
-        let schoolContext = highSchools.first(where: { $0.id == profile.highSchoolID }) ?? highSchools.last!
+        let schoolContext = highSchoolContext(for: profile)
         let internationalSignal = internationalSignal(for: college)
         let chinaSignal = chinaAdmissionSignal(for: college)
         let benchmark = academicBenchmark(for: college)
@@ -86,6 +267,7 @@ struct ChanceEngine {
         let readinessDelta = (score - 72) * 0.047
         let academicBenchmarkDelta = academicBenchmarkAdjustment(profile: profile, college: college, benchmark: benchmark)
         let highSchoolDelta = schoolContext.calibration
+        let topCohortDelta = topCohortAdjustment(profile: profile, schoolContext: schoolContext, college: college)
         let majorDelta = majorAdjustment(profile.major)
         let roundDelta = roundAdjustment(profile.round, college: college)
         let aidDelta = aidAdjustment(profile: profile, signal: internationalSignal)
@@ -97,7 +279,7 @@ struct ChanceEngine {
         let uncertaintyPenalty = (1 - college.dataQuality) * -0.12 + internationalDataPenalty + chinaDataPenalty + benchmarkDataPenalty + gate.confidenceImpact
 
         let logitPrior = logit(clamp(ordinaryPrior, min: 0.001, max: 0.72))
-        let adjustedLogit = logitPrior + readinessDelta + academicBenchmarkDelta + highSchoolDelta + majorDelta + roundDelta + aidDelta + internationalDelta + chinaAdmissionDelta + uncertaintyPenalty
+        let adjustedLogit = logitPrior + readinessDelta + academicBenchmarkDelta + highSchoolDelta + topCohortDelta + majorDelta + roundDelta + aidDelta + internationalDelta + chinaAdmissionDelta + uncertaintyPenalty
         let probability = clamp(logistic(adjustedLogit), min: 0.001, max: probabilityCap(for: college, profile: profile, chinaSignal: chinaSignal))
 
         let factors = [
@@ -106,6 +288,7 @@ struct ChanceEngine {
             ChanceFactor(label: "学生画像", value: readinessDelta, detail: readinessDetail(score: score, college: college)),
             ChanceFactor(label: "目标校学术匹配", value: academicBenchmarkDelta, detail: academicBenchmarkDetail(profile: profile, college: college, benchmark: benchmark)),
             ChanceFactor(label: "高中背景", value: highSchoolDelta, detail: highSchoolDetail(schoolContext)),
+            ChanceFactor(label: "顶尖高中强队列", value: topCohortDelta, detail: topCohortDetail(profile: profile, schoolContext: schoolContext, college: college)),
             ChanceFactor(label: "专业竞争", value: majorDelta, detail: "\(profile.major.rawValue) 的竞争强度修正。"),
             ChanceFactor(label: "申请身份", value: internationalDelta, detail: internationalDetail(profile: profile, signal: internationalSignal)),
             ChanceFactor(label: "中国录取信号", value: chinaAdmissionDelta, detail: chinaAdmissionDetail(profile: profile, signal: chinaSignal)),
@@ -212,7 +395,7 @@ struct ChanceEngine {
         let honors = band(profile.honors)
         let essay = band(profile.essay)
         let recs = band(profile.recommendations)
-        let school = highSchools.first(where: { $0.id == profile.highSchoolID }) ?? highSchools.last!
+        let school = highSchoolContext(for: profile)
         let schoolScore = Double(school.resources + school.counseling + school.top30TrackRecord + school.transparency) / 20 * 100
 
         let weights = studentScoreWeights(for: profile.major)
@@ -233,48 +416,509 @@ struct ChanceEngine {
         return clamp(total, min: 0, max: 100)
     }
 
-    func recommendedColleges(for profile: StudentProfile, reachCount: Int, targetCount: Int, likelyCount: Int) -> [College] {
+    func recommendedColleges(for profile: StudentProfile, count: Int) -> [College] {
+        let requested = max(0, count)
+        guard requested > 0 else {
+            return []
+        }
+
+        return recommendationSteps(for: profile, count: requested).map(\.result.college)
+    }
+
+    func recommendationSteps(for profile: StudentProfile, count: Int) -> [RecommendationStep] {
+        let requested = max(0, count)
+        guard requested > 0 else {
+            return []
+        }
+
         let eligible = colleges
+            .filter { isSelectable($0, for: profile) }
             .map { chance(for: $0, profile: profile) }
             .filter { $0.gateResult.passed }
 
-        let reach = eligible
-            .filter { $0.bucket == .reach }
-            .sorted { lhs, rhs in
-                lhs.adjustedProbability == rhs.adjustedProbability
-                    ? lhs.college.rank < rhs.college.rank
-                    : lhs.adjustedProbability > rhs.adjustedProbability
+        return recommendationSteps(for: eligible, count: requested)
+    }
+
+    func recommendationSteps(for eligibleResults: [ChanceResult], count: Int) -> [RecommendationStep] {
+        let requested = max(0, count)
+        guard requested > 0 else {
+            return []
+        }
+
+        let eligible = eligibleResults.filter { $0.gateResult.passed }
+        if let exact = exactRecommendationSteps(from: eligible, count: requested) {
+            return exact
+        }
+        let initial = greedyRecommendationSteps(from: eligible, count: requested)
+        return locallyOptimizedRecommendationSteps(from: eligible, initial: initial)
+    }
+
+    private func exactRecommendationSteps(from eligible: [ChanceResult], count: Int) -> [RecommendationStep]? {
+        let requested = min(max(0, count), eligible.count)
+        guard requested > 0 else {
+            return []
+        }
+        guard requested <= Self.exactRecommendationRequestedLimit else {
+            return nil
+        }
+        guard combinationCount(eligible.count, choose: requested, limit: Self.exactRecommendationCombinationLimit) != nil else {
+            return nil
+        }
+
+        let sortedEligible = eligible.sorted { lhs, rhs in
+            let lhsValue = recommendationExpectedValue(for: lhs)
+            let rhsValue = recommendationExpectedValue(for: rhs)
+            if lhsValue == rhsValue {
+                if lhs.college.rank == rhs.college.rank {
+                    return lhs.college.name < rhs.college.name
+                }
+                return lhs.college.rank < rhs.college.rank
             }
-        let target = eligible
-            .filter { $0.bucket == .target }
-            .sorted { lhs, rhs in
-                let lhsBalance = abs(lhs.adjustedProbability - 0.24)
-                let rhsBalance = abs(rhs.adjustedProbability - 0.24)
-                return lhsBalance == rhsBalance ? lhs.college.rank < rhs.college.rank : lhsBalance < rhsBalance
-            }
-        let likely = eligible
-            .filter { $0.bucket == .likely }
-            .sorted { lhs, rhs in
-                lhs.adjustedProbability == rhs.adjustedProbability
-                    ? lhs.college.rank < rhs.college.rank
-                    : lhs.adjustedProbability > rhs.adjustedProbability
+            return lhsValue > rhsValue
+        }
+
+        var bestSteps: [RecommendationStep] = []
+        var bestValue = -Double.infinity
+        var current: [ChanceResult] = []
+
+        func search(startIndex: Int) {
+            if current.count == requested {
+                let steps = bestOrderingCandidateSteps(
+                    from: current,
+                    includeMarginalValues: true,
+                    includeMarginalOrder: true
+                )
+                let value = recommendationBestOfferExpectedValue(for: steps)
+                if value > bestValue + 0.0001 {
+                    bestSteps = steps
+                    bestValue = value
+                }
+                return
             }
 
-        var picked: [College] = []
-        picked.append(contentsOf: likely.prefix(max(0, likelyCount)).map(\.college))
-        picked.append(contentsOf: target.prefix(max(0, targetCount)).map(\.college))
-        picked.append(contentsOf: reach.prefix(max(0, reachCount)).map(\.college))
+            let remainingSlots = requested - current.count
+            guard sortedEligible.count - startIndex >= remainingSlots else {
+                return
+            }
 
-        return picked
+            let lastStart = sortedEligible.count - remainingSlots
+            guard startIndex <= lastStart else {
+                return
+            }
+
+            for index in startIndex...lastStart {
+                current.append(sortedEligible[index])
+                search(startIndex: index + 1)
+                current.removeLast()
+            }
+        }
+
+        search(startIndex: 0)
+        return bestSteps
+    }
+
+    private func combinationCount(_ n: Int, choose k: Int, limit: Int) -> Int? {
+        guard k >= 0, k <= n else {
+            return nil
+        }
+        let k = min(k, n - k)
+        guard k > 0 else {
+            return 1
+        }
+
+        var result = 1
+        for divisor in 1...k {
+            let multiplier = n - k + divisor
+            result = result * multiplier / divisor
+            if result > limit {
+                return nil
+            }
+        }
+        return result
+    }
+
+    private func greedyRecommendationSteps(from eligible: [ChanceResult], count: Int) -> [RecommendationStep] {
+        var steps: [RecommendationStep] = []
+        var pickedIDs = Set<String>()
+
+        while steps.count < count {
+            let remaining = recommendationCandidateWindow(
+                from: eligible,
+                excluding: pickedIDs,
+                primaryLimit: Self.recommendationGreedyCandidateLimit
+            )
+            let currentExpectedValue = recommendationBestOfferExpectedValue(for: steps)
+            guard let next = remaining.max(by: { lhs, rhs in
+                let lhsValue = marginalRecommendationExpectedValue(
+                    for: lhs,
+                    selectedSteps: steps,
+                    currentExpectedValue: currentExpectedValue
+                )
+                let rhsValue = marginalRecommendationExpectedValue(
+                    for: rhs,
+                    selectedSteps: steps,
+                    currentExpectedValue: currentExpectedValue
+                )
+                if lhsValue == rhsValue {
+                    if lhs.college.rank == rhs.college.rank {
+                        return lhs.college.name > rhs.college.name
+                    }
+                    return lhs.college.rank > rhs.college.rank
+                }
+                return lhsValue < rhsValue
+            }) else {
+                break
+            }
+
+            let rankScore = recommendationRankScore(for: next.college)
+            let baseExpectedValue = recommendationExpectedValue(for: next)
+            let confidenceMultiplier = recommendationConfidenceMultiplier(for: next)
+            let tierName = correlationTierName(for: next.college)
+            let tierCount = steps.filter { correlationTierName(for: $0.result.college) == tierName }.count
+            let discount = sameTierCorrelationDiscount(for: tierName, previousSelectionsInTier: tierCount)
+            let marginalExpectedValue = marginalRecommendationExpectedValue(
+                for: next,
+                selectedSteps: steps,
+                currentExpectedValue: currentExpectedValue
+            )
+            steps.append(RecommendationStep(
+                order: steps.count + 1,
+                result: next,
+                rankScore: rankScore,
+                confidenceMultiplier: confidenceMultiplier,
+                baseExpectedValue: baseExpectedValue,
+                sameTierDiscount: discount,
+                marginalExpectedValue: marginalExpectedValue
+            ))
+            pickedIDs.insert(next.college.id)
+        }
+        return steps
+    }
+
+    private func locallyOptimizedRecommendationSteps(from eligible: [ChanceResult], initial: [RecommendationStep]) -> [RecommendationStep] {
+        guard initial.count > 1, initial.count < eligible.count else {
+            return bestOrderedRecommendationSteps(initial)
+        }
+
+        var bestSteps = initial
+        var bestValue = recommendationBestOfferExpectedValue(for: bestSteps)
+
+        var replacementPasses = 0
+        while replacementPasses < Self.recommendationReplacementPassLimit {
+            let selectedResults = bestSteps.map(\.result)
+            let selectedIDs = Set(selectedResults.map { $0.college.id })
+            let removalIndices = bestSteps
+                .enumerated()
+                .sorted { lhs, rhs in
+                    if lhs.element.marginalExpectedValue == rhs.element.marginalExpectedValue {
+                        let lhsValue = recommendationReplacementPrefilterValue(for: lhs.element.result)
+                        let rhsValue = recommendationReplacementPrefilterValue(for: rhs.element.result)
+                        if lhsValue == rhsValue {
+                            return lhs.element.result.college.rank > rhs.element.result.college.rank
+                        }
+                        return lhsValue < rhsValue
+                    }
+                    return lhs.element.marginalExpectedValue < rhs.element.marginalExpectedValue
+                }
+                .prefix(Self.recommendationReplacementRemovalLimit)
+                .map(\.offset)
+            let candidateResults = recommendationCandidateWindow(
+                from: eligible,
+                excluding: selectedIDs,
+                primaryLimit: Self.recommendationReplacementCandidateLimit
+            )
+
+            var nextBestSteps = bestSteps
+            var nextBestValue = bestValue
+            for removedIndex in removalIndices {
+                for candidate in candidateResults {
+                    var trialResults = selectedResults
+                    trialResults[removedIndex] = candidate
+                    let trialSteps = bestOrderingCandidateSteps(
+                        from: trialResults,
+                        includeMarginalValues: false,
+                        includeMarginalOrder: false
+                    )
+                    let trialValue = recommendationBestOfferExpectedValue(for: trialSteps)
+                    if trialValue > nextBestValue + 0.0001 {
+                        nextBestSteps = bestOrderingCandidateSteps(
+                            from: trialResults,
+                            includeMarginalValues: true,
+                            includeMarginalOrder: false
+                        )
+                        nextBestValue = trialValue
+                    }
+                }
+            }
+
+            if nextBestValue > bestValue + 0.0001 {
+                bestSteps = nextBestSteps
+                bestValue = nextBestValue
+                replacementPasses += 1
+                continue
+            }
+
+            break
+        }
+
+        return bestOrderedRecommendationSteps(bestSteps)
+    }
+
+    private func recommendationCandidateWindow(
+        from eligible: [ChanceResult],
+        excluding excludedIDs: Set<String>,
+        primaryLimit: Int
+    ) -> [ChanceResult] {
+        let remaining = eligible.filter { !excludedIDs.contains($0.college.id) }
+        guard !remaining.isEmpty else {
+            return []
+        }
+
+        var seenIDs = Set<String>()
+        var candidates: [ChanceResult] = []
+        func appendUnique<S: Sequence>(_ sequence: S) where S.Element == ChanceResult {
+            for result in sequence where !seenIDs.contains(result.college.id) {
+                candidates.append(result)
+                seenIDs.insert(result.college.id)
+            }
+        }
+
+        appendUnique(recommendationPrefilterSorted(remaining).prefix(primaryLimit))
+        appendUnique(recommendationRankPrioritySorted(remaining).prefix(Self.recommendationRankPriorityCandidateLimit))
+        appendUnique(recommendationProbabilitySorted(remaining).prefix(Self.recommendationProbabilityCandidateLimit))
+        return candidates
+    }
+
+    private func recommendationPrefilterSorted(_ results: [ChanceResult]) -> [ChanceResult] {
+        results.sorted { lhs, rhs in
+            let lhsValue = recommendationReplacementPrefilterValue(for: lhs)
+            let rhsValue = recommendationReplacementPrefilterValue(for: rhs)
+            if approximatelyEqual(lhsValue, rhsValue) {
+                if lhs.college.rank == rhs.college.rank {
+                    return lhs.college.name < rhs.college.name
+                }
+                return lhs.college.rank < rhs.college.rank
+            }
+            return lhsValue > rhsValue
+        }
+    }
+
+    private func recommendationRankPrioritySorted(_ results: [ChanceResult]) -> [ChanceResult] {
+        results.sorted { lhs, rhs in
+            let lhsRankScore = recommendationRankScore(for: lhs.college)
+            let rhsRankScore = recommendationRankScore(for: rhs.college)
+            if approximatelyEqual(lhsRankScore, rhsRankScore) {
+                let lhsValue = recommendationReplacementPrefilterValue(for: lhs)
+                let rhsValue = recommendationReplacementPrefilterValue(for: rhs)
+                if approximatelyEqual(lhsValue, rhsValue) {
+                    if lhs.college.rank == rhs.college.rank {
+                        return lhs.college.name < rhs.college.name
+                    }
+                    return lhs.college.rank < rhs.college.rank
+                }
+                return lhsValue > rhsValue
+            }
+            return lhsRankScore > rhsRankScore
+        }
+    }
+
+    private func recommendationProbabilitySorted(_ results: [ChanceResult]) -> [ChanceResult] {
+        results.sorted { lhs, rhs in
+            if approximatelyEqual(lhs.adjustedProbability, rhs.adjustedProbability) {
+                let lhsValue = recommendationReplacementPrefilterValue(for: lhs)
+                let rhsValue = recommendationReplacementPrefilterValue(for: rhs)
+                if approximatelyEqual(lhsValue, rhsValue) {
+                    if lhs.college.rank == rhs.college.rank {
+                        return lhs.college.name < rhs.college.name
+                    }
+                    return lhs.college.rank < rhs.college.rank
+                }
+                return lhsValue > rhsValue
+            }
+            return lhs.adjustedProbability > rhs.adjustedProbability
+        }
+    }
+
+    private func bestOrderedRecommendationSteps(_ steps: [RecommendationStep]) -> [RecommendationStep] {
+        guard steps.count > 1 else {
+            return steps
+        }
+
+        let marginalOrder = greedyRecommendationSteps(from: steps.map(\.result), count: steps.count)
+        let rankValueOrder = rankValuePriorityRecommendationSteps(from: steps.map(\.result), includeMarginalValues: true)
+
+        let stepsValue = recommendationBestOfferExpectedValue(for: steps)
+        let marginalOrderValue = recommendationBestOfferExpectedValue(for: marginalOrder)
+        let currentBest = stepsValue > marginalOrderValue + 0.0001 ? steps : marginalOrder
+        let currentBestValue = max(stepsValue, marginalOrderValue)
+        let rankValueOrderValue = recommendationBestOfferExpectedValue(for: rankValueOrder)
+
+        return rankValueOrderValue > currentBestValue + 0.0001 ? rankValueOrder : currentBest
+    }
+
+    private func bestOrderingCandidateSteps(from results: [ChanceResult], includeMarginalValues: Bool, includeMarginalOrder: Bool) -> [RecommendationStep] {
+        let currentOrder = recommendationStepsInCurrentOrder(from: results, includeMarginalValues: false)
+        let rankValueOrder = rankValuePriorityRecommendationSteps(from: results, includeMarginalValues: false)
+        var chosenOrder = recommendationBestOfferExpectedValue(for: rankValueOrder) > recommendationBestOfferExpectedValue(for: currentOrder) + 0.0001
+            ? rankValueOrder
+            : currentOrder
+
+        if includeMarginalOrder {
+            let marginalOrder = greedyRecommendationSteps(from: results, count: results.count)
+            if recommendationBestOfferExpectedValue(for: marginalOrder) > recommendationBestOfferExpectedValue(for: chosenOrder) + 0.0001 {
+                chosenOrder = marginalOrder
+            }
+        }
+
+        let chosenResults = chosenOrder.map(\.result)
+        return recommendationStepsInCurrentOrder(from: chosenResults, includeMarginalValues: includeMarginalValues)
+    }
+
+    private func rankValuePriorityRecommendationSteps(from results: [ChanceResult], includeMarginalValues: Bool) -> [RecommendationStep] {
+        let ordered = results.sorted { lhs, rhs in
+            let lhsRankScore = recommendationRankScore(for: lhs.college)
+            let rhsRankScore = recommendationRankScore(for: rhs.college)
+            if approximatelyEqual(lhsRankScore, rhsRankScore) {
+                if approximatelyEqual(lhs.adjustedProbability, rhs.adjustedProbability) {
+                    if lhs.college.rank == rhs.college.rank {
+                        return lhs.college.name < rhs.college.name
+                    }
+                    return lhs.college.rank < rhs.college.rank
+                }
+                return lhs.adjustedProbability > rhs.adjustedProbability
+            }
+            return lhsRankScore > rhsRankScore
+        }
+        return recommendationStepsInCurrentOrder(from: ordered, includeMarginalValues: includeMarginalValues)
+    }
+
+    private func recommendationStepsInCurrentOrder(from orderedResults: [ChanceResult], includeMarginalValues: Bool) -> [RecommendationStep] {
+        var steps: [RecommendationStep] = []
+        var tierCounts: [String: Int] = [:]
+
+        for result in orderedResults {
+            let tierName = correlationTierName(for: result.college)
+            let tierCount = tierCounts[tierName, default: 0]
+            let stepWithoutMarginal = RecommendationStep(
+                order: steps.count + 1,
+                result: result,
+                rankScore: recommendationRankScore(for: result.college),
+                confidenceMultiplier: recommendationConfidenceMultiplier(for: result),
+                baseExpectedValue: recommendationExpectedValue(for: result),
+                sameTierDiscount: sameTierCorrelationDiscount(for: tierName, previousSelectionsInTier: tierCount),
+                marginalExpectedValue: 0
+            )
+            let marginalExpectedValue = includeMarginalValues
+                ? recommendationBestOfferExpectedValue(for: steps + [stepWithoutMarginal]) - recommendationBestOfferExpectedValue(for: steps)
+                : 0
+            steps.append(RecommendationStep(
+                order: stepWithoutMarginal.order,
+                result: result,
+                rankScore: stepWithoutMarginal.rankScore,
+                confidenceMultiplier: stepWithoutMarginal.confidenceMultiplier,
+                baseExpectedValue: stepWithoutMarginal.baseExpectedValue,
+                sameTierDiscount: stepWithoutMarginal.sameTierDiscount,
+                marginalExpectedValue: marginalExpectedValue
+            ))
+            tierCounts[tierName, default: 0] = tierCount + 1
+        }
+
+        return steps
+    }
+
+    func recommendationRankScore(for college: College) -> Double {
+        switch college.category {
+        case .liberalArtsCollege:
+            return liberalArtsRecommendationRankScore(for: college.rank)
+        case .nationalUniversity:
+            return nationalUniversityRecommendationRankScore(for: college.rank)
+        }
+    }
+
+    private func nationalUniversityRecommendationRankScore(for rank: Int) -> Double {
+        switch rank {
+        case ...1:
+            return 100
+        case 2...10:
+            return interpolateRankScore(rank: rank, lowerRank: 1, upperRank: 10, lowerScore: 100, upperScore: 90)
+        case 11...20:
+            return interpolateRankScore(rank: rank, lowerRank: 10, upperRank: 20, lowerScore: 90, upperScore: 78)
+        case 21...30:
+            return interpolateRankScore(rank: rank, lowerRank: 20, upperRank: 30, lowerScore: 78, upperScore: 68)
+        case 31...50:
+            return interpolateRankScore(rank: rank, lowerRank: 30, upperRank: 50, lowerScore: 68, upperScore: 50)
+        default:
+            return clamp(50 - Double(rank - 50) * 0.45, min: 40, max: 50)
+        }
+    }
+
+    private func liberalArtsRecommendationRankScore(for rank: Int) -> Double {
+        switch rank {
+        case ...1:
+            return 78
+        case 2...10:
+            return interpolateRankScore(rank: rank, lowerRank: 1, upperRank: 10, lowerScore: 78, upperScore: 68)
+        case 11...20:
+            return interpolateRankScore(rank: rank, lowerRank: 10, upperRank: 20, lowerScore: 68, upperScore: 58)
+        case 21...30:
+            return interpolateRankScore(rank: rank, lowerRank: 20, upperRank: 30, lowerScore: 58, upperScore: 50)
+        default:
+            return clamp(50 - Double(rank - 30) * 0.35, min: 40, max: 50)
+        }
+    }
+
+    func recommendationExpectedValue(for result: ChanceResult) -> Double {
+        result.adjustedProbability * recommendationRankScore(for: result.college)
+    }
+
+    private func recommendationReplacementPrefilterValue(for result: ChanceResult) -> Double {
+        recommendationExpectedValue(for: result) * recommendationConfidenceMultiplier(for: result)
+    }
+
+    func recommendationConfidenceMultiplier(for result: ChanceResult) -> Double {
+        switch result.confidence {
+        case .high:
+            return 1.00
+        case .medium:
+            return 0.94
+        case .low:
+            return 0.85
+        }
+    }
+
+    func recommendationBestOfferExpectedValue(for steps: [RecommendationStep]) -> Double {
+        var failureOfHigherValueOffers = 1.0
+        var expectedValue = 0.0
+        let sorted = steps.sorted {
+            if $0.rankScore == $1.rankScore {
+                if $0.result.adjustedProbability == $1.result.adjustedProbability {
+                    return $0.result.college.rank < $1.result.college.rank
+                }
+                return $0.result.adjustedProbability > $1.result.adjustedProbability
+            }
+            return $0.rankScore > $1.rankScore
+        }
+
+        for step in sorted {
+            let reliabilityAdjustedProbability = clamp(
+                step.result.adjustedProbability * step.sameTierDiscount * step.confidenceMultiplier,
+                min: 0,
+                max: 0.98
+            )
+            expectedValue += failureOfHigherValueOffers * reliabilityAdjustedProbability * step.rankScore
+            failureOfHigherValueOffers *= (1 - reliabilityAdjustedProbability)
+        }
+        return expectedValue
     }
 
     func atLeastOneProbability(_ results: [ChanceResult]) -> Double {
-        let grouped = Dictionary(grouping: results.filter { $0.adjustedProbability > 0 }) { $0.college.tierName }
+        let grouped = Dictionary(grouping: results.filter { $0.adjustedProbability > 0 }) { correlationTierName(for: $0.college) }
         var failure = 1.0
-        for probabilities in grouped.values {
+        for (tierName, probabilities) in grouped {
+            let decay = sameTierCorrelationDecay(for: tierName)
             let sorted = probabilities.map(\.adjustedProbability).sorted(by: >)
             for (index, probability) in sorted.enumerated() {
-                let effective = probability * pow(0.72, Double(index))
+                let effective = probability * pow(decay, Double(index))
                 failure *= (1 - effective)
             }
         }
@@ -290,27 +934,107 @@ struct ChanceEngine {
         )
     }
 
-    private func selectionWarnings(requestedIDs: Set<String>, resolvedIDs: Set<String>) -> [String] {
-        let unknownCount = requestedIDs.subtracting(resolvedIDs).count
+    private func selectionWarnings(profile: StudentProfile, requestedIDs: Set<String>) -> [String] {
+        let requestedKnownColleges = colleges.filter { requestedIDs.contains($0.id) }
+        let excludedLiberalArtsCount = requestedKnownColleges.filter { !isSelectable($0, for: profile) }.count
+        let knownIDs = Set(requestedKnownColleges.map(\.id))
+        let unknownCount = requestedIDs.subtracting(knownIDs).count
+        var items: [String] = []
         guard unknownCount > 0 else {
-            return []
+            if excludedLiberalArtsCount > 0 {
+                items.append("已关闭文理学院选项，\(excludedLiberalArtsCount) 所文理学院已从概率计算和至少一所概率中排除。")
+            }
+            return items
         }
-        return ["选校列表包含 \(unknownCount) 个不在 AdmissionSight v1 数据集内的学校，已从概率计算中排除。"]
+        items.append("选校列表包含 \(unknownCount) 个不在已审核 v1 数据集内的学校，已从概率计算中排除。")
+        if excludedLiberalArtsCount > 0 {
+            items.append("已关闭文理学院选项，\(excludedLiberalArtsCount) 所文理学院已从概率计算和至少一所概率中排除。")
+        }
+        return items
     }
 
     private func recommendationWarnings(profile: StudentProfile, recommendedResults: [ChanceResult]) -> [String] {
-        let counts = bucketCounts(for: recommendedResults)
         var items: [String] = []
-        if counts.likely < profile.requestedLikelyCount {
-            items.append("保底档可推荐学校不足：请求 \(profile.requestedLikelyCount) 所，当前找到 \(counts.likely) 所。")
-        }
-        if counts.target < profile.requestedTargetCount {
-            items.append("目标档可推荐学校不足：请求 \(profile.requestedTargetCount) 所，当前找到 \(counts.target) 所。")
-        }
-        if counts.reach < profile.requestedReachCount {
-            items.append("争取档可推荐学校不足：请求 \(profile.requestedReachCount) 所，当前找到 \(counts.reach) 所。")
+        if recommendedResults.count < profile.requestedSchoolCount {
+            items.append("自动推荐数量不足：计划 \(profile.requestedSchoolCount) 所，当前生成 \(recommendedResults.count) 所。")
         }
         return items
+    }
+
+    private func marginalRecommendationExpectedValue(for result: ChanceResult, selectedSteps: [RecommendationStep]) -> Double {
+        marginalRecommendationExpectedValue(
+            for: result,
+            selectedSteps: selectedSteps,
+            currentExpectedValue: recommendationBestOfferExpectedValue(for: selectedSteps)
+        )
+    }
+
+    private func marginalRecommendationExpectedValue(
+        for result: ChanceResult,
+        selectedSteps: [RecommendationStep],
+        currentExpectedValue: Double
+    ) -> Double {
+        let tierName = correlationTierName(for: result.college)
+        let tierCount = selectedSteps.filter { correlationTierName(for: $0.result.college) == tierName }.count
+        let correlationDiscount = sameTierCorrelationDiscount(for: tierName, previousSelectionsInTier: tierCount)
+        let tentativeStep = RecommendationStep(
+            order: selectedSteps.count + 1,
+            result: result,
+            rankScore: recommendationRankScore(for: result.college),
+            confidenceMultiplier: recommendationConfidenceMultiplier(for: result),
+            baseExpectedValue: recommendationExpectedValue(for: result),
+            sameTierDiscount: correlationDiscount,
+            marginalExpectedValue: 0
+        )
+        return recommendationBestOfferExpectedValue(for: selectedSteps + [tentativeStep]) - currentExpectedValue
+    }
+
+    private func interpolateRankScore(rank: Int, lowerRank: Int, upperRank: Int, lowerScore: Double, upperScore: Double) -> Double {
+        let span = Double(upperRank - lowerRank)
+        guard span > 0 else {
+            return lowerScore
+        }
+        let progress = Double(rank - lowerRank) / span
+        return clamp(lowerScore + (upperScore - lowerScore) * progress, min: min(lowerScore, upperScore), max: max(lowerScore, upperScore))
+    }
+
+    private func sameTierCorrelationDecay(for tierName: String) -> Double {
+        if tierName.contains("T10") {
+            return 0.78
+        }
+        if tierName.contains("T30") {
+            return tierName.contains(CollegeCategory.liberalArtsCollege.rawValue) ? 0.90 : 0.93
+        }
+        if tierName.contains("T50") {
+            return 0.90
+        }
+        return 0.94
+    }
+
+    private func correlationTierName(for college: College) -> String {
+        if college.rank <= 10 {
+            return "T10"
+        }
+        return college.tierName
+    }
+
+    private func sameTierCorrelationDiscount(for tierName: String, previousSelectionsInTier: Int) -> Double {
+        pow(sameTierCorrelationDecay(for: tierName), Double(previousSelectionsInTier))
+    }
+
+    private func selectableColleges(for profile: StudentProfile) -> [College] {
+        colleges.filter { isSelectable($0, for: profile) }
+    }
+
+    private func isSelectable(_ college: College, for profile: StudentProfile) -> Bool {
+        profile.includeLiberalArtsColleges || college.category != .liberalArtsCollege
+    }
+
+    private func highSchoolContext(for profile: StudentProfile) -> HighSchoolContext {
+        highSchools.first { $0.id == profile.highSchoolID } ??
+            highSchools.first { $0.id == "unknown" } ??
+            highSchools.last ??
+            Self.conservativeHighSchoolFallback
     }
 
     private func warnings(for college: College, profile: StudentProfile, gate: GateResult, internationalSignal: InternationalSignal, chinaSignal: ChinaUndergradAdmissionSignal, benchmark: AcademicBenchmark) -> [String] {
@@ -390,6 +1114,8 @@ struct ChanceEngine {
             return ["AP 体系课程门数为 0，AP 平均分未作为课程体系成绩证据使用。"]
         case .alevel where profile.aLevelAStarCount + profile.aLevelACount + profile.aLevelBCount == 0:
             return ["A-Level 科目数为 0，课程体系成绩按缺少科目证据保守处理。"]
+        case .alevel where profile.aLevelSubjectCount > StudentProfile.maximumALevelSubjectCount:
+            return ["A-Level A*/A/B 科目合计超过 \(StudentProfile.maximumALevelSubjectCount) 门，课程体系成绩已按 A*、A、B 顺序截断至最多 \(StudentProfile.maximumALevelSubjectCount) 门。"]
         default:
             return []
         }
@@ -558,6 +1284,62 @@ struct ChanceEngine {
         }
     }
 
+    private func topCohortAdjustment(profile: StudentProfile, schoolContext: HighSchoolContext, college: College) -> Double {
+        guard college.category == .nationalUniversity else {
+            return 0
+        }
+        guard profile.applicantStatus.usesChinaProxy else {
+            return 0
+        }
+        let scale = eliteHighSchoolCohortScale(profile: profile, schoolContext: schoolContext)
+        guard scale > 0 else {
+            return 0
+        }
+
+        let base: Double
+        switch college.rank {
+        case ...10:
+            base = 0.05
+        case 11...20:
+            base = 1.00
+        case 21...30:
+            base = 1.08
+        case 31...50:
+            base = 0.72
+        default:
+            base = 0.24
+        }
+        return base * scale
+    }
+
+    private func topCohortDetail(profile: StudentProfile, schoolContext: HighSchoolContext, college: College) -> String {
+        let scale = eliteHighSchoolCohortScale(profile: profile, schoolContext: schoolContext)
+        guard college.category == .nationalUniversity, profile.applicantStatus.usesChinaProxy, scale > 0 else {
+            return "未触发：只对中国籍国际生的一流高中强队列做保守校准。"
+        }
+
+        return "\(schoolContext.name) 属于一流国际学校代理样本，申请者校内排名前\(String(format: "%.0f", profile.classRankPercentile))%；对 \(college.tierDisplayName) 使用强队列校准，但仍受硬门槛、专业、资助和数据置信度约束。"
+    }
+
+    private func eliteHighSchoolCohortScale(profile: StudentProfile, schoolContext: HighSchoolContext) -> Double {
+        guard schoolContext.admitRankingBand == 1 else {
+            return 0
+        }
+
+        switch profile.classRankPercentile {
+        case ...5:
+            return 1.0
+        case ...10:
+            return 0.9
+        case ...15:
+            return 0.55
+        case ...20:
+            return 0.3
+        default:
+            return 0
+        }
+    }
+
     private func studentScoreWeights(for major: MajorCategory) -> StudentScoreWeights {
         if major == .arts {
             return StudentScoreWeights(
@@ -698,8 +1480,9 @@ struct ChanceEngine {
                 points: [(24, 36), (28, 46), (30, 55), (34, 68), (38, 82), (42, 94), (45, 100)]
             )
         case .alevel:
-            let courseCount = profile.aLevelAStarCount + profile.aLevelACount + profile.aLevelBCount
-            let raw = Double(profile.aLevelAStarCount) * 32 + Double(profile.aLevelACount) * 24 + Double(profile.aLevelBCount) * 14
+            let capped = profile.cappedALevelGradeCounts
+            let courseCount = capped.aStar + capped.a + capped.b
+            let raw = Double(capped.aStar) * 32 + Double(capped.a) * 24 + Double(capped.b) * 14
             let coursePenalty = max(0, 3 - courseCount) * 12
             return clamp(raw - Double(coursePenalty), min: 0, max: 100)
         }
@@ -942,7 +1725,33 @@ struct ChanceEngine {
             capacityCap = college.rank <= 20 ? 0.080 : 0.180
         }
 
-        return min(0.82, capacityCap)
+        return min(0.82, capacityCap + eliteHighSchoolCapacityLift(profile: profile, college: college))
+    }
+
+    private func eliteHighSchoolCapacityLift(profile: StudentProfile, college: College) -> Double {
+        guard college.category == .nationalUniversity else {
+            return 0
+        }
+        let schoolContext = highSchoolContext(for: profile)
+        let scale = eliteHighSchoolCohortScale(profile: profile, schoolContext: schoolContext)
+        guard scale > 0 else {
+            return 0
+        }
+
+        let lift: Double
+        switch college.rank {
+        case ...10:
+            lift = 0
+        case 11...20:
+            lift = 0.34
+        case 21...30:
+            lift = 0.38
+        case 31...50:
+            lift = 0.32
+        default:
+            lift = 0.16
+        }
+        return lift * scale
     }
 
     private func chinaCapacityCount(for signal: ChinaUndergradAdmissionSignal, college: College, round: ApplicationRound) -> Int? {

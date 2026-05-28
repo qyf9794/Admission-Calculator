@@ -1,15 +1,78 @@
 {
-  "data_version": "2026.05.admissionsight-seed.v1",
-  "generated_at": "2026-05-27",
+  "data_version": "2026.05.usnews-t50-official-supplement.v1",
+  "generated_at": "2026-05-28",
   "sources": [
     {
       "id": "admissionsight_acceptance_rates",
       "name": "AdmissionSight College Acceptance Rates",
       "url": "https://admissionsight.com/college-acceptance-rates/",
-      "role": "Only v1 college statistics seed: school list, national university rank, class-year acceptance rates.",
+      "role": "V1 national-university statistics seed for rows covered by AdmissionSight: national university rank and class-year acceptance rates.",
       "refresh_mode": "Manual scrape / reviewed CSV",
       "confidence": "medium",
       "note": "If a class-year rate is blank, the app uses the latest non-empty value and lowers data quality."
+    },
+    {
+      "id": "usnews_2026_t50_user_image",
+      "name": "User-provided 2026 U.S. News Top 100 National Universities image",
+      "url": "https://github.com/qyf9794/Admission-Calculator/blob/main/data/admissionsight_colleges.csv",
+      "role": "List and rank supplement used only to complete National Universities through rank 50 from IMG_0749.JPG.",
+      "refresh_mode": "User-provided image extraction with manual review",
+      "confidence": "proxy",
+      "note": "The image supplies rank/list scope only. Base acceptance rates for added rows must come from official College Scorecard or IPEDS sources and must not be copied from the image."
+    },
+    {
+      "id": "college_scorecard_national_university_supplement",
+      "name": "U.S. Department of Education College Scorecard",
+      "url": "https://collegescorecard.ed.gov/data/api/",
+      "role": "Official source for supplemental National University T50 base rates and available undergraduate nonresident share or SAT/ACT fields using exact UNITID school pages.",
+      "refresh_mode": "Manual API review with exact UNITID URLs; rerun source validation after edits.",
+      "confidence": "high",
+      "note": "Added T50 rows absent from the AdmissionSight National Universities table use official Scorecard school URLs when Scorecard provided admission-rate and benchmark fields."
+    },
+    {
+      "id": "ipeds_national_university_supplement",
+      "name": "Official school-published IPEDS submissions",
+      "url": "https://nces.ed.gov/ipeds/use-the-data",
+      "role": "Official alternate source for supplemental National University T50 base rates and undergraduate enrollment proxy fields when Scorecard API data is unavailable.",
+      "refresh_mode": "Manual review of official school-hosted IPEDS PDFs or NCES/IPEDS pages.",
+      "confidence": "high",
+      "note": "Ohio State and Georgia supplemental rows use official IPEDS admissions submissions or IPEDS data feedback reports hosted by the institutions."
+    },
+    {
+      "id": "liberal_arts_top30_user_table",
+      "name": "Reviewed Top30 Liberal Arts Colleges table",
+      "url": "https://github.com/qyf9794/Admission-Calculator/blob/main/data/liberal_arts_colleges.csv",
+      "role": "V1 liberal-arts-college list and rank seed: Top30 LAC list and ranks extracted from user-provided IMG_0742.JPG; base acceptance rates are replaced by official Scorecard rows when reviewed UnitID matches are available.",
+      "refresh_mode": "User-provided table extraction with manual review",
+      "confidence": "proxy",
+      "note": "Used for the LAC list/rank scope. The original image overall rates are retained only as a reviewed fallback/reference; current checked-in LAC base rates have been replaced by official College Scorecard values. International rates shown in the image lack admitted-count denominators and are not used as international_admit_coefficient."
+    },
+    {
+      "id": "college_scorecard_lac_rate_review",
+      "name": "U.S. Department of Education College Scorecard",
+      "url": "https://collegescorecard.ed.gov/data/api/",
+      "role": "Official source for Top30 Liberal Arts College base-rate replacement using latest.admissions.admission_rate.overall or ADM_RATE from Scorecard institution data.",
+      "refresh_mode": "Run npm run data:scorecard:lac with a data.gov key or official downloaded Most-Recent-Cohorts-Institution.csv/zip from https://collegescorecard.ed.gov/data/; dry-run and manual review required before applying.",
+      "confidence": "high",
+      "note": "On 2026-05-28, College Scorecard API returned 30 reviewed LAC rows using exact UNITID value-list matching. Dry-run validation passed for UnitID, official school name, source URL, and rate bounds, then the official Scorecard rates were applied to data/liberal_arts_colleges.csv. The official download page still returned CloudFront 403 in this network, so future bulk-file refresh may require a browser-saved official file or a data.gov key."
+    },
+    {
+      "id": "ipeds_lac_rate_review",
+      "name": "NCES/IPEDS Admissions and Selectivity",
+      "url": "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?rtid=7",
+      "role": "Official alternate review source for Top30 Liberal Arts College base-rate replacement using ADM admissions files, DRVADM selectivity files, or NCES Reported Data Admissions pages with UNITID-matched rows.",
+      "refresh_mode": "Run npm run data:ipeds:lac with the official downloaded ADM2024/DRVADM2024 ZIP or CSV, or with NCES reported-data admissions HTML pages; manual review required before applying with npm run data:official:lac:apply.",
+      "confidence": "high",
+      "note": "May 2026 review confirmed the official IPEDS DataFiles page lists 2024 ADM2024 Admissions and Test Scores and DRVADM2024 Selectivity and admissions yield files. ADM files can compute overall admit rate as admitted applicants divided by total applicants; DRVADM selectivity files can provide derived admission-rate fields such as DVADM01; NCES Reported Data Admissions pages can provide official Percent admitted values. This avoids College Scorecard API key limits but still requires checking UNITID mappings before replacement."
+    },
+    {
+      "id": "liberal_arts_unitid_map",
+      "name": "Reviewed Liberal Arts College UnitID map",
+      "url": "https://github.com/qyf9794/Admission-Calculator/blob/main/data/liberal_arts_unitids.json",
+      "role": "Reviewed IPEDS/Scorecard UNITID map for the Top30 Liberal Arts Colleges official-rate import workflow.",
+      "refresh_mode": "Manual review whenever the LAC seed list changes; enforced by npm run data:check.",
+      "confidence": "high",
+      "note": "Scorecard, IPEDS, and apply scripts must match LAC official rate rows through these six-digit UnitIDs before replacing base rates."
     },
     {
       "id": "collegevine_reference",

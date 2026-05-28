@@ -5,6 +5,10 @@ const root = process.cwd();
 const dataDir = path.join(root, "data");
 const outputPath = path.join(root, "AdmissionCalculator", "Data", "AdmissionsNormalizedData.swift");
 const admissionSightURL = "https://admissionsight.com/college-acceptance-rates/";
+const liberalArtsCollegeURL = "https://github.com/qyf9794/Admission-Calculator/blob/main/data/liberal_arts_colleges.csv";
+const collegeScorecardSchoolURLPrefix = "https://collegescorecard.ed.gov/school/?";
+const ipedsDataFilesURLPrefix = "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx";
+const ipedsReportedDataURLPrefix = "https://nces.ed.gov/ipeds/reported-data/html/";
 const classYears = [2029, 2028, 2027, 2026, 2025, 2024];
 
 function parseArgs(argv) {
@@ -143,6 +147,14 @@ function optionalInteger(row, field, label = field) {
   return value;
 }
 
+function requiredInteger(row, field, label = field) {
+  const value = optionalInteger(row, field, label);
+  if (value === null) {
+    fail(`${label} is required.`);
+  }
+  return value;
+}
+
 function requireRange(value, min, max, label) {
   if (value !== null && (value < min || value > max)) {
     fail(`${label} must be between ${min} and ${max}; got ${value}.`);
@@ -150,8 +162,55 @@ function requireRange(value, min, max, label) {
 }
 
 function dataQuality(row) {
+  const explicit = String(row.data_quality ?? "").trim();
+  if (explicit) {
+    return Number(explicit).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  }
   const missing = classYears.some((year) => String(row[`rate_${year}`] ?? "").trim() === "");
   return missing ? "0.84" : "0.96";
+}
+
+function validateNationalUniversitySource(college) {
+  const sourceURL = String(college.source_url ?? "").trim();
+  const sourceNote = String(college.source_note ?? "").trim();
+
+  if (sourceURL === admissionSightURL) {
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(sourceURL);
+  } catch {
+    fail(`National university ${college.id} must use a valid reviewed source_url.`);
+  }
+
+  if (sourceURL.startsWith(collegeScorecardSchoolURLPrefix)) {
+    const unitID = parsed.search.replace("?", "").trim();
+    if (!/^\d{6}$/.test(unitID)) {
+      fail(`National university ${college.id} Scorecard source_url must include a six-digit UNITID.`);
+    }
+    if (!sourceNote.includes("College Scorecard") || !sourceNote.includes(`UNITID ${unitID}`)) {
+      fail(`National university ${college.id} Scorecard source_note must disclose College Scorecard and UNITID ${unitID}.`);
+    }
+    if (!sourceNote.includes("IMG_0749.JPG")) {
+      fail(`National university ${college.id} non-AdmissionSight source_note must disclose IMG_0749.JPG rank scope.`);
+    }
+    return;
+  }
+
+  const allowedOfficialHosts = new Set(["irp.osu.edu", "oir.uga.edu"]);
+  if (allowedOfficialHosts.has(parsed.hostname)) {
+    if (!sourceNote.includes("IPEDS")) {
+      fail(`National university ${college.id} official-school source_note must disclose IPEDS provenance.`);
+    }
+    if (!sourceNote.includes("IMG_0749.JPG")) {
+      fail(`National university ${college.id} non-AdmissionSight source_note must disclose IMG_0749.JPG rank scope.`);
+    }
+    return;
+  }
+
+  fail(`National university ${college.id} must use AdmissionSight, exact College Scorecard school URL, or reviewed official IPEDS school source_url.`);
 }
 
 function rateLines(row) {
@@ -162,7 +221,76 @@ function rateLines(row) {
   }).join(",\n");
 }
 
-function validate(colleges, gates, highSchools, registry, internationalSignals, chinaAdmissionSignals, academicBenchmarks) {
+function validateLiberalArtsSource(college, liberalArtsUnitIDs) {
+  const sourceURL = String(college.source_url ?? "").trim();
+  const sourceNote = String(college.source_note ?? "").trim();
+
+  if (sourceURL === liberalArtsCollegeURL) {
+    if (!sourceNote.includes("IMG_0742.JPG")) {
+      fail(`Reviewed LAC seed row ${college.id} must disclose the IMG_0742.JPG table in source_note.`);
+    }
+    const quality = optionalNumber(college, "data_quality", `College ${college.id} data_quality`);
+    if (quality !== null && quality > 0.8) {
+      fail(`Reviewed user-provided LAC seed row ${college.id} must keep proxy data_quality <= 0.8 until replaced by official Scorecard/IPEDS data.`);
+    }
+    return;
+  }
+
+  const expectedUnitID = String(liberalArtsUnitIDs?.[college.id] ?? "").trim();
+  if (!/^\d{6}$/.test(expectedUnitID)) {
+    fail(`Liberal arts college ${college.id} must have a reviewed six-digit UNITID before using official LAC source_url.`);
+  }
+  const quality = optionalNumber(college, "data_quality", `College ${college.id} data_quality`);
+  if (quality === null || quality < 0.85) {
+    fail(`Official LAC seed row ${college.id} must keep reviewed official data_quality >= 0.85.`);
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(sourceURL);
+  } catch {
+    fail(`Liberal arts college ${college.id} must use a valid reviewed LAC source_url.`);
+  }
+
+  if (sourceURL.startsWith(collegeScorecardSchoolURLPrefix)) {
+    const expectedURL = `${collegeScorecardSchoolURLPrefix}${expectedUnitID}`;
+    if (sourceURL !== expectedURL) {
+      fail(`Liberal arts college ${college.id} Scorecard source_url must match reviewed UNITID ${expectedUnitID}.`);
+    }
+    if (!sourceNote.includes(`UNITID ${expectedUnitID}`)) {
+      fail(`Liberal arts college ${college.id} Scorecard source_note must disclose reviewed UNITID ${expectedUnitID}.`);
+    }
+    return;
+  }
+
+  if (sourceURL.startsWith(ipedsDataFilesURLPrefix)) {
+    if (parsed.origin !== "https://nces.ed.gov" || parsed.pathname !== "/ipeds/datacenter/DataFiles.aspx") {
+      fail(`Liberal arts college ${college.id} must use the official NCES/IPEDS DataFiles source_url.`);
+    }
+    if (!sourceNote.includes(`UNITID ${expectedUnitID}`)) {
+      fail(`Liberal arts college ${college.id} NCES/IPEDS source_note must disclose reviewed UNITID ${expectedUnitID}.`);
+    }
+    return;
+  }
+
+  if (sourceURL.startsWith(ipedsReportedDataURLPrefix)) {
+    const expectedPath = `/ipeds/reported-data/html/${expectedUnitID}`;
+    if (parsed.origin !== "https://nces.ed.gov" || parsed.pathname !== expectedPath) {
+      fail(`Liberal arts college ${college.id} NCES Reported Data source_url must match reviewed UNITID ${expectedUnitID}.`);
+    }
+    if (parsed.searchParams.get("surveyNumber") !== "12") {
+      fail(`Liberal arts college ${college.id} NCES Reported Data source_url must use the Admissions component with surveyNumber=12.`);
+    }
+    if (!sourceNote.includes(`UNITID ${expectedUnitID}`)) {
+      fail(`Liberal arts college ${college.id} NCES Reported Data source_note must disclose reviewed UNITID ${expectedUnitID}.`);
+    }
+    return;
+  }
+
+  fail(`Liberal arts college ${college.id} must use reviewed LAC source_url, exact College Scorecard school URL, NCES/IPEDS DataFiles URL, or NCES Reported Data Admissions URL.`);
+}
+
+function validate(colleges, gates, highSchools, registry, internationalSignals, chinaAdmissionSignals, academicBenchmarks, liberalArtsUnitIDs) {
   if (!registry.data_version || !registry.generated_at) {
     fail("source_registry.json must include data_version and generated_at.");
   }
@@ -172,12 +300,21 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     if (!college.id || !college.name) {
       fail("Every college row must have id and name.");
     }
+    if (!college.source_url || !college.source_note) {
+      fail(`College ${college.id} must include source_url and source_note.`);
+    }
     if (ids.has(college.id)) {
       fail(`Duplicate college id: ${college.id}`);
     }
     ids.add(college.id);
-    if (college.source_url !== admissionSightURL) {
-      fail(`College ${college.id} must use AdmissionSight source_url.`);
+    if (!["national_university", "liberal_arts_college"].includes(college.category)) {
+      fail(`College ${college.id} has unsupported category: ${college.category}`);
+    }
+    if (college.category === "national_university") {
+      validateNationalUniversitySource(college);
+    }
+    if (college.category === "liberal_arts_college") {
+      validateLiberalArtsSource(college, liberalArtsUnitIDs);
     }
     const hasRate = classYears.some((year) => String(college[`rate_${year}`] ?? "").trim() !== "");
     if (!hasRate) {
@@ -185,6 +322,7 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     }
     const rank = optionalInteger(college, "rank", `College ${college.id} rank`);
     requireRange(rank, 1, 500, `College ${college.id} rank`);
+    requireRange(optionalNumber(college, "data_quality", `College ${college.id} data_quality`), 0, 1, `College ${college.id} data_quality`);
     for (const year of classYears) {
       const rate = optionalNumber(college, `rate_${year}`, `College ${college.id} rate_${year}`);
       requireRange(rate, 0.01, 100, `College ${college.id} rate_${year}`);
@@ -193,7 +331,7 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
 
   for (const gate of gates) {
     if (gate.college_id !== "*" && !ids.has(gate.college_id)) {
-      fail(`Gate ${gate.id} targets a school outside AdmissionSight dataset: ${gate.college_id}`);
+      fail(`Gate ${gate.id} targets a school outside approved dataset: ${gate.college_id}`);
     }
     if (gate.is_official === "true" && !gate.source_url) {
       fail(`Official gate ${gate.id} must include source_url.`);
@@ -205,7 +343,7 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
   const signalIDs = new Set();
   for (const signal of internationalSignals) {
     if (!ids.has(signal.college_id)) {
-      fail(`International signal targets a school outside AdmissionSight dataset: ${signal.college_id}`);
+      fail(`International signal targets a school outside approved dataset: ${signal.college_id}`);
     }
     if (signalIDs.has(signal.college_id)) {
       fail(`Duplicate international signal row: ${signal.college_id}`);
@@ -240,7 +378,7 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
   const benchmarkIDs = new Set();
   for (const benchmark of academicBenchmarks) {
     if (!ids.has(benchmark.college_id)) {
-      fail(`Academic benchmark targets a school outside AdmissionSight dataset: ${benchmark.college_id}`);
+      fail(`Academic benchmark targets a school outside approved dataset: ${benchmark.college_id}`);
     }
     if (benchmarkIDs.has(benchmark.college_id)) {
       fail(`Duplicate academic benchmark row: ${benchmark.college_id}`);
@@ -265,7 +403,7 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
   const chinaSignalIDs = new Set();
   for (const signal of chinaAdmissionSignals) {
     if (!ids.has(signal.college_id)) {
-      fail(`China admission signal targets a school outside AdmissionSight dataset: ${signal.college_id}`);
+      fail(`China admission signal targets a school outside approved dataset: ${signal.college_id}`);
     }
     if (chinaSignalIDs.has(signal.college_id)) {
       fail(`Duplicate China admission signal row: ${signal.college_id}`);
@@ -291,14 +429,70 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
   }
 
   const highSchoolIds = new Set();
+  let unknownHighSchool = null;
   for (const school of highSchools.schools ?? []) {
+    if (!school.id || !school.name || !school.city) {
+      fail(`Every high school row must include id, name, and city: ${JSON.stringify(school)}`);
+    }
     if (highSchoolIds.has(school.id)) {
       fail(`Duplicate high school id: ${school.id}`);
+    }
+    const admitRankingBand = requiredInteger(school, "admit_ranking_band", `High school ${school.id} admit_ranking_band`);
+    const resources = requiredInteger(school, "resources", `High school ${school.id} resources`);
+    const counseling = requiredInteger(school, "counseling", `High school ${school.id} counseling`);
+    const top30TrackRecord = requiredInteger(school, "top30_track_record", `High school ${school.id} top30_track_record`);
+    const transparency = requiredInteger(school, "transparency", `High school ${school.id} transparency`);
+    requireRange(admitRankingBand, 1, 5, `High school ${school.id} admit_ranking_band`);
+    requireRange(resources, 1, 5, `High school ${school.id} resources`);
+    requireRange(counseling, 1, 5, `High school ${school.id} counseling`);
+    requireRange(top30TrackRecord, 1, 5, `High school ${school.id} top30_track_record`);
+    requireRange(transparency, 1, 5, `High school ${school.id} transparency`);
+    if (school.id === "unknown") {
+      unknownHighSchool = {
+        admitRankingBand,
+        resources,
+        counseling,
+        top30TrackRecord,
+        transparency
+      };
     }
     highSchoolIds.add(school.id);
   }
   if (!highSchoolIds.has("unknown")) {
     fail("High school data must include unknown fallback.");
+  }
+  if (
+    unknownHighSchool.admitRankingBand < 3 ||
+    unknownHighSchool.resources > 3 ||
+    unknownHighSchool.counseling > 3 ||
+    unknownHighSchool.top30TrackRecord > 2 ||
+    unknownHighSchool.transparency > 3
+  ) {
+    fail("High school unknown fallback must remain conservative: band >= 3, resources/counseling/transparency <= 3, and top30_track_record <= 2.");
+  }
+
+  const liberalArtsIDs = colleges
+    .filter((college) => college.category === "liberal_arts_college")
+    .map((college) => college.id);
+  const unitIDEntries = Object.entries(liberalArtsUnitIDs ?? {});
+  const seenUnitIDs = new Set();
+  for (const [collegeID, unitID] of unitIDEntries) {
+    if (!liberalArtsIDs.includes(collegeID)) {
+      fail(`LAC UnitID map includes ${collegeID}, which is not in data/liberal_arts_colleges.csv.`);
+    }
+    const normalized = String(unitID ?? "").trim();
+    if (!/^\d{6}$/.test(normalized)) {
+      fail(`LAC UnitID for ${collegeID} must be a six-digit IPEDS/Scorecard UNITID.`);
+    }
+    if (seenUnitIDs.has(normalized)) {
+      fail(`Duplicate LAC UNITID in data/liberal_arts_unitids.json: ${normalized}.`);
+    }
+    seenUnitIDs.add(normalized);
+  }
+  for (const collegeID of liberalArtsIDs) {
+    if (!Object.hasOwn(liberalArtsUnitIDs ?? {}, collegeID)) {
+      fail(`Missing LAC UnitID mapping for ${collegeID}.`);
+    }
   }
 }
 
@@ -315,16 +509,27 @@ function renderSources(registry) {
 }
 
 function renderColleges(colleges) {
+  const categoryMap = {
+    national_university: ".nationalUniversity",
+    liberal_arts_college: ".liberalArtsCollege",
+  };
+
   return colleges
-    .sort((left, right) => Number(left.rank) - Number(right.rank) || left.name.localeCompare(right.name))
+    .sort((left, right) => {
+      const order = { national_university: 0, liberal_arts_college: 1 };
+      const categoryOrder = order[left.category] - order[right.category];
+      return categoryOrder || Number(left.rank) - Number(right.rank) || left.name.localeCompare(right.name);
+    })
     .map((college) => `        College(
             id: ${swiftString(college.id)},
             name: ${swiftString(college.name)},
+            category: ${categoryMap[college.category] ?? fail(`Unsupported college category: ${college.category}`)},
             rank: ${Number(college.rank)},
             acceptanceRates: [
 ${rateLines(college)}
             ],
-            sourceURL: admissionsSightURL,
+            sourceURL: URL(string: ${swiftString(college.source_url)})!,
+            sourceNote: ${swiftString(college.source_note)},
             dataQuality: ${dataQuality(college)}
         )`)
     .join(",\n");
@@ -473,6 +678,7 @@ enum AdmissionsNormalizedData {
     static let dataVersion = ${swiftString(registry.data_version)}
     static let generatedAt = ${swiftString(registry.generated_at)}
     static let admissionsSightURL = URL(string: ${swiftString(admissionSightURL)})!
+    static let liberalArtsCollegeURL = URL(string: ${swiftString(liberalArtsCollegeURL)})!
 
     static let sourceRecords: [DataSourceRecord] = [
 ${renderSources(registry)}
@@ -507,17 +713,23 @@ ${renderGateRules(gates)}
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const [registry, colleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks] = await Promise.all([
+  const [registry, nationalUniversities, liberalArtsColleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks, liberalArtsUnitIDs] = await Promise.all([
     readJson("source_registry.json"),
     readCsv("admissionsight_colleges.csv"),
+    readCsv("liberal_arts_colleges.csv"),
     readJson("china_high_schools.json"),
     readCsv("official_gate_rules.csv"),
     readCsv("international_student_signals.csv"),
     readCsv("china_undergrad_admissions.csv"),
     readCsv("academic_benchmarks.csv"),
+    readJson("liberal_arts_unitids.json"),
   ]);
+  const colleges = [
+    ...nationalUniversities.map((college) => ({ ...college, category: "national_university" })),
+    ...liberalArtsColleges.map((college) => ({ ...college, category: "liberal_arts_college" })),
+  ];
 
-  validate(colleges, gates, highSchools, registry, internationalSignals, chinaAdmissionSignals, academicBenchmarks);
+  validate(colleges, gates, highSchools, registry, internationalSignals, chinaAdmissionSignals, academicBenchmarks, liberalArtsUnitIDs);
   const swift = renderSwift({ registry, colleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks });
 
   if (options.check) {
@@ -531,7 +743,7 @@ async function main() {
 
   await fs.writeFile(outputPath, swift, "utf8");
   console.log(`Wrote ${outputPath}`);
-  console.log(`Schools=${colleges.length}, gates=${gates.length}, international_signals=${internationalSignals.length}, china_admission_signals=${chinaAdmissionSignals.length}, academic_benchmarks=${academicBenchmarks.length}, high_schools=${highSchools.schools.length}`);
+  console.log(`Schools=${colleges.length}, national_universities=${nationalUniversities.length}, liberal_arts_colleges=${liberalArtsColleges.length}, gates=${gates.length}, international_signals=${internationalSignals.length}, china_admission_signals=${chinaAdmissionSignals.length}, academic_benchmarks=${academicBenchmarks.length}, high_schools=${highSchools.schools.length}`);
 }
 
 main().catch((error) => {

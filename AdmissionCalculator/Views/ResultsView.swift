@@ -18,10 +18,16 @@ struct ResultsView: View {
                             .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                     }
                     SummaryBand(result: result)
+                    RecommendationStrategyCard(result: result)
                     ResultPriorityCard(result: result)
                     ApplicantDisclosure(profile: result.profileSnapshot)
                     MissingInputCard(
                         prompts: result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.calculatedCollegeIDs)
+                    )
+                    SchoolResultsList(
+                        results: result.schoolResults,
+                        selectionSource: result.selectionSource,
+                        recommendationWarnings: result.recommendationWarnings
                     )
                 }
                 .padding()
@@ -77,6 +83,82 @@ private struct ResultsHero: View {
         }
         .frame(maxWidth: .infinity, minHeight: 270)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct RecommendationStrategyCard: View {
+    let result: PortfolioResult
+
+    var body: some View {
+        if result.selectionSource == .automatic {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("自动推荐依据", systemImage: "wand.and.stars")
+                    .font(.headline)
+                    .foregroundStyle(.green)
+                Text("系统先排除硬门槛失败学校，再按单校概率 × 排名价值分计算基础期望值；文理学院 T10 的排名价值对齐到综合大学 T20-T30 价值带，而不是综合大学 T10 价值带。同层学校连续入选时，会为新增学校固定边际相关性折扣和置信度可靠性折扣。综合大学 T10 与文理学院 T10 共享同一个极端选择性相关性层，不会因为学校类别不同而被当作完全独立。为保证手机端响应速度，只有小请求量且组合空间较小时才穷举最高期望值；大组合空间用有界快速近似：在候选窗口里做边际贪心初选，并额外保留排名价值和单校概率护栏候选，再尝试有限替换，最后在当前顺位、边际贪心顺位和排名价值优先顺位中保留组合期望值最高者。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if result.recommendationSteps.isEmpty {
+                    Text(result.schoolResults.isEmpty
+                         ? "自动推荐没有生成可计算学校，因此没有边际入选顺序；请先补齐硬门槛资料、调整画像或降低计划数量后重试。"
+                         : "当前组合与按提交快照重新生成的自动推荐不完全一致，因此只展示组合结果，不展示边际入选顺序。")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Label("组合最佳录取期望值", systemImage: "sum")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Text(result.recommendationExpectedValueTotal.formatted(.number.precision(.fractionLength(2))))
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(.green)
+                        }
+                        Text("0-100 排名价值尺度，用于解释自动推荐排序；不是录取概率，也不是至少一所概率。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(10)
+                    .background(Color.green.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                    ForEach(result.recommendationSteps.prefix(8), id: \.self) { step in
+                        RecommendationStepRow(step: step)
+                    }
+                    if result.recommendationSteps.count > 8 {
+                        Text("另有 \(result.recommendationSteps.count - 8) 所学校的完整解释会进入报告页。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(16)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.green.opacity(0.18), lineWidth: 1)
+            )
+        }
+    }
+}
+
+private struct RecommendationStepRow: View {
+    let step: RecommendationStep
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("#\(step.order) \(step.result.college.name)")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(step.marginalExpectedValue.formatted(.number.precision(.fractionLength(2))))
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.green)
+            }
+            Text("单校 \(step.result.adjustedProbability.formatted(.percent.precision(.fractionLength(0)))) · 排名价值 \(step.rankScore.formatted(.number.precision(.fractionLength(0))))/100 · 置信度折扣 \(step.confidenceMultiplier.formatted(.percent.precision(.fractionLength(0)))) · 同层折扣 \(step.sameTierDiscount.formatted(.percent.precision(.fractionLength(0))))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -208,9 +290,12 @@ private struct SummaryBand: View {
                 .font(.headline)
                 .foregroundStyle(.blue)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                MetricCell(title: "综大T10", value: result.t10AtLeastOne, count: tierCount(maxRank: 10), tint: .purple)
-                MetricCell(title: "综大T30", value: result.t30AtLeastOne, count: tierCount(maxRank: 30), tint: .blue)
-                MetricCell(title: "综大T50", value: result.t50AtLeastOne, count: tierCount(maxRank: 50), tint: .teal)
+                MetricCell(title: "综大T10", value: result.t10AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 10), tint: .purple)
+                MetricCell(title: "综大T11-T30", value: result.t11T30AtLeastOne, count: tierCount(category: .nationalUniversity, minRankExclusive: 10, maxRank: 30), tint: .blue)
+                MetricCell(title: "综大T30", value: result.t30AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 30), tint: .indigo)
+                MetricCell(title: "综大T50", value: result.t50AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 50), tint: .teal)
+                MetricCell(title: "文理T10", value: result.liberalArtsT10AtLeastOne, count: tierCount(category: .liberalArtsCollege, maxRank: 10), tint: .pink)
+                MetricCell(title: "文理T30", value: result.liberalArtsT30AtLeastOne, count: tierCount(category: .liberalArtsCollege, maxRank: 30), tint: .orange)
                 MetricCell(title: "全部已选", value: result.selectedAtLeastOne, count: result.schoolResults.count, tint: .green)
             }
             Text("组合来源：\(result.selectionSource.rawValue)。")
@@ -232,7 +317,7 @@ private struct SummaryBand: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            Text("上述数值均表示当前选择范围内至少被一所学校录取的估算概率。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。综大T10/T30/T50 仅统计当前组合内 AdmissionSight National Universities 学校，多校概率已使用同层相关性折扣。")
+            Text("上述数值均表示当前选择范围内至少被一所学校录取的估算概率。总体画像分 \(Int(result.profileScore))/100；逐校概率会按学校政策重算标化影响。综大T11-T30 只统计非 T10 的 T30 综合大学，综大T30 为传统含 T10 口径；文理T10/T30 仅统计当前组合内文理学院；全部已选会合并两类学校，多校概率已使用同层相关性折扣，其中综大 T10 与文理 T10 共享极端选择性相关性层。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -244,8 +329,8 @@ private struct SummaryBand: View {
         )
     }
 
-    private func tierCount(maxRank: Int) -> Int {
-        result.schoolResults.filter { $0.college.rank <= maxRank }.count
+    private func tierCount(category: CollegeCategory, minRankExclusive: Int = 0, maxRank: Int) -> Int {
+        result.schoolResults.filter { $0.college.category == category && $0.college.rank > minRankExclusive && $0.college.rank <= maxRank }.count
     }
 }
 
@@ -467,7 +552,7 @@ private struct SchoolResultsList: View {
         switch selectionSource {
         case .automatic:
             if recommendationWarnings.isEmpty {
-                return "当前自动推荐没有生成学校；请调整三档数量、学生画像，或改为手动选校。"
+                return "当前自动推荐没有生成学校；请调整计划选择数量、学生画像，或改为手动选校。"
             }
             return recommendationWarnings.joined(separator: " ")
         case .manual:
