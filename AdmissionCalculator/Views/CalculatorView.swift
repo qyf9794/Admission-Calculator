@@ -9,8 +9,10 @@ struct CalculatorView: View {
     @State private var cardIndex = 0
     @State private var maxVisitedCardIndex = 0
     @State private var showingHighSchoolSearch = false
+    @State private var swipeCommand: AdmissionCardSwipeCommand?
 
     private let profileCardCount = 5
+    private let balancedProfileCardHeight: CGFloat = 430
 
     var body: some View {
         ZStack {
@@ -25,56 +27,57 @@ struct CalculatorView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        AdmissionSwipeableCard(
-                            canSwipeBack: cardIndex > 0,
-                            canSwipeForward: cardIndex < profileCardCount - 1 || canOpenSelection,
-                            onSwipeBack: { moveCard(by: -1) },
-                            onSwipeForward: {
-                                if cardIndex < profileCardCount - 1 {
-                                    moveCard(by: 1)
-                                } else if canOpenSelection {
-                                    onOpenCollegeSelection()
+                GeometryReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Spacer(minLength: 0)
+                            AdmissionSwipeableCard(
+                                swipeCommand: $swipeCommand,
+                                canSwipeBack: cardIndex > 0,
+                                canSwipeForward: cardIndex < profileCardCount - 1 || canOpenSelection,
+                                onSwipeBack: { moveCard(by: -1) },
+                                onSwipeForward: {
+                                    if cardIndex < profileCardCount - 1 {
+                                        moveCard(by: 1)
+                                    } else if canOpenSelection {
+                                        onOpenCollegeSelection()
+                                    }
+                                },
+                                previousPreview: {
+                                    if cardIndex > 0 {
+                                        profileCard(at: cardIndex - 1)
+                                    }
+                                },
+                                nextPreview: {
+                                    if cardIndex < profileCardCount - 1 {
+                                        profileCard(at: cardIndex + 1)
+                                    } else if canOpenSelection {
+                                        AdmissionPreviewCard(
+                                            title: "选校设置",
+                                            subtitle: "进入下一页后设置自动推荐或手动学校列表。",
+                                            systemImage: "building.columns.fill",
+                                            colors: AdmissionStyle.roseSlate
+                                        )
+                                    }
                                 }
-                            },
-                            previousPreview: {
-                                if cardIndex > 0 {
-                                    profileCard(at: cardIndex - 1)
-                                }
-                            },
-                            nextPreview: {
-                                if cardIndex < profileCardCount - 1 {
-                                    profileCard(at: cardIndex + 1)
-                                } else if canOpenSelection {
-                                    AdmissionPreviewCard(
-                                        title: "选校设置",
-                                        subtitle: "进入下一页后设置自动推荐或手动学校列表。",
-                                        systemImage: "building.columns.fill",
-                                        colors: AdmissionStyle.roseSlate
-                                    )
-                                }
+                            ) {
+                                profileCard(at: cardIndex)
                             }
-                        ) {
-                            profileCard(at: cardIndex)
+                            Spacer(minLength: 0)
                         }
-                            .id(cardIndex)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal: .move(edge: .leading).combined(with: .opacity)
-                            ))
+                        .frame(minHeight: proxy.size.height, alignment: .center)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
                 }
 
                 CardNavigationBar(
                     currentIndex: cardIndex,
                     totalCount: profileCardCount,
                     canGoBack: cardIndex > 0,
-                    canGoForward: cardIndex < profileCardCount - 1,
-                    back: { moveCard(by: -1) },
-                    forward: { moveCard(by: 1) }
+                    canGoForward: cardIndex < profileCardCount - 1 || canOpenSelection,
+                    back: { requestCardSwipe(.back) },
+                    forward: { requestCardSwipe(.forward) }
                 )
                 .padding(.horizontal, 16)
                 .padding(.bottom, 14)
@@ -115,13 +118,7 @@ struct CalculatorView: View {
     private func profileCard(at index: Int) -> some View {
         switch index {
         case 0:
-            CardSection(title: "学生画像", subtitle: "先确定身份、成绩口径、课程体系和申请方向。", systemImage: "person.text.rectangle", colors: AdmissionStyle.mintNight) {
-                Picker("申请身份", selection: $profile.applicantStatus) {
-                    ForEach(ApplicantStatus.allCases) { item in
-                        Text(item.rawValue).tag(item)
-                    }
-                }
-                .pickerStyle(.menu)
+            CardSection(title: "学生画像", subtitle: "先录入成绩口径、课程体系和申请方向；身份与高中背景在后续卡片确认。", systemImage: "person.text.rectangle", colors: AdmissionStyle.mintNight) {
                 GradeScaleInputs(
                     title: "GPA / 校内成绩",
                     scale: $profile.gradeScale,
@@ -150,13 +147,6 @@ struct CalculatorView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                Picker("申请轮次", selection: $profile.round) {
-                    ForEach(ApplicationRound.allCases) { item in
-                        Text(item.rawValue).tag(item)
-                    }
-                }
-                .pickerStyle(.segmented)
-                Toggle("申请资助", isOn: $profile.needsAid)
             }
         case 1:
             CardSection(title: "硬指标", subtitle: "标化和语言成绩会先经过硬门槛，再进入概率修正。", systemImage: "target", colors: AdmissionStyle.bluePulse) {
@@ -173,7 +163,7 @@ struct CalculatorView: View {
 	                IntArrowInput(title: "课程难度", value: $profile.rigor, range: 1...5, suffix: "/5")
             }
         case 2:
-            CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", colors: AdmissionStyle.pinkMist) {
+            CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", colors: AdmissionStyle.pinkMist, minHeight: balancedProfileCardHeight) {
                 BandStepper(title: "活动影响力", value: $profile.activities)
                 BandStepper(title: "科研 / 夏校", value: $profile.research)
                 BandStepper(title: "奖项区分度", value: $profile.honors)
@@ -182,7 +172,13 @@ struct CalculatorView: View {
                 Toggle("艺术作品集已准备", isOn: $profile.hasPortfolio)
             }
         case 3:
-            CardSection(title: "中国高中背景", subtitle: "高中背景只是代理校准，不是个人录取证明。", systemImage: "graduationcap.fill", colors: AdmissionStyle.citrus) {
+            CardSection(title: "高中背景与身份", subtitle: "确认是否中国籍国际生，并选择高中背景；两者都会影响中国申请者容量代理。", systemImage: "graduationcap.fill", colors: AdmissionStyle.citrus, minHeight: balancedProfileCardHeight) {
+                Picker("申请身份 / 是否中国籍", selection: $profile.applicantStatus) {
+                    ForEach(ApplicantStatus.allCases) { item in
+                        Text(item.rawValue).tag(item)
+                    }
+                }
+                .pickerStyle(.menu)
                 HighSchoolSearchButton(
                     school: selectedHighSchool,
                     openSearch: { showingHighSchoolSearch = true }
@@ -190,12 +186,21 @@ struct CalculatorView: View {
                 Text("打开后可按学校名称搜索；当前默认项会固定在列表最上方。")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.70))
-                Text("高中背景仅作为 AdmitRanking 风格代理校准；不确定时请选择“其他/手动评估学校”，避免默认名校背景抬高估算。")
+                Text(profile.applicantStatus.usesChinaProxy
+                     ? "中国籍国际生会启用本科中国录取容量代理；高中背景仅作为 AdmitRanking 风格校准，不代表个人录取证明。"
+                     : "当前身份不启用中国录取容量代理；高中背景仍只作为申请环境参考。")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.70))
             }
         default:
-            CardSection(title: "选校数量", subtitle: selectionCountSubtitle, systemImage: "slider.horizontal.3", colors: AdmissionStyle.lilac) {
+            CardSection(title: "轮次、资助与选校数量", subtitle: selectionCountSubtitle, systemImage: "slider.horizontal.3", colors: AdmissionStyle.lilac, minHeight: balancedProfileCardHeight) {
+                Picker("申请轮次", selection: $profile.round) {
+                    ForEach(ApplicationRound.allCases) { item in
+                        Text(item.rawValue).tag(item)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Toggle("申请资助", isOn: $profile.needsAid)
                 Toggle("纳入文理学院", isOn: $profile.includeLiberalArtsColleges)
                 UnboundedCountStepper(title: "计划选择大学", value: $profile.requestedSchoolCount)
                 LabeledContent("自动生成数量", value: "\(automaticGeneratedCount) 所")
@@ -228,10 +233,12 @@ struct CalculatorView: View {
 
     private func moveCard(by delta: Int) {
         let nextIndex = clamped(cardIndex + delta, range: 0...(profileCardCount - 1))
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-            cardIndex = nextIndex
-            maxVisitedCardIndex = max(maxVisitedCardIndex, nextIndex)
-        }
+        cardIndex = nextIndex
+        maxVisitedCardIndex = max(maxVisitedCardIndex, nextIndex)
+    }
+
+    private func requestCardSwipe(_ direction: AdmissionCardSwipeDirection) {
+        swipeCommand = AdmissionCardSwipeCommand(direction: direction)
     }
 
     private var canOpenSelection: Bool {
@@ -239,7 +246,10 @@ struct CalculatorView: View {
     }
 
     private var profileCompletionProgress: Double {
-        Double(maxVisitedCardIndex + 1) / Double(profileCardCount)
+        if canOpenSelection {
+            return 1
+        }
+        return Double(maxVisitedCardIndex) / Double(profileCardCount)
     }
 
     private var selectionCountSubtitle: String {
@@ -443,18 +453,19 @@ private struct ProfileTopBar: View {
     var body: some View {
         HStack(spacing: 12) {
             GeometryReader { proxy in
+                let clampedProgress = min(1, max(0, progress))
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(Color.black.opacity(0.10))
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: canOpenSelection ? [Color.green, Color.teal] : [Color.gray.opacity(0.58), Color.gray.opacity(0.36)],
+                                colors: [AdmissionStyle.controlBlue, Color.cyan.opacity(0.86)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
-                        .frame(width: max(8, proxy.size.width * min(1, max(0, progress))))
+                        .frame(width: clampedProgress == 0 ? 0 : max(8, proxy.size.width * clampedProgress))
                 }
             }
             .frame(height: 9)
@@ -654,13 +665,15 @@ private struct CardSection<Content: View>: View {
     let subtitle: String
     let systemImage: String
     let colors: [Color]
+    let minHeight: CGFloat?
     private let content: Content
 
-    init(title: String, subtitle: String, systemImage: String, colors: [Color], @ViewBuilder content: () -> Content) {
+    init(title: String, subtitle: String, systemImage: String, colors: [Color], minHeight: CGFloat? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
         self.subtitle = subtitle
         self.systemImage = systemImage
         self.colors = colors
+        self.minHeight = minHeight
         self.content = content()
     }
 
@@ -668,6 +681,7 @@ private struct CardSection<Content: View>: View {
         AdmissionGradientCard(title: title, subtitle: subtitle, systemImage: systemImage, colors: colors) {
             content
         }
+        .frame(minHeight: minHeight)
     }
 }
 

@@ -12,6 +12,7 @@ struct CollegePickerView: View {
     @State private var searchText = ""
     @State private var filter: CollegePickerFilter = .selected
     @State private var cardIndex = 0
+    @State private var swipeCommand: AdmissionCardSwipeCommand?
     private let colleges = AdmissionsSeedData.colleges
     private let cardCount = 2
 
@@ -42,70 +43,71 @@ struct CollegePickerView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        AdmissionSwipeableCard(
-                            canSwipeBack: true,
-                            canSwipeForward: cardIndex < cardCount - 1 || !selectedCollegeIDs.isEmpty,
-                            onSwipeBack: {
-                                if cardIndex > 0 {
-                                    moveCard(by: -1)
-                                } else {
-                                    onBackToProfile()
+                GeometryReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Spacer(minLength: 0)
+                            AdmissionSwipeableCard(
+                                swipeCommand: $swipeCommand,
+                                canSwipeBack: true,
+                                canSwipeForward: cardIndex < cardCount - 1 || !selectedCollegeIDs.isEmpty,
+                                onSwipeBack: {
+                                    if cardIndex > 0 {
+                                        moveCard(by: -1)
+                                    } else {
+                                        onBackToProfile()
+                                    }
+                                },
+                                onSwipeForward: {
+                                    if cardIndex < cardCount - 1 {
+                                        moveCard(by: 1)
+                                    } else if !selectedCollegeIDs.isEmpty {
+                                        onEvaluate()
+                                    }
+                                },
+                                previousPreview: {
+                                    if cardIndex > 0 {
+                                        selectionCard(at: cardIndex - 1)
+                                    } else {
+                                        AdmissionPreviewCard(
+                                            title: "选校数量",
+                                            subtitle: "上一页最后一张卡片，保留当前填写数据。",
+                                            systemImage: "slider.horizontal.3",
+                                            colors: AdmissionStyle.lilac
+                                        )
+                                    }
+                                },
+                                nextPreview: {
+                                    if cardIndex < cardCount - 1 {
+                                        selectionCard(at: cardIndex + 1)
+                                    } else if !selectedCollegeIDs.isEmpty {
+                                        AdmissionPreviewCard(
+                                            title: "结果生成",
+                                            subtitle: "按当前画像和已选学校计算组合概率。",
+                                            systemImage: "chart.bar.xaxis",
+                                            colors: AdmissionStyle.blackGlass
+                                        )
+                                    }
                                 }
-                            },
-                            onSwipeForward: {
-                                if cardIndex < cardCount - 1 {
-                                    moveCard(by: 1)
-                                } else if !selectedCollegeIDs.isEmpty {
-                                    onEvaluate()
-                                }
-                            },
-                            previousPreview: {
-                                if cardIndex > 0 {
-                                    selectionCard(at: cardIndex - 1)
-                                } else {
-                                    AdmissionPreviewCard(
-                                        title: "选校数量",
-                                        subtitle: "上一页最后一张卡片，保留当前填写数据。",
-                                        systemImage: "slider.horizontal.3",
-                                        colors: AdmissionStyle.lilac
-                                    )
-                                }
-                            },
-                            nextPreview: {
-                                if cardIndex < cardCount - 1 {
-                                    selectionCard(at: cardIndex + 1)
-                                } else if !selectedCollegeIDs.isEmpty {
-                                    AdmissionPreviewCard(
-                                        title: "结果生成",
-                                        subtitle: "按当前画像和已选学校计算组合概率。",
-                                        systemImage: "chart.bar.xaxis",
-                                        colors: AdmissionStyle.blackGlass
-                                    )
-                                }
+                            ) {
+                                selectionCard(at: cardIndex)
                             }
-                        ) {
-                            selectionCard(at: cardIndex)
+                            Spacer(minLength: 0)
                         }
-                            .id(cardIndex)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal: .move(edge: .leading).combined(with: .opacity)
-                            ))
+                        .frame(minHeight: proxy.size.height, alignment: .center)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
                 }
                 .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索学校、排名或分层")
 
                 CardNavigationBar(
                     currentIndex: cardIndex,
                     totalCount: cardCount,
-                    canGoBack: cardIndex > 0,
-                    canGoForward: cardIndex < cardCount - 1,
-                    back: { moveCard(by: -1) },
-                    forward: { moveCard(by: 1) }
+                    canGoBack: true,
+                    canGoForward: cardIndex < cardCount - 1 || !selectedCollegeIDs.isEmpty,
+                    back: { requestCardSwipe(.back) },
+                    forward: { requestCardSwipe(.forward) }
                 )
                 .padding(.horizontal, 16)
                 .padding(.bottom, 14)
@@ -163,9 +165,11 @@ struct CollegePickerView: View {
     }
 
     private func moveCard(by delta: Int) {
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-            cardIndex = min(max(cardIndex + delta, 0), cardCount - 1)
-        }
+        cardIndex = min(max(cardIndex + delta, 0), cardCount - 1)
+    }
+
+    private func requestCardSwipe(_ direction: AdmissionCardSwipeDirection) {
+        swipeCommand = AdmissionCardSwipeCommand(direction: direction)
     }
 
     private func collegeRankSort(_ lhs: College, _ rhs: College) -> Bool {
@@ -341,6 +345,7 @@ private struct SchoolSetupCard: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.72))
         }
+        .frame(minHeight: 430)
     }
 }
 

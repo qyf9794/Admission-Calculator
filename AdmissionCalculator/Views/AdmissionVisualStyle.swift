@@ -10,6 +10,7 @@ enum AdmissionStyle {
     static let textSecondary = Color.white.opacity(0.72)
     static let darkTextPrimary = Color(red: 0.05, green: 0.05, blue: 0.055)
     static let darkTextSecondary = Color.black.opacity(0.58)
+    static let controlBlue = Color(red: 0.10, green: 0.34, blue: 0.95)
 
     static let aurora: [Color] = [
         Color(red: 0.07, green: 0.08, blue: 0.10),
@@ -169,7 +170,7 @@ struct AdmissionGradientCard<Content: View>: View {
                 content
             }
             .font(AdmissionStyle.bodyFont())
-            .tint(foreground)
+            .tint(AdmissionStyle.controlBlue)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -341,7 +342,23 @@ struct AdmissionProbabilityCard: View {
     }
 }
 
+enum AdmissionCardSwipeDirection: Equatable {
+    case back
+    case forward
+}
+
+struct AdmissionCardSwipeCommand: Equatable {
+    let id = UUID()
+    let direction: AdmissionCardSwipeDirection
+
+    static func == (lhs: AdmissionCardSwipeCommand, rhs: AdmissionCardSwipeCommand) -> Bool {
+        lhs.id == rhs.id && lhs.direction == rhs.direction
+    }
+}
+
 struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview: View>: View {
+    @Binding private var swipeCommand: AdmissionCardSwipeCommand?
+
     let canSwipeBack: Bool
     let canSwipeForward: Bool
     let onSwipeBack: () -> Void
@@ -352,9 +369,11 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
 
     @State private var dragOffset: CGFloat = 0
     @State private var isTrackingHorizontalSwipe = false
+    @State private var isAnimatingOut = false
     @State private var cardWidth: CGFloat = 340
 
     init(
+        swipeCommand: Binding<AdmissionCardSwipeCommand?> = .constant(nil),
         canSwipeBack: Bool,
         canSwipeForward: Bool,
         onSwipeBack: @escaping () -> Void,
@@ -363,6 +382,7 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
         @ViewBuilder nextPreview: () -> NextPreview,
         @ViewBuilder content: () -> Content
     ) {
+        self._swipeCommand = swipeCommand
         self.canSwipeBack = canSwipeBack
         self.canSwipeForward = canSwipeForward
         self.onSwipeBack = onSwipeBack
@@ -395,6 +415,13 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
                     }
             }
         }
+        .onChange(of: swipeCommand) { _, command in
+            guard let command else {
+                return
+            }
+            performProgrammaticSwipe(command.direction, width: cardWidth)
+            swipeCommand = nil
+        }
     }
 
     @ViewBuilder
@@ -412,6 +439,9 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
     private func cardGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 24, coordinateSpace: .local)
             .onChanged { value in
+                guard !isAnimatingOut else {
+                    return
+                }
                 let horizontal = value.translation.width
                 let vertical = abs(value.translation.height)
                 if !isTrackingHorizontalSwipe {
@@ -436,27 +466,40 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
                 let threshold: CGFloat = 88
                 let projected = value.predictedEndTranslation.width
                 if dragOffset > threshold || projected > threshold * 1.7 {
-                    finishCardSwipe(width: width, direction: 1, action: canSwipeBack ? onSwipeBack : nil)
+                    finishCardSwipe(width: width, direction: .back)
                 } else if dragOffset < -threshold || projected < -threshold * 1.7 {
-                    finishCardSwipe(width: width, direction: -1, action: canSwipeForward ? onSwipeForward : nil)
+                    finishCardSwipe(width: width, direction: .forward)
                 } else {
                     resetCardSwipe()
                 }
             }
     }
 
-    private func finishCardSwipe(width: CGFloat, direction: CGFloat, action: (() -> Void)?) {
-        guard let action else {
+    private func performProgrammaticSwipe(_ direction: AdmissionCardSwipeDirection, width: CGFloat) {
+        guard !isAnimatingOut else {
+            return
+        }
+        finishCardSwipe(width: width, direction: direction)
+    }
+
+    private func finishCardSwipe(width: CGFloat, direction: AdmissionCardSwipeDirection) {
+        let canSwipe = direction == .back ? canSwipeBack : canSwipeForward
+        guard canSwipe else {
             resetCardSwipe()
             return
         }
+        let action = direction == .back ? onSwipeBack : onSwipeForward
+        let sign: CGFloat = direction == .back ? 1 : -1
+        isAnimatingOut = true
+        isTrackingHorizontalSwipe = true
         withAnimation(.interpolatingSpring(mass: 0.78, stiffness: 190, damping: 22, initialVelocity: 0.9)) {
-            dragOffset = direction * width * 1.08
+            dragOffset = sign * width * 1.08
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
             action()
             dragOffset = 0
             isTrackingHorizontalSwipe = false
+            isAnimatingOut = false
         }
     }
 
@@ -465,6 +508,7 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
             dragOffset = 0
         }
         isTrackingHorizontalSwipe = false
+        isAnimatingOut = false
     }
 }
 

@@ -65,7 +65,7 @@ struct AppView: View {
                 }
             }
             .id(stage)
-            .transition(stageTransition)
+            .transition(.opacity)
             .animation(.spring(response: 0.42, dampingFraction: 0.88), value: stage)
             .toolbar(.hidden, for: .navigationBar)
         }
@@ -110,13 +110,6 @@ struct AppView: View {
         latestResult = nil
         purchaseState.resetForNewCalculation()
         goBackToHero()
-    }
-
-    private var stageTransition: AnyTransition {
-        .asymmetric(
-            insertion: .move(edge: .trailing).combined(with: .opacity),
-            removal: .move(edge: .leading).combined(with: .opacity)
-        )
     }
 
     private func saveProfileLocally() {
