@@ -10,6 +10,7 @@ private enum AdmissionFlowStage {
 
 struct AppView: View {
     @State private var profile = StudentProfile.formDefault
+    @State private var profileCompletionState = ProfileFormCompletionState()
     @State private var selectedCollegeIDs: Set<String> = []
     @State private var selectionSource: PortfolioSelectionSource = .none
     @State private var latestResult: PortfolioResult?
@@ -33,6 +34,7 @@ struct AppView: View {
                     CalculatorView(
                         initialCardIndex: profileInitialCardIndex,
                         profile: $profile,
+                        completionState: $profileCompletionState,
                         selectedCollegeIDs: $selectedCollegeIDs,
                         selectionSource: $selectionSource,
                         hasExistingResult: latestResult != nil,
@@ -47,10 +49,14 @@ struct AppView: View {
                         includeLiberalArtsColleges: profile.includeLiberalArtsColleges,
                         applicationRound: profile.round,
                         requestedSchoolCount: $profile.requestedSchoolCount,
+                        hasExistingResult: latestResult != nil,
                         onAutoRecommend: autoRecommendForSelection,
                         onBackToProfile: {
                             profileInitialCardIndex = CalculatorView.lastProfileCardIndex
                             stage = .profile
+                        },
+                        onShowExistingResults: {
+                            stage = .results
                         },
                         onEvaluate: evaluateAndShowResults
                     )
@@ -112,6 +118,7 @@ struct AppView: View {
 
     private func resetAndGoBackToHero() {
         profile = StudentProfile.formDefault
+        profileCompletionState = ProfileFormCompletionState()
         selectedCollegeIDs = []
         selectionSource = .none
         latestResult = nil

@@ -579,6 +579,39 @@ struct StudentProfile: Hashable, Codable {
     }
 }
 
+enum ProfileCompletionField: String, Hashable, Codable {
+    case academicGrade
+    case classRank
+    case curriculumPrimary
+    case curriculumSecondary
+    case aLevelAStar
+    case aLevelA
+    case aLevelB
+    case rigor
+    case activities
+    case research
+    case honors
+    case essay
+    case recommendations
+    case highSchool
+}
+
+struct ProfileFormCompletionState: Hashable, Codable {
+    private var filledFields: Set<ProfileCompletionField> = []
+
+    func isFilled(_ field: ProfileCompletionField) -> Bool {
+        filledFields.contains(field)
+    }
+
+    mutating func set(_ field: ProfileCompletionField, isFilled: Bool) {
+        if isFilled {
+            filledFields.insert(field)
+        } else {
+            filledFields.remove(field)
+        }
+    }
+}
+
 enum ProfileCompletionImpact: String, Hashable, Codable {
     case gate = "硬门槛"
     case probability = "概率计算"

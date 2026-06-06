@@ -40,9 +40,9 @@ enum AdmissionStyle {
     ]
 
     static let profileCalm: [Color] = [
-        Color(red: 0.70, green: 0.88, blue: 0.82),
-        Color(red: 0.27, green: 0.42, blue: 0.49),
-        Color(red: 0.13, green: 0.21, blue: 0.28),
+        Color(red: 0.10, green: 0.62, blue: 0.34),
+        Color(red: 0.01, green: 0.04, blue: 0.03),
+        Color(red: 0.13, green: 0.21, blue: 0.18),
         Color(red: 0.58, green: 0.76, blue: 0.80)
     ]
 
@@ -432,8 +432,8 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
     }
 
     var body: some View {
-        ZStack {
-            previewLayer(width: cardWidth)
+        ZStack(alignment: .top) {
+            previewLayer(width: cardWidth, dragOffset: dragOffset)
             content
                 .offset(x: dragOffset)
                 .rotationEffect(.degrees(Double(dragOffset / 360) * 2.4))
@@ -443,6 +443,7 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
                 .gesture(cardGesture(width: cardWidth), including: .gesture)
                 .zIndex(2)
         }
+        .frame(maxWidth: .infinity, alignment: .top)
         .background {
             GeometryReader { proxy in
                 Color.clear
@@ -464,7 +465,7 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
     }
 
     @ViewBuilder
-    private func previewLayer(width: CGFloat) -> some View {
+    private func previewLayer(width: CGFloat, dragOffset: CGFloat) -> some View {
         let progress = min(1, abs(dragOffset) / max(width * 0.36, 1))
         if dragOffset > 0 {
             previousPreview
@@ -481,37 +482,48 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
                 guard !isAnimatingOut else {
                     return
                 }
-                let horizontal = value.translation.width
-                let vertical = abs(value.translation.height)
-                if !isTrackingHorizontalSwipe {
-                    isTrackingHorizontalSwipe = abs(horizontal) > 26 && abs(horizontal) > vertical * 1.25
+                if !isTrackingHorizontalSwipe && shouldTrackHorizontalSwipe(value) {
+                    isTrackingHorizontalSwipe = true
                 }
                 guard isTrackingHorizontalSwipe else {
                     return
                 }
-
-                if horizontal > 0 {
-                    dragOffset = canSwipeBack ? min(horizontal, width * 0.86) : min(horizontal * 0.16, 34)
-                } else {
-                    dragOffset = canSwipeForward ? max(horizontal, -width * 0.86) : max(horizontal * 0.16, -34)
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    dragOffset = constrainedDragOffset(for: value.translation.width, width: width)
                 }
             }
             .onEnded { value in
-                guard isTrackingHorizontalSwipe else {
+                let finalOffset = dragOffset
+                guard isTrackingHorizontalSwipe || shouldTrackHorizontalSwipe(value) else {
                     resetCardSwipe()
                     return
                 }
 
                 let threshold: CGFloat = 88
                 let projected = value.predictedEndTranslation.width
-                if dragOffset > threshold || projected > threshold * 1.7 {
-                    finishCardSwipe(width: width, direction: .back)
-                } else if dragOffset < -threshold || projected < -threshold * 1.7 {
-                    finishCardSwipe(width: width, direction: .forward)
+                if finalOffset > threshold || projected > threshold * 1.7 {
+                    finishCardSwipe(width: width, direction: .back, startingOffset: finalOffset)
+                } else if finalOffset < -threshold || projected < -threshold * 1.7 {
+                    finishCardSwipe(width: width, direction: .forward, startingOffset: finalOffset)
                 } else {
-                    resetCardSwipe()
+                    resetCardSwipe(from: finalOffset)
                 }
             }
+    }
+
+    private func shouldTrackHorizontalSwipe(_ value: DragGesture.Value) -> Bool {
+        let horizontal = value.translation.width
+        let vertical = abs(value.translation.height)
+        return abs(horizontal) > 26 && abs(horizontal) > vertical * 1.25
+    }
+
+    private func constrainedDragOffset(for horizontal: CGFloat, width: CGFloat) -> CGFloat {
+        if horizontal > 0 {
+            return canSwipeBack ? min(horizontal, width * 0.86) : min(horizontal * 0.16, 34)
+        }
+        return canSwipeForward ? max(horizontal, -width * 0.86) : max(horizontal * 0.16, -34)
     }
 
     private func performProgrammaticSwipe(_ direction: AdmissionCardSwipeDirection, width: CGFloat) {
@@ -521,7 +533,11 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
         finishCardSwipe(width: width, direction: direction)
     }
 
-    private func finishCardSwipe(width: CGFloat, direction: AdmissionCardSwipeDirection) {
+    private func finishCardSwipe(
+        width: CGFloat,
+        direction: AdmissionCardSwipeDirection,
+        startingOffset: CGFloat? = nil
+    ) {
         let canSwipe = direction == .back ? canSwipeBack : canSwipeForward
         guard canSwipe else {
             resetCardSwipe()
@@ -529,6 +545,9 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
         }
         let action = direction == .back ? onSwipeBack : onSwipeForward
         let sign: CGFloat = direction == .back ? 1 : -1
+        if let startingOffset {
+            dragOffset = startingOffset
+        }
         isAnimatingOut = true
         isTrackingHorizontalSwipe = true
         withAnimation(.interpolatingSpring(mass: 0.78, stiffness: 190, damping: 22, initialVelocity: 0.9)) {
@@ -542,12 +561,18 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
         }
     }
 
-    private func resetCardSwipe() {
+    private func resetCardSwipe(from startingOffset: CGFloat? = nil) {
+        if let startingOffset {
+            dragOffset = startingOffset
+            isAnimatingOut = true
+        }
         withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
             dragOffset = 0
         }
-        isTrackingHorizontalSwipe = false
-        isAnimatingOut = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            isTrackingHorizontalSwipe = false
+            isAnimatingOut = false
+        }
     }
 }
 

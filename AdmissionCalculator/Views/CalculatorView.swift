@@ -6,12 +6,14 @@ struct CalculatorView: View {
 
     let initialCardIndex: Int
     @Binding var profile: StudentProfile
+    @Binding var completionState: ProfileFormCompletionState
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
     let hasExistingResult: Bool
     let onOpenCollegeSelection: () -> Void
     @State private var cardIndex = 0
     @State private var maxVisitedCardIndex = 0
+    @State private var showingMajorSelection = false
     @State private var showingHighSchoolSearch = false
     @State private var swipeCommand: AdmissionCardSwipeCommand?
     @State private var hasAppliedInitialCardIndex = false
@@ -23,7 +25,7 @@ struct CalculatorView: View {
             AdmissionPageBackground()
             VStack(spacing: 14) {
                 ProfileTopBar(
-                    progress: profileCompletionProgress,
+                    progressSegments: profileCompletionProgresses,
                     canOpenSelection: canOpenSelection,
                     selectedCount: selectedCollegeIDs.count,
                     action: onOpenCollegeSelection
@@ -38,12 +40,12 @@ struct CalculatorView: View {
                             AdmissionSwipeableCard(
                                 swipeCommand: $swipeCommand,
                                 canSwipeBack: cardIndex > 0,
-                                canSwipeForward: cardIndex < profileCardCount - 1 || canOpenSelection,
+                                canSwipeForward: cardIndex < profileCardCount - 1 || canSwipeForwardToSelection,
                                 onSwipeBack: { moveCard(by: -1) },
                                 onSwipeForward: {
                                     if cardIndex < profileCardCount - 1 {
                                         moveCard(by: 1)
-                                    } else if canOpenSelection {
+                                    } else if canSwipeForwardToSelection {
                                         onOpenCollegeSelection()
                                     }
                                 },
@@ -55,10 +57,10 @@ struct CalculatorView: View {
                                 nextPreview: {
                                     if cardIndex < profileCardCount - 1 {
                                         profileCard(at: cardIndex + 1)
-                                    } else if canOpenSelection {
+                                    } else if canSwipeForwardToSelection {
                                         AdmissionPreviewCard(
                                             title: "选校设置",
-                                            subtitle: "进入下一页后设置自动推荐或手动学校列表。",
+                                            subtitle: "继续查看或调整当前选校组合。",
                                             systemImage: "building.columns.fill",
                                             colors: AdmissionStyle.roseSlate
                                         )
@@ -79,7 +81,7 @@ struct CalculatorView: View {
                     currentIndex: cardIndex,
                     totalCount: profileCardCount,
                     canGoBack: cardIndex > 0,
-                    canGoForward: cardIndex < profileCardCount - 1 || canOpenSelection,
+                    canGoForward: cardIndex < profileCardCount - 1 || canSwipeForwardToSelection,
                     back: { requestCardSwipe(.back) },
                     forward: { requestCardSwipe(.forward) }
                 )
@@ -91,33 +93,26 @@ struct CalculatorView: View {
             applyInitialCardIndexIfNeeded()
         }
         .onChange(of: profile) { _, _ in
-            if !profile.includeLiberalArtsColleges {
-                selectedCollegeIDs = selectedCollegeIDs.filter { id in
-                    guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
-                        return true
-                    }
-                    return college.category != .liberalArtsCollege
-                }
+            if selectionSource == .automatic {
+                selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
             }
-            selectedCollegeIDs = selectedCollegeIDs.filter { id in
-                guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
-                    return true
-                }
-                return allowsCurrentRound(college)
-            }
-            if profile.round == .earlyDecision, selectedCollegeIDs.count > 1 {
-                let firstSelected = AdmissionsSeedData.colleges
-                    .map(\.id)
-                    .first { selectedCollegeIDs.contains($0) }
-                selectedCollegeIDs = firstSelected.map { Set([$0]) } ?? []
-            }
+        }
+        .onChange(of: profile.includeLiberalArtsColleges) { _, _ in
+            applyLiberalArtsSelectionConstraint()
+            selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
+        }
+        .onChange(of: profile.round) { _, _ in
+            applyRoundSelectionConstraint()
             selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
         }
         .sheet(isPresented: $showingHighSchoolSearch) {
             HighSchoolSearchSheet(
-                selectedHighSchoolID: $profile.highSchoolID,
+                selectedHighSchoolID: highSchoolSelectionBinding,
                 highSchools: AdmissionsSeedData.highSchools
             )
+        }
+        .sheet(isPresented: $showingMajorSelection) {
+            MajorSelectionSheet(selectedMajor: $profile.major)
         }
     }
 
@@ -127,13 +122,10 @@ struct CalculatorView: View {
         case 0:
             CardSection(title: "学生画像", subtitle: "先确定目标方向与校内成绩基准。", systemImage: "person.text.rectangle", colors: AdmissionStyle.profileCalm, minHeight: Self.profileCardHeight) {
                 HStack(spacing: 12) {
-                    Picker("目标专业", selection: $profile.major) {
-                        ForEach(MajorCategory.allCases) { item in
-                            Text(item.rawValue).tag(item)
-                        }
+                    MajorSelectionButton(major: profile.major) {
+                        showingMajorSelection = true
                     }
-                    .pickerStyle(.menu)
-                    .tint(.white)
+                    .layoutPriority(1)
 
                     Spacer(minLength: 8)
 
@@ -151,14 +143,16 @@ struct CalculatorView: View {
                     percent: $profile.gpaPercent,
                     fourPoint: $profile.gpaFourPoint,
                     fivePoint: $profile.gpaFivePoint,
-                    letterGrade: $profile.letterGrade
+                    letterGrade: $profile.letterGrade,
+                    isFilled: completionBinding(.academicGrade)
                 )
 	                DecimalSliderInput(
 	                    title: "年级排名百分位",
 	                    value: $profile.classRankPercentile,
 	                    range: 1...100,
 	                    step: 1,
-	                    displayValue: { "前 \(Int($0))%" }
+	                    displayValue: { "前 \(Int($0))%" },
+                        isFilled: completionBinding(.classRank)
 	                )
                 Picker("课程体系", selection: $profile.curriculum) {
                     ForEach(CurriculumType.allCases) { item in
@@ -167,7 +161,7 @@ struct CalculatorView: View {
                 }
                 .pickerStyle(.menu)
                 .tint(.white)
-                CurriculumPerformanceInputs(profile: $profile)
+                CurriculumPerformanceInputs(profile: $profile, completionState: $completionState)
             }
         case 1:
             CardSection(title: "标准化成绩", subtitle: "标化和语言成绩会进入资格校验，并参与概率修正。", systemImage: "target", colors: AdmissionStyle.bluePulse, minHeight: Self.profileCardHeight, contentVerticalAlignment: .center) {
@@ -182,15 +176,15 @@ struct CalculatorView: View {
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.70))
                 }
-	                IntArrowInput(title: "课程难度", value: $profile.rigor, range: 1...5, suffix: "/5")
+	                IntArrowInput(title: "课程难度", value: $profile.rigor, range: 1...5, suffix: "/5", isFilled: completionBinding(.rigor))
             }
         case 2:
             CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", colors: AdmissionStyle.pinkMist, minHeight: Self.profileCardHeight, contentVerticalAlignment: .center) {
-                BandStepper(title: "活动影响力", value: $profile.activities)
-                BandStepper(title: "科研 / 夏校", value: $profile.research)
-                BandStepper(title: "奖项区分度", value: $profile.honors)
-                BandStepper(title: "文书成熟度", value: $profile.essay)
-                BandStepper(title: "推荐信强度", value: $profile.recommendations)
+                BandStepper(title: "活动影响力", value: $profile.activities, isFilled: completionBinding(.activities))
+                BandStepper(title: "科研 / 夏校", value: $profile.research, isFilled: completionBinding(.research))
+                BandStepper(title: "奖项区分度", value: $profile.honors, isFilled: completionBinding(.honors))
+                BandStepper(title: "文书成熟度", value: $profile.essay, isFilled: completionBinding(.essay))
+                BandStepper(title: "推荐信强度", value: $profile.recommendations, isFilled: completionBinding(.recommendations))
                 Toggle("艺术作品集已准备", isOn: $profile.hasPortfolio)
                     .tint(AdmissionStyle.controlBlue)
             }
@@ -256,15 +250,133 @@ struct CalculatorView: View {
         swipeCommand = AdmissionCardSwipeCommand(direction: direction)
     }
 
-    private var canOpenSelection: Bool {
-        maxVisitedCardIndex >= profileCardCount - 1 && profileBlockingPrompts.isEmpty
+    private func applyLiberalArtsSelectionConstraint() {
+        guard !profile.includeLiberalArtsColleges else {
+            return
+        }
+        selectedCollegeIDs = selectedCollegeIDs.filter { id in
+            guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
+                return true
+            }
+            return college.category != .liberalArtsCollege
+        }
     }
 
-    private var profileCompletionProgress: Double {
-        if canOpenSelection {
+    private func applyRoundSelectionConstraint() {
+        selectedCollegeIDs = selectedCollegeIDs.filter { id in
+            guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
+                return true
+            }
+            return allowsCurrentRound(college)
+        }
+        if profile.round == .earlyDecision, selectedCollegeIDs.count > 1 {
+            let firstSelected = AdmissionsSeedData.colleges
+                .map(\.id)
+                .first { selectedCollegeIDs.contains($0) }
+            selectedCollegeIDs = firstSelected.map { Set([$0]) } ?? []
+        }
+    }
+
+    private var canOpenSelection: Bool {
+        maxVisitedCardIndex >= profileCardCount - 1 &&
+            profileBlockingPrompts.isEmpty &&
+            profileCompletionProgresses.allSatisfy { $0 >= 1 }
+    }
+
+    private var canSwipeForwardToSelection: Bool {
+        hasExistingResult && canOpenSelection
+    }
+
+    private var profileCompletionProgresses: [Double] {
+        (0..<profileCardCount).map { index in
+            guard index <= maxVisitedCardIndex else {
+                return 0
+            }
+            return profileCompletionProgress(for: index)
+        }
+    }
+
+    private func profileCompletionProgress(for index: Int) -> Double {
+        switch index {
+        case 0:
+            return completionRatio([
+                profile.major != .undecided,
+                completionState.isFilled(.academicGrade),
+                completionState.isFilled(.classRank),
+                curriculumEvidenceIsComplete
+            ])
+        case 1:
+            return completionRatio([
+                profile.testOptional || profile.sat != nil || profile.act != nil,
+                !profile.applicantStatus.requiresEnglishProof || profile.toefl != nil || profile.ielts != nil,
+                completionState.isFilled(.rigor)
+            ])
+        case 2:
+            var fields = [
+                completionState.isFilled(.activities),
+                completionState.isFilled(.research),
+                completionState.isFilled(.honors),
+                completionState.isFilled(.essay),
+                completionState.isFilled(.recommendations)
+            ]
+            if profile.major == .arts {
+                fields.append(profile.hasPortfolio)
+            }
+            return completionRatio(fields)
+        case 3:
+            return completionRatio([
+                completionState.isFilled(.highSchool)
+            ])
+        default:
+            return completionRatio([
+                profile.requestedSchoolCount > 0,
+                true,
+                true,
+                true
+            ])
+        }
+    }
+
+    private var curriculumEvidenceIsComplete: Bool {
+        switch profile.curriculum {
+        case .chinese:
+            return completionState.isFilled(.curriculumPrimary)
+        case .ap:
+            return completionState.isFilled(.curriculumPrimary) &&
+                profile.apCourseCount > 0 &&
+                completionState.isFilled(.curriculumSecondary)
+        case .ib:
+            return completionState.isFilled(.curriculumPrimary)
+        case .alevel:
+            return completionState.isFilled(.aLevelAStar) &&
+                completionState.isFilled(.aLevelA) &&
+                completionState.isFilled(.aLevelB) &&
+                profile.aLevelSubjectCount > 0
+        }
+    }
+
+    private func completionRatio(_ fields: [Bool]) -> Double {
+        guard !fields.isEmpty else {
             return 1
         }
-        return Double(maxVisitedCardIndex) / Double(profileCardCount)
+        return Double(fields.filter { $0 }.count) / Double(fields.count)
+    }
+
+    private func completionBinding(_ field: ProfileCompletionField) -> Binding<Bool> {
+        Binding(
+            get: { completionState.isFilled(field) },
+            set: { completionState.set(field, isFilled: $0) }
+        )
+    }
+
+    private var highSchoolSelectionBinding: Binding<String> {
+        Binding(
+            get: { profile.highSchoolID },
+            set: { id in
+                profile.highSchoolID = id
+                completionState.set(.highSchool, isFilled: true)
+            }
+        )
     }
 
     private func allowsCurrentRound(_ college: College) -> Bool {
@@ -344,54 +456,140 @@ private struct HighSchoolSearchButton: View {
     }
 }
 
+private struct MajorSelectionButton: View {
+    let major: MajorCategory
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("目标专业")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.68))
+                    Text(major.rawValue)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.black))
+                    .foregroundStyle(.white.opacity(0.72))
+            }
+            .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
+            .padding(.horizontal, 12)
+            .background(Color.white.opacity(0.13), in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("目标专业，当前选择 \(major.rawValue)")
+    }
+}
+
+private struct MajorSelectionSheet: View {
+    @Binding var selectedMajor: MajorCategory
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(MajorCategory.allCases) { major in
+                    Button {
+                        selectedMajor = major
+                        dismiss()
+                    } label: {
+                        MajorSelectionRow(
+                            major: major,
+                            isSelected: major == selectedMajor
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("选择专业")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+private struct MajorSelectionRow: View {
+    let major: MajorCategory
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(isSelected ? AdmissionStyle.controlBlue : .secondary)
+            Text(major.rawValue)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+            Spacer()
+        }
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+}
+
 private struct HighSchoolSearchSheet: View {
     @Binding var selectedHighSchoolID: String
-    let highSchools: [HighSchoolContext]
+    private let rows: [HighSchoolSearchItem]
 
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
 
-    private var orderedHighSchools: [HighSchoolContext] {
-        let filtered = highSchools.filter { school in
-            let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !query.isEmpty else {
-                return true
+    init(selectedHighSchoolID: Binding<String>, highSchools: [HighSchoolContext]) {
+        _selectedHighSchoolID = selectedHighSchoolID
+        rows = highSchools
+            .map(HighSchoolSearchItem.init)
+            .sorted { lhs, rhs in
+                if lhs.id == "unknown" {
+                    return true
+                }
+                if rhs.id == "unknown" {
+                    return false
+                }
+                return lhs.sortKey.localizedStandardCompare(rhs.sortKey) == .orderedAscending
             }
-            return school.name.localizedCaseInsensitiveContains(query) ||
-                school.city.localizedCaseInsensitiveContains(query) ||
-                school.id.localizedCaseInsensitiveContains(query)
-        }
-        return filtered.sorted { lhs, rhs in
-            if lhs.id == "unknown" {
-                return true
-            }
-            if rhs.id == "unknown" {
-                return false
-            }
-            return highSchoolSortKey(for: lhs).localizedStandardCompare(highSchoolSortKey(for: rhs)) == .orderedAscending
-        }
     }
 
-    private func highSchoolSortKey(for school: HighSchoolContext) -> String {
-        let latinName = school.name.applyingTransform(.toLatin, reverse: false) ?? school.name
-        return latinName
-            .applyingTransform(.stripDiacritics, reverse: false)?
-            .lowercased() ?? latinName.lowercased()
+    private var filteredRows: [HighSchoolSearchItem] {
+        let query = HighSchoolSearchItem.normalized(searchText)
+        guard !query.isEmpty else {
+            return rows
+        }
+        return rows.filter { $0.matches(query) }
     }
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(orderedHighSchools) { school in
+                    ForEach(filteredRows) { row in
                         Button {
-                            selectedHighSchoolID = school.id
+                            selectedHighSchoolID = row.id
                             dismiss()
                         } label: {
                             HighSchoolSearchRow(
-                                school: school,
-                                isSelected: school.id == selectedHighSchoolID
+                                school: row.school,
+                                isSelected: row.id == selectedHighSchoolID
                             )
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -410,6 +608,43 @@ private struct HighSchoolSearchSheet: View {
                 }
             }
         }
+    }
+}
+
+private struct HighSchoolSearchItem: Identifiable {
+    let school: HighSchoolContext
+    let sortKey: String
+    let searchableText: String
+
+    var id: String { school.id }
+
+    init(_ school: HighSchoolContext) {
+        self.school = school
+        sortKey = Self.pinyinKey(for: school.name)
+        searchableText = [
+            school.name,
+            school.city,
+            school.id,
+            sortKey
+        ]
+        .map(Self.normalized)
+        .joined(separator: " ")
+    }
+
+    func matches(_ query: String) -> Bool {
+        searchableText.contains(query)
+    }
+
+    static func normalized(_ text: String) -> String {
+        text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
+    }
+
+    private static func pinyinKey(for name: String) -> String {
+        let latinName = name.applyingTransform(.toLatin, reverse: false) ?? name
+        return normalized(latinName)
     }
 }
 
@@ -433,11 +668,13 @@ private struct HighSchoolSearchRow: View {
             Spacer()
         }
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 
 private struct ProfileTopBar: View {
-    let progress: Double
+    let progressSegments: [Double]
     let canOpenSelection: Bool
     let selectedCount: Int
     let action: () -> Void
@@ -455,12 +692,25 @@ private struct ProfileTopBar: View {
                 .opacity(canOpenSelection ? 1 : 0.58)
             }
 
-            ProfileCompletionBar(progress: progress)
+            ProfileCompletionBar(progressSegments: progressSegments)
         }
     }
 }
 
 private struct ProfileCompletionBar: View {
+    let progressSegments: [Double]
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(Array(progressSegments.enumerated()), id: \.offset) { _, progress in
+                ProfileCompletionSegment(progress: progress)
+            }
+        }
+        .frame(height: 9)
+    }
+}
+
+private struct ProfileCompletionSegment: View {
     let progress: Double
 
     var body: some View {
@@ -469,18 +719,19 @@ private struct ProfileCompletionBar: View {
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(Color.black.opacity(0.10))
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [AdmissionStyle.controlBlue, Color.cyan.opacity(0.86)],
-                            startPoint: .leading,
-                            endPoint: .trailing
+                if clampedProgress > 0 {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [AdmissionStyle.controlBlue, Color.cyan.opacity(0.86)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
                         )
-                    )
-                    .frame(width: clampedProgress == 0 ? 0 : max(8, proxy.size.width * clampedProgress))
+                        .frame(width: max(7, proxy.size.width * clampedProgress))
+                }
             }
         }
-        .frame(height: 9)
     }
 }
 
@@ -499,8 +750,10 @@ struct CardNavigationBar: View {
                     .font(.system(size: 38, weight: .bold))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(canGoBack ? Color.black.opacity(0.82) : Color.black.opacity(0.22))
+            .foregroundStyle(Color.black.opacity(0.82))
+            .opacity(canGoBack ? 1 : 0)
             .disabled(!canGoBack)
+            .accessibilityHidden(!canGoBack)
 
             Spacer()
 
@@ -515,8 +768,10 @@ struct CardNavigationBar: View {
                     .font(.system(size: 38, weight: .bold))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(canGoForward ? Color.black.opacity(0.82) : Color.black.opacity(0.22))
+            .foregroundStyle(Color.black.opacity(0.82))
+            .opacity(canGoForward ? 1 : 0)
             .disabled(!canGoForward)
+            .accessibilityHidden(!canGoForward)
         }
         .frame(height: 46)
     }
@@ -764,6 +1019,7 @@ struct ProfileSelectionSettingsCard: View {
 
 private struct CurriculumPerformanceInputs: View {
     @Binding var profile: StudentProfile
+    @Binding var completionState: ProfileFormCompletionState
 
     var body: some View {
         Group {
@@ -775,17 +1031,19 @@ private struct CurriculumPerformanceInputs: View {
                     percent: $profile.chineseCurriculumScore,
                     fourPoint: $profile.chineseCurriculumGPAFourPoint,
                     fivePoint: $profile.chineseCurriculumGPAFivePoint,
-                    letterGrade: $profile.chineseCurriculumLetterGrade
+                    letterGrade: $profile.chineseCurriculumLetterGrade,
+                    isFilled: completionBinding(.curriculumPrimary)
                 )
             case .ap:
-	                IntSliderInput(title: "AP / 高级课程门数", value: $profile.apCourseCount, range: 0...12, step: 1)
+	                IntSliderInput(title: "AP / 高级课程门数", value: $profile.apCourseCount, range: 0...12, step: 1, isFilled: completionBinding(.curriculumPrimary))
 	                if profile.apCourseCount > 0 {
 	                    DecimalSliderInput(
 	                        title: "AP 平均分",
 	                        value: $profile.apAverageScore,
 	                        range: 1...5,
 	                        step: 0.5,
-	                        displayValue: { String(format: "%.1f", $0) }
+	                        displayValue: { String(format: "%.1f", $0) },
+                            isFilled: completionBinding(.curriculumSecondary)
 	                    )
 	                } else {
                     Text("AP 课程门数为 0 时，AP 平均分不会计入课程体系成绩。")
@@ -793,11 +1051,11 @@ private struct CurriculumPerformanceInputs: View {
                         .foregroundStyle(.white.opacity(0.70))
                 }
             case .ib:
-	                IntSliderInput(title: "IB 预估总分", value: $profile.ibPredictedScore, range: 24...45, step: 1)
+	                IntSliderInput(title: "IB 预估总分", value: $profile.ibPredictedScore, range: 24...45, step: 1, isFilled: completionBinding(.curriculumPrimary))
 	            case .alevel:
-	                IntArrowInput(title: "A-Level A* 科目", value: $profile.aLevelAStarCount, range: aLevelRange(for: profile.aLevelAStarCount))
-	                IntArrowInput(title: "A-Level A 科目", value: $profile.aLevelACount, range: aLevelRange(for: profile.aLevelACount))
-	                IntArrowInput(title: "A-Level B 科目", value: $profile.aLevelBCount, range: aLevelRange(for: profile.aLevelBCount))
+	                IntArrowInput(title: "A-Level A* 科目", value: $profile.aLevelAStarCount, range: aLevelRange(for: profile.aLevelAStarCount), isFilled: completionBinding(.aLevelAStar))
+	                IntArrowInput(title: "A-Level A 科目", value: $profile.aLevelACount, range: aLevelRange(for: profile.aLevelACount), isFilled: completionBinding(.aLevelA))
+	                IntArrowInput(title: "A-Level B 科目", value: $profile.aLevelBCount, range: aLevelRange(for: profile.aLevelBCount), isFilled: completionBinding(.aLevelB))
                 Text("A*/A/B 合计最多 \(StudentProfile.maximumALevelSubjectCount) 门；超出上限不会提高课程体系成绩。")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.70))
@@ -820,6 +1078,13 @@ private struct CurriculumPerformanceInputs: View {
         updated.clampALevelSubjectCounts()
         profile = updated
     }
+
+    private func completionBinding(_ field: ProfileCompletionField) -> Binding<Bool> {
+        Binding(
+            get: { completionState.isFilled(field) },
+            set: { completionState.set(field, isFilled: $0) }
+        )
+    }
 }
 
 private struct GradeScaleInputs: View {
@@ -829,6 +1094,7 @@ private struct GradeScaleInputs: View {
     @Binding var fourPoint: Double
     @Binding var fivePoint: Double
     @Binding var letterGrade: LetterGradeBand
+    var isFilled: Binding<Bool>? = nil
 
     var body: some View {
         Picker("\(title)方式", selection: $scale) {
@@ -843,7 +1109,8 @@ private struct GradeScaleInputs: View {
             percent: $percent,
             fourPoint: $fourPoint,
             fivePoint: $fivePoint,
-            letterGrade: $letterGrade
+            letterGrade: $letterGrade,
+            isFilled: isFilled
         )
     }
 }
@@ -855,17 +1122,18 @@ private struct GradeValueInput: View {
     @Binding var fourPoint: Double
     @Binding var fivePoint: Double
     @Binding var letterGrade: LetterGradeBand
+    var isFilled: Binding<Bool>? = nil
 
     var body: some View {
         switch scale {
         case .percent:
-            DecimalSliderInput(title: title, value: $percent, range: 0...100, step: 1) { "\(Int($0))" }
+            DecimalSliderInput(title: title, value: $percent, range: 0...100, step: 1, displayValue: { "\(Int($0))" }, isFilled: isFilled)
         case .fourPoint:
-            DecimalSliderInput(title: title, value: $fourPoint, range: 0...4, step: 0.1) { String(format: "%.1f", $0) }
+            DecimalSliderInput(title: title, value: $fourPoint, range: 0...4, step: 0.1, displayValue: { String(format: "%.1f", $0) }, isFilled: isFilled)
         case .fivePoint:
-            DecimalSliderInput(title: title, value: $fivePoint, range: 0...5, step: 0.1) { String(format: "%.1f", $0) }
+            DecimalSliderInput(title: title, value: $fivePoint, range: 0...5, step: 0.1, displayValue: { String(format: "%.1f", $0) }, isFilled: isFilled)
         case .letter:
-            OptionArrowInput(title: title, selection: $letterGrade, options: LetterGradeBand.allCases) { $0.rawValue }
+            OptionArrowInput(title: title, selection: $letterGrade, options: LetterGradeBand.allCases, isFilled: isFilled) { $0.rawValue }
         }
     }
 }
@@ -876,6 +1144,7 @@ private struct DecimalSliderInput: View {
     let range: ClosedRange<Double>
     let step: Double
     let displayValue: (Double) -> String
+    var isFilled: Binding<Bool>? = nil
 
     var body: some View {
         LabeledContent {
@@ -883,17 +1152,27 @@ private struct DecimalSliderInput: View {
                 value: valueBinding,
                 range: range,
                 step: step,
-                displayText: displayValue(value)
+                displayText: displayText
             )
         } label: {
             Text(title)
         }
     }
 
+    private var displayText: String {
+        if isFilled?.wrappedValue == false {
+            return "-"
+        }
+        return displayValue(value)
+    }
+
     private var valueBinding: Binding<Double> {
         Binding(
             get: { value },
-            set: { value = snapped($0, range: range, step: step) }
+            set: {
+                isFilled?.wrappedValue = true
+                value = snapped($0, range: range, step: step)
+            }
         )
     }
 }
@@ -903,6 +1182,7 @@ private struct IntSliderInput: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
     let step: Int
+    var isFilled: Binding<Bool>? = nil
 
     var body: some View {
         LabeledContent {
@@ -910,17 +1190,27 @@ private struct IntSliderInput: View {
                 value: valueBinding,
                 range: Double(range.lowerBound)...Double(range.upperBound),
                 step: Double(step),
-                displayText: "\(value)"
+                displayText: displayText
             )
         } label: {
             Text(title)
         }
     }
 
+    private var displayText: String {
+        if isFilled?.wrappedValue == false {
+            return "-"
+        }
+        return "\(value)"
+    }
+
     private var valueBinding: Binding<Double> {
         Binding(
             get: { Double(value) },
-            set: { value = clamped(Int($0.rounded()), range: range) }
+            set: {
+                isFilled?.wrappedValue = true
+                value = clamped(Int($0.rounded()), range: range)
+            }
         )
     }
 }
@@ -941,7 +1231,7 @@ private struct OptionalIntSliderInput: View {
             disabled: disabled
         )
         .accessibilityLabel(title)
-        .accessibilityValue(value.map(String.init) ?? "未填写")
+        .accessibilityValue(value.map(String.init) ?? "空")
     }
 
     private var valueBinding: Binding<Double> {
@@ -967,7 +1257,7 @@ private struct OptionalDecimalSliderInput: View {
             displayText: value.map(displayValue)
         )
         .accessibilityLabel(title)
-        .accessibilityValue(value.map(displayValue) ?? "未填写")
+        .accessibilityValue(value.map(displayValue) ?? "空")
     }
 
     private var valueBinding: Binding<Double> {
@@ -1017,19 +1307,22 @@ private struct IntArrowInput: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
     var suffix = ""
+    var isFilled: Binding<Bool>? = nil
 
     var body: some View {
         LabeledContent {
             HStack(spacing: 12) {
                 IconAdjustButton(systemImage: "chevron.left.circle.fill", disabled: value <= range.lowerBound) {
+                    isFilled?.wrappedValue = true
                     value = max(range.lowerBound, value - 1)
                 }
 
-                Text("\(value)\(suffix)")
+                Text(displayText)
                     .font(.system(.headline, design: .rounded).monospacedDigit().weight(.black))
                     .frame(minWidth: 54)
 
                 IconAdjustButton(systemImage: "chevron.right.circle.fill", disabled: value >= range.upperBound) {
+                    isFilled?.wrappedValue = true
                     value = min(range.upperBound, value + 1)
                 }
             }
@@ -1037,12 +1330,20 @@ private struct IntArrowInput: View {
             Text(title)
         }
     }
+
+    private var displayText: String {
+        if isFilled?.wrappedValue == false {
+            return "-"
+        }
+        return "\(value)\(suffix)"
+    }
 }
 
 private struct OptionArrowInput<Option: Equatable>: View {
     let title: String
     @Binding var selection: Option
     let options: [Option]
+    var isFilled: Binding<Bool>? = nil
     let displayValue: (Option) -> String
 
     var body: some View {
@@ -1052,7 +1353,7 @@ private struct OptionArrowInput<Option: Equatable>: View {
                     move(by: -1)
                 }
 
-                Text(displayValue(selection))
+                Text(displayText)
                     .font(.system(.headline, design: .rounded).weight(.black))
                     .frame(minWidth: 72)
 
@@ -1071,7 +1372,15 @@ private struct OptionArrowInput<Option: Equatable>: View {
 
     private func move(by delta: Int) {
         guard !options.isEmpty else { return }
+        isFilled?.wrappedValue = true
         selection = options[clamped(currentIndex + delta, range: 0...(options.count - 1))]
+    }
+
+    private var displayText: String {
+        if isFilled?.wrappedValue == false {
+            return "-"
+        }
+        return displayValue(selection)
     }
 }
 
@@ -1190,8 +1499,9 @@ private struct ScoreSliderRow<Control: View>: View {
 private struct BandStepper: View {
     let title: String
     @Binding var value: Int
+    var isFilled: Binding<Bool>? = nil
 
     var body: some View {
-	        IntArrowInput(title: title, value: $value, range: 1...5, suffix: "/5")
+	        IntArrowInput(title: title, value: $value, range: 1...5, suffix: "/5", isFilled: isFilled)
 	    }
 	}

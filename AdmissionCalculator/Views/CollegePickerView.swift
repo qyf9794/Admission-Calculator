@@ -10,8 +10,10 @@ struct CollegePickerView: View {
     let includeLiberalArtsColleges: Bool
     let applicationRound: ApplicationRound
     @Binding var requestedSchoolCount: Int
+    let hasExistingResult: Bool
     let onAutoRecommend: () -> Void
     let onBackToProfile: () -> Void
+    let onShowExistingResults: () -> Void
     let onEvaluate: () -> Void
     @State private var searchText = ""
     @State private var filter: CollegePickerFilter = .selected
@@ -42,8 +44,9 @@ struct CollegePickerView: View {
             VStack(spacing: 14) {
                 SchoolSelectionHeader(
                     selectedCount: selectedCollegeIDs.count,
+                    showsEvaluateButton: cardIndex == cardCount - 1,
                     canEvaluate: !selectedCollegeIDs.isEmpty,
-                    onEvaluate: { requestCardSwipe(.forward) }
+                    onEvaluate: onEvaluate
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -55,7 +58,7 @@ struct CollegePickerView: View {
                             AdmissionSwipeableCard(
                                 swipeCommand: $swipeCommand,
                                 canSwipeBack: true,
-                                canSwipeForward: cardIndex < cardCount - 1 || !selectedCollegeIDs.isEmpty,
+                                canSwipeForward: cardIndex < cardCount - 1 || canSwipeForwardToResults,
                                 onSwipeBack: {
                                     if cardIndex > 0 {
                                         moveCard(by: -1)
@@ -66,8 +69,8 @@ struct CollegePickerView: View {
                                 onSwipeForward: {
                                     if cardIndex < cardCount - 1 {
                                         moveCard(by: 1)
-                                    } else if !selectedCollegeIDs.isEmpty {
-                                        onEvaluate()
+                                    } else if canSwipeForwardToResults {
+                                        onShowExistingResults()
                                     }
                                 },
                                 previousPreview: {
@@ -83,10 +86,10 @@ struct CollegePickerView: View {
                                 nextPreview: {
                                     if cardIndex < cardCount - 1 {
                                         selectionCard(at: cardIndex + 1)
-                                    } else if !selectedCollegeIDs.isEmpty {
+                                    } else if canSwipeForwardToResults {
                                         AdmissionPreviewCard(
-                                            title: "结果生成",
-                                            subtitle: "按当前画像和已选学校计算组合概率。",
+                                            title: "概率结果",
+                                            subtitle: "查看上一次计算结果；若资料已调整，结果页会提示重新计算。",
                                             systemImage: "chart.bar.xaxis",
                                             colors: AdmissionStyle.blackGlass
                                         )
@@ -108,7 +111,7 @@ struct CollegePickerView: View {
                     currentIndex: cardIndex,
                     totalCount: cardCount,
                     canGoBack: true,
-                    canGoForward: cardIndex < cardCount - 1 || !selectedCollegeIDs.isEmpty,
+                    canGoForward: cardIndex < cardCount - 1 || canSwipeForwardToResults,
                     back: { requestCardSwipe(.back) },
                     forward: { requestCardSwipe(.forward) }
                 )
@@ -123,6 +126,10 @@ struct CollegePickerView: View {
 
     private var selectedColleges: [College] {
         availableColleges.filter { selectedCollegeIDs.contains($0.id) }
+    }
+
+    private var canSwipeForwardToResults: Bool {
+        hasExistingResult && !selectedCollegeIDs.isEmpty
     }
 
     @ViewBuilder
@@ -285,6 +292,7 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
 
 private struct SchoolSelectionHeader: View {
     let selectedCount: Int
+    let showsEvaluateButton: Bool
     let canEvaluate: Bool
     let onEvaluate: () -> Void
 
@@ -298,12 +306,14 @@ private struct SchoolSelectionHeader: View {
                 .font(.system(.headline, design: .rounded).weight(.bold))
                 .foregroundStyle(Color.black.opacity(0.56))
             Spacer()
-            Button(action: onEvaluate) {
-                Label("开始计算概率", systemImage: "function")
+            if showsEvaluateButton {
+                Button(action: onEvaluate) {
+                    Label("开始计算概率", systemImage: "function")
+                }
+                .buttonStyle(AdmissionSoftButtonStyle(colors: canEvaluate ? AdmissionStyle.blackGlass : [Color.gray.opacity(0.58), Color.gray.opacity(0.32)]))
+                .disabled(!canEvaluate)
+                .opacity(canEvaluate ? 1 : 0.58)
             }
-            .buttonStyle(AdmissionSoftButtonStyle(colors: canEvaluate ? AdmissionStyle.blackGlass : [Color.gray.opacity(0.58), Color.gray.opacity(0.32)]))
-            .disabled(!canEvaluate)
-            .opacity(canEvaluate ? 1 : 0.58)
         }
     }
 }
