@@ -388,7 +388,6 @@ struct DataSourceRecord: Identifiable, Hashable, Codable {
 
         return name.localizedCaseInsensitiveContains(trimmed) ||
             role.localizedCaseInsensitiveContains(trimmed) ||
-            refreshMode.localizedCaseInsensitiveContains(trimmed) ||
             confidence.localizedCaseInsensitiveContains(trimmed) ||
             note.localizedCaseInsensitiveContains(trimmed) ||
             url.absoluteString.localizedCaseInsensitiveContains(trimmed)

@@ -189,8 +189,6 @@ private struct SourceCard: View {
             Text(source.note)
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.72))
-            LabeledContent("刷新方式", value: source.refreshMode)
-                .font(.caption)
             Link(source.url.absoluteString, destination: source.url)
                 .font(.caption2)
         }
