@@ -3,47 +3,148 @@ import SwiftUI
 struct ResultsView: View {
     let result: PortfolioResult?
     let isStale: Bool
-    @State private var showingDataSources = false
+    let onAnalyze: () -> Void
+    @State private var revealedResultCount = 0
 
     var body: some View {
-        ScrollView {
+        ZStack {
+            AdmissionPageBackground()
             if let result {
-                VStack(alignment: .leading, spacing: 16) {
-                    ResultsHero(result: result)
+                VStack(alignment: .leading, spacing: 12) {
                     if isStale {
                         Label("当前结果基于上一次提交的画像或选校；请回到计算页重新计算后再用于决策。", systemImage: "exclamationmark.triangle.fill")
                             .font(.footnote)
                             .foregroundStyle(.orange)
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                            .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
                     }
-                    SummaryBand(result: result)
-                    MissingInputCard(
-                        prompts: result.profileSnapshot.completionPrompts(selectedCollegeIDs: result.calculatedCollegeIDs)
+
+                    ResultRevealCard(
+                        title: "Total",
+                        subtitle: "全部已选至少一所",
+                        value: result.selectedAtLeastOne,
+                        colors: AdmissionStyle.blackGlass,
+                        countText: "\(result.schoolResults.count) 所学校",
+                        isRevealed: revealedResultCount >= 4,
+                        fontSize: 64
                     )
-                    DataExplanationLink {
-                        showingDataSources = true
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        ResultRevealCard(
+                            title: "Top10",
+                            subtitle: "综大 T10 至少一所",
+                            value: result.t10AtLeastOne,
+                            colors: [Color.purple.opacity(0.94), Color.black.opacity(0.82)],
+                            countText: "\(tierCount(in: result, maxRank: 10)) 所",
+                            isRevealed: revealedResultCount >= 1,
+                            fontSize: 30
+                        )
+                        ResultRevealCard(
+                            title: "Top30",
+                            subtitle: "综大 T30 至少一所",
+                            value: result.t30AtLeastOne,
+                            colors: [Color.blue.opacity(0.94), Color.black.opacity(0.82)],
+                            countText: "\(tierCount(in: result, maxRank: 30)) 所",
+                            isRevealed: revealedResultCount >= 2,
+                            fontSize: 30
+                        )
+                        ResultRevealCard(
+                            title: "Top50",
+                            subtitle: "综大 T50 至少一所",
+                            value: result.t50AtLeastOne,
+                            colors: [Color.teal.opacity(0.94), Color.black.opacity(0.82)],
+                            countText: "\(tierCount(in: result, maxRank: 50)) 所",
+                            isRevealed: revealedResultCount >= 3,
+                            fontSize: 30
+                        )
                     }
+
+                    Spacer(minLength: 6)
+
+                    if revealedResultCount >= 4 {
+                        Button(action: onAnalyze) {
+                            Label("分析结果", systemImage: "doc.text.magnifyingglass")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    Text("估算结果用于申请规划，不代表录取承诺。逐校概率与具体建议会在付费报告中显示。")
+                        .font(.caption)
+                        .foregroundStyle(Color.black.opacity(0.52))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding()
+                .padding(16)
+                .task(id: result.generatedAt) {
+                    await revealResultsInOrder()
+                }
             } else {
                 ContentUnavailableView("尚未计算", systemImage: "chart.bar", description: Text("请先在计算页提交学生画像。"))
             }
         }
-        .sheet(isPresented: $showingDataSources) {
-            NavigationStack {
-                DataSourcesView()
-                    .navigationTitle("数据与模型说明")
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("完成") {
-                                showingDataSources = false
-                            }
-                        }
-                    }
+    }
+
+    @MainActor
+    private func revealResultsInOrder() async {
+        revealedResultCount = 0
+        for nextCount in 1...4 {
+            try? await Task.sleep(nanoseconds: nextCount == 1 ? 260_000_000 : 1_250_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                revealedResultCount = nextCount
             }
         }
+    }
+
+    private func tierCount(in result: PortfolioResult, maxRank: Int) -> Int {
+        result.schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank <= maxRank }.count
+    }
+}
+
+private struct ResultRevealCard: View {
+    let title: String
+    let subtitle: String
+    let value: Double
+    let colors: [Color]
+    let countText: String
+    let isRevealed: Bool
+    let fontSize: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(title)
+                .font(.system(fontSize > 40 ? .title : .headline, design: .rounded).weight(.black))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+            if isRevealed {
+                Text(subtitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.70))
+                    .lineLimit(2)
+                AdmissionAnimatedPercentText(
+                    value: value,
+                    font: .system(size: fontSize, weight: .black, design: .rounded),
+                    foreground: .white,
+                    finalLabel: countText
+                )
+            } else {
+                Spacer(minLength: fontSize > 40 ? 80 : 42)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: fontSize > 40 ? 210 : 170, alignment: .leading)
+        .padding(16)
+        .background(
+            LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+        )
+        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -51,29 +152,27 @@ private struct ResultsHero: View {
     let result: PortfolioResult
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color(red: 0.07, green: 0.13, blue: 0.27)
-            HStack(alignment: .bottom, spacing: 8) {
-                ResultBar(color: .green, count: result.selectedBucketCounts.likely, height: 78)
-                ResultBar(color: .blue, count: result.selectedBucketCounts.target, height: 112)
-                ResultBar(color: .orange, count: result.selectedBucketCounts.reach, height: 94)
-                ResultBar(color: .red, count: result.selectedBucketCounts.blocked, height: 54)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .opacity(0.72)
-            .padding(.trailing, 18)
-
+        AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
             VStack(alignment: .leading, spacing: 14) {
-                Label("\(result.selectionSource.rawValue) · \(result.profileSnapshot.round.rawValue) 轮次", systemImage: "chart.bar.xaxis")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.82))
-                Text(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))
-                    .font(.system(size: 54, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                HStack(alignment: .top, spacing: 12) {
+                    Label("\(result.selectionSource.rawValue) · \(result.profileSnapshot.round.rawValue) 轮次", systemImage: "chart.bar.xaxis")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.82))
+                    Spacer(minLength: 8)
+                    ResultBarsSummary(counts: result.selectedBucketCounts)
+                }
+                AdmissionProbabilityCard(
+                    title: "全部已选",
+                    subtitle: "至少一所录取估算",
+                    value: result.selectedAtLeastOne,
+                    colors: [Color.green.opacity(0.92), Color.black.opacity(0.84)],
+                    countText: "当前组合 \(result.schoolResults.count) 所",
+                    delayIndex: 0,
+                    symbolName: "sparkles",
+                    fontSize: 52
+                )
                 Text("\(result.profileSnapshot.round.rawValue) 轮次当前学校中，至少被一所录取的估算概率")
-                    .font(.headline)
+                    .font(AdmissionStyle.sectionFont())
                     .foregroundStyle(.white)
                 Text("这是本轮次组合的至少一所概率，不混合其他轮次，不是单校概率或录取承诺。逐校概率请到报告页查看。")
                     .font(.footnote)
@@ -83,14 +182,30 @@ private struct ResultsHero: View {
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(.white.opacity(0.74))
                 HStack(spacing: 10) {
-                    HeroMetric(title: "学校", value: "\(result.schoolResults.count)")
-                    HeroMetric(title: "阻断", value: "\(result.selectedBucketCounts.blocked)")
+                    AdmissionMetricPill(title: "学校", value: "\(result.schoolResults.count)")
+                    AdmissionMetricPill(title: "阻断", value: "\(result.selectedBucketCounts.blocked)")
                 }
             }
-            .padding(18)
         }
-        .frame(maxWidth: .infinity, minHeight: 270)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct ResultBarsSummary: View {
+    let counts: PortfolioBucketCounts
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 5) {
+            ResultBar(color: .green, count: counts.likely, height: 26)
+            ResultBar(color: .blue, count: counts.target, height: 40)
+            ResultBar(color: .orange, count: counts.reach, height: 34)
+            ResultBar(color: .red, count: counts.blocked, height: 22)
+        }
+        .padding(8)
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 
@@ -100,31 +215,14 @@ private struct ResultBar: View {
     let height: CGFloat
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 3) {
             Text("\(count)")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white)
             RoundedRectangle(cornerRadius: 4)
                 .fill(color)
-                .frame(width: 24, height: min(150, max(24, height + CGFloat(count * 8))))
+                .frame(width: 12, height: min(56, max(14, height + CGFloat(count * 3))))
         }
-    }
-}
-
-private struct HeroMetric: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.white.opacity(0.72))
-            Text(value)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-        }
-        .frame(minWidth: 56, alignment: .leading)
     }
 }
 
@@ -139,11 +237,11 @@ private struct MissingInputCard: View {
             if prompts.isEmpty {
                 Text("当前画像没有明显需要补充的资料。")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
             } else {
                 Text("以下信息会影响硬门槛、画像分、自动推荐或选校策略；补齐后请重新计算。")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
                 ForEach(prompts) { prompt in
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
@@ -157,7 +255,7 @@ private struct MissingInputCard: View {
                                 .font(.subheadline.weight(.semibold))
                             Text(prompt.detail)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.70))
                         }
                     } icon: {
                         Image(systemName: prompt.systemImage)
@@ -166,12 +264,8 @@ private struct MissingInputCard: View {
                 }
             }
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke((prompts.isEmpty ? Color.green : Color.orange).opacity(0.18), lineWidth: 1)
-        )
+        .foregroundStyle(.white)
+        .admissionSmallCard(colors: prompts.isEmpty ? AdmissionStyle.mintNight : AdmissionStyle.citrus)
     }
 
     private func promptImpactColor(_ impact: ProfileCompletionImpact) -> Color {
@@ -192,21 +286,20 @@ private struct SummaryBand: View {
     let result: PortfolioResult
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("至少一所录取概率概览", systemImage: "chart.pie.fill")
-                .font(.headline)
-                .foregroundStyle(.blue)
-            Text("本次结果仅针对 \(result.profileSnapshot.round.rawValue) 轮次；未开放该轮次的学校不会进入计算。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+        AdmissionGradientCard(
+            title: "至少一所录取概率概览",
+            subtitle: "本次结果仅针对 \(result.profileSnapshot.round.rawValue) 轮次；未开放该轮次的学校不会进入计算。",
+            systemImage: "chart.pie.fill",
+            colors: AdmissionStyle.lilac
+        ) {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                MetricCell(title: "综大T10", value: result.t10AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 10), tint: .purple)
-                MetricCell(title: "综大T11-T30", value: result.t11T30AtLeastOne, count: tierCount(category: .nationalUniversity, minRankExclusive: 10, maxRank: 30), tint: .blue)
-                MetricCell(title: "综大T30", value: result.t30AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 30), tint: .indigo)
-                MetricCell(title: "综大T50", value: result.t50AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 50), tint: .teal)
-                MetricCell(title: "文理T10", value: result.liberalArtsT10AtLeastOne, count: tierCount(category: .liberalArtsCollege, maxRank: 10), tint: .pink)
-                MetricCell(title: "文理T30", value: result.liberalArtsT30AtLeastOne, count: tierCount(category: .liberalArtsCollege, maxRank: 30), tint: .orange)
-                MetricCell(title: "全部已选", value: result.selectedAtLeastOne, count: result.schoolResults.count, tint: .green)
+                MetricCell(title: "综大T10", value: result.t10AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 10), tint: .purple, delayIndex: 1)
+                MetricCell(title: "综大T11-T30", value: result.t11T30AtLeastOne, count: tierCount(category: .nationalUniversity, minRankExclusive: 10, maxRank: 30), tint: .blue, delayIndex: 2)
+                MetricCell(title: "综大T30", value: result.t30AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 30), tint: .indigo, delayIndex: 3)
+                MetricCell(title: "综大T50", value: result.t50AtLeastOne, count: tierCount(category: .nationalUniversity, maxRank: 50), tint: .teal, delayIndex: 4)
+                MetricCell(title: "文理T10", value: result.liberalArtsT10AtLeastOne, count: tierCount(category: .liberalArtsCollege, maxRank: 10), tint: .pink, delayIndex: 5)
+                MetricCell(title: "文理T30", value: result.liberalArtsT30AtLeastOne, count: tierCount(category: .liberalArtsCollege, maxRank: 30), tint: .orange, delayIndex: 6)
+                MetricCell(title: "全部已选", value: result.selectedAtLeastOne, count: result.schoolResults.count, tint: .green, delayIndex: 7)
             }
             ForEach(result.selectionWarnings, id: \.self) { warning in
                 Label(warning, systemImage: "exclamationmark.triangle")
@@ -215,14 +308,8 @@ private struct SummaryBand: View {
             }
             Text("组合结构：保底 \(result.selectedBucketCounts.likely) 所，目标 \(result.selectedBucketCounts.target) 所，争取 \(result.selectedBucketCounts.reach) 所，硬门槛未满足 \(result.selectedBucketCounts.blocked) 所。")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.76))
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.blue.opacity(0.16), lineWidth: 1)
-        )
     }
 
     private func tierCount(category: CollegeCategory, minRankExclusive: Int = 0, maxRank: Int) -> Int {
@@ -235,26 +322,23 @@ private struct MetricCell: View {
     let value: Double
     let count: Int
     let tint: Color
+    let delayIndex: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value.formatted(.percent.precision(.fractionLength(0))))
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(tint)
-            Text(count == 0 ? "未包含该层级" : "当前组合 \(count) 所")
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(tint.opacity(0.18), lineWidth: 1)
+        AdmissionProbabilityCard(
+            title: title,
+            subtitle: "单项概率生成",
+            value: value,
+            colors: cellColors,
+            countText: count == 0 ? "未包含该层级" : "当前组合 \(count) 所",
+            delayIndex: delayIndex,
+            symbolName: count == 0 ? "minus.circle" : "chart.line.uptrend.xyaxis",
+            fontSize: 30
         )
+    }
+
+    private var cellColors: [Color] {
+        [tint.opacity(0.95), Color.black.opacity(0.82)]
     }
 }
 
@@ -266,6 +350,6 @@ private struct DataExplanationLink: View {
             Label("查看数据与模型说明", systemImage: "info.circle")
                 .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(AdmissionQuietButtonStyle())
     }
 }

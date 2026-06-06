@@ -3,11 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		14D27FACB5792812821A22AD /* AdmissionCalculatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5E927A3EAFBA28D4D0CCCF /* AdmissionCalculatorApp.swift */; };
+		2D35C1583799739109489BBA /* AdmissionVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23795D36B2C425346C69ED1F /* AdmissionVisualStyle.swift */; };
 		2F27A009D133B31DFB317C24 /* AppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB85B5749B2C7482763F3B6B /* AppView.swift */; };
 		4158E64763319B1C1EF90E28 /* CollegePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C954FA4C29D50F0CACC323 /* CollegePickerView.swift */; };
 		8DD2D630A90FFA54850FF4CF /* ChanceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */; };
@@ -37,11 +38,12 @@
 /* Begin PBXFileReference section */
 		062D68FE7D248D5A00157612 /* AdmissionsSeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionsSeedData.swift; sourceTree = "<group>"; };
 		081826DFD30F984BD3F60385 /* ReportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportService.swift; sourceTree = "<group>"; };
+		23795D36B2C425346C69ED1F /* AdmissionVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionVisualStyle.swift; sourceTree = "<group>"; };
 		23A049FD0AFDCFD54930C8D5 /* ChanceEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChanceEngineTests.swift; sourceTree = "<group>"; };
 		40C954FA4C29D50F0CACC323 /* CollegePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollegePickerView.swift; sourceTree = "<group>"; };
 		7013D2316F417D26B1E8B3F8 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		74F3B465C6985828AFCF8BA6 /* AdmissionsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionsModels.swift; sourceTree = "<group>"; };
-		75BA07E3DBFD8C5A60D114AE /* AdmissionCalculatorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AdmissionCalculatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		75BA07E3DBFD8C5A60D114AE /* AdmissionCalculatorTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AdmissionCalculatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9B665FD180BB2A4231350DC4 /* AdmissionsNormalizedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionsNormalizedData.swift; sourceTree = "<group>"; };
 		B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChanceEngine.swift; sourceTree = "<group>"; };
 		B808A591F6410893EDE1951C /* CalculatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorView.swift; sourceTree = "<group>"; };
@@ -49,7 +51,7 @@
 		C014D23311F5D20F3E5C4CA6 /* ReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportView.swift; sourceTree = "<group>"; };
 		D04B8A9A5179F237DB30FE5A /* ResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultsView.swift; sourceTree = "<group>"; };
 		DB85B5749B2C7482763F3B6B /* AppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppView.swift; sourceTree = "<group>"; };
-		E71E254D5AFA3BB3751035DF /* AdmissionCalculator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AdmissionCalculator.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E71E254D5AFA3BB3751035DF /* AdmissionCalculator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AdmissionCalculator.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EAF67FDE609FF91E042B9AEB /* HarnessValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessValidationTests.swift; sourceTree = "<group>"; };
 		EB5E927A3EAFBA28D4D0CCCF /* AdmissionCalculatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionCalculatorApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -126,6 +128,7 @@
 		898ADF2307A46F94032E4397 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				23795D36B2C425346C69ED1F /* AdmissionVisualStyle.swift */,
 				B808A591F6410893EDE1951C /* CalculatorView.swift */,
 				40C954FA4C29D50F0CACC323 /* CollegePickerView.swift */,
 				BF79748D7FCFE25211D3BF06 /* DataSourcesView.swift */,
@@ -215,7 +218,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2650;
+				LastUpgradeCheck = 1430;
 			};
 			buildConfigurationList = 7A0DCA058D665D6E6304704A /* Build configuration list for PBXProject "AdmissionCalculator" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -227,6 +230,7 @@
 			);
 			mainGroup = 329A48128B73E13E1C5C52DF;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -251,6 +255,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				14D27FACB5792812821A22AD /* AdmissionCalculatorApp.swift in Sources */,
+				2D35C1583799739109489BBA /* AdmissionVisualStyle.swift in Sources */,
 				E3EE81C656A959A84C7D6B35 /* AdmissionsModels.swift in Sources */,
 				EFCF8CE252A05A56BBA4FBD5 /* AdmissionsNormalizedData.swift in Sources */,
 				F7595BE886BB3F36020B2AB7 /* AdmissionsSeedData.swift in Sources */,
@@ -391,10 +396,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = W7ZK75R9AV;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -415,7 +418,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
@@ -457,10 +459,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = W7ZK75R9AV;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -474,7 +474,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;

@@ -5,15 +5,22 @@ struct CollegePickerView: View {
     @Binding var selectionSource: PortfolioSelectionSource
     let includeLiberalArtsColleges: Bool
     let applicationRound: ApplicationRound
+    @Binding var requestedSchoolCount: Int
+    let onAutoRecommend: () -> Void
+    let onBackToProfile: () -> Void
+    let onEvaluate: () -> Void
     @State private var searchText = ""
-    @State private var filter: CollegePickerFilter = .all
+    @State private var filter: CollegePickerFilter = .selected
+    @State private var cardIndex = 0
     private let colleges = AdmissionsSeedData.colleges
+    private let cardCount = 2
 
     private var availableColleges: [College] {
         colleges.filter { college in
             (includeLiberalArtsColleges || college.category != .liberalArtsCollege) &&
                 allowsCurrentRound(college)
         }
+        .sorted(by: collegeRankSort)
     }
 
     private var filteredColleges: [College] {
@@ -24,16 +31,78 @@ struct CollegePickerView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                CollegePickerHero(
+        ZStack {
+            AdmissionPageBackground()
+            VStack(spacing: 14) {
+                SchoolSelectionHeader(
                     selectedCount: selectedCollegeIDs.count,
-                    totalCount: availableColleges.count,
-                    filteredCount: filteredColleges.count,
-                    includeLiberalArtsColleges: includeLiberalArtsColleges,
-                    applicationRound: applicationRound
+                    canEvaluate: !selectedCollegeIDs.isEmpty,
+                    onEvaluate: onEvaluate
                 )
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
 
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        currentSelectionCard
+                            .id(cardIndex)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                }
+                .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索学校、排名或分层")
+
+                CardNavigationBar(
+                    currentIndex: cardIndex,
+                    totalCount: cardCount,
+                    canGoBack: true,
+                    canGoForward: cardIndex < cardCount - 1,
+                    back: {
+                        if cardIndex == 0 {
+                            onBackToProfile()
+                        } else {
+                            moveCard(by: -1)
+                        }
+                    },
+                    forward: { moveCard(by: 1) }
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+            }
+        }
+    }
+
+    private var selectedColleges: [College] {
+        availableColleges.filter { selectedCollegeIDs.contains($0.id) }
+    }
+
+    @ViewBuilder
+    private var currentSelectionCard: some View {
+        if cardIndex == 0 {
+            SchoolSetupCard(
+                selectedCount: selectedCollegeIDs.count,
+                selectedColleges: selectedColleges,
+                requestedSchoolCount: $requestedSchoolCount,
+                includeLiberalArtsColleges: includeLiberalArtsColleges,
+                applicationRound: applicationRound,
+                onAutoRecommend: {
+                    onAutoRecommend()
+                    withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+                        filter = .selected
+                    }
+                }
+            )
+        } else {
+            AdmissionGradientCard(
+                title: "学校列表",
+                subtitle: "列表按 U.S. News 排名排列；右侧方框点击后选择或取消选择。",
+                systemImage: "building.columns",
+                colors: AdmissionStyle.roseSlate
+            ) {
                 CollegeFilterBar(
                     filter: $filter,
                     colleges: availableColleges,
@@ -41,51 +110,35 @@ struct CollegePickerView: View {
                     includeLiberalArtsColleges: includeLiberalArtsColleges
                 )
 
-                SelectedPortfolioCard(
-                    selectedCount: selectedCollegeIDs.count,
-                    selectedColleges: selectedColleges,
-                    applicationRound: applicationRound
-                )
+                if filteredColleges.isEmpty {
+                    ContentUnavailableView("没有匹配学校", systemImage: "magnifyingglass", description: Text("调整搜索词、筛选范围或申请轮次。"))
+                }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Label("学校列表", systemImage: "building.columns")
-                        .font(.headline)
-                        .foregroundStyle(.indigo)
-                    Text("仅显示已审核 v1 数据集内且开放 \(applicationRound.rawValue) 轮次的学校；这里的录取率是学校基础统计，不是个人概率。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    if filteredColleges.isEmpty {
-                        ContentUnavailableView("没有匹配学校", systemImage: "magnifyingglass", description: Text("调整搜索词、筛选范围或申请轮次。"))
-                    }
-
-                    ForEach(filteredColleges) { college in
-                        CollegeSelectionCard(
-                            college: college,
-                            isSelected: selectedCollegeIDs.contains(college.id),
-                            toggle: { toggle(college.id) }
-                        )
-                    }
+                ForEach(filteredColleges) { college in
+                    CollegeSelectionCard(
+                        college: college,
+                        isSelected: selectedCollegeIDs.contains(college.id),
+                        toggle: { toggle(college.id) }
+                    )
                 }
             }
-            .padding(16)
-        }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle("大学目录")
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索学校、排名或分层")
-        .toolbar {
-            Button {
-                selectedCollegeIDs.removeAll()
-                selectionSource = .none
-            } label: {
-                Label("全清", systemImage: "trash")
-            }
-            .disabled(selectedCollegeIDs.isEmpty)
         }
     }
 
-    private var selectedColleges: [College] {
-        availableColleges.filter { selectedCollegeIDs.contains($0.id) }
+    private func moveCard(by delta: Int) {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            cardIndex = min(max(cardIndex + delta, 0), cardCount - 1)
+        }
+    }
+
+    private func collegeRankSort(_ lhs: College, _ rhs: College) -> Bool {
+        if lhs.rank != rhs.rank {
+            return lhs.rank < rhs.rank
+        }
+        if lhs.category != rhs.category {
+            return lhs.category == .nationalUniversity
+        }
+        return lhs.name < rhs.name
     }
 
     private func allowsCurrentRound(_ college: College) -> Bool {
@@ -119,81 +172,137 @@ struct CollegePickerView: View {
 }
 
 private enum CollegePickerFilter: String, CaseIterable, Identifiable {
-    case all = "全部"
-    case selected = "已选"
-    case top10 = "综大T10"
-    case top30 = "综大T30"
-    case top50 = "综大T50"
-    case fiftyPlus = "综大50+"
-    case lacTop10 = "文理T10"
-    case lacTop30 = "文理T30"
+    case selected = "已选学校"
+    case all = "全部学校"
+    case nationalUniversities = "只看综合大学"
+    case liberalArtsColleges = "只看文理学院"
 
     var id: String { rawValue }
 
     static func availableCases(includeLiberalArtsColleges: Bool) -> [CollegePickerFilter] {
-        let base: [CollegePickerFilter] = [.all, .selected, .top10, .top30, .top50, .fiftyPlus]
+        let base: [CollegePickerFilter] = [.selected, .all, .nationalUniversities]
         guard includeLiberalArtsColleges else {
             return base
         }
-        return base + [.lacTop10, .lacTop30]
+        return base + [.liberalArtsColleges]
     }
 
     var systemImage: String {
         switch self {
-        case .all:
-            return "square.grid.2x2"
         case .selected:
             return "checkmark.seal"
-        case .top10, .lacTop10:
-            return "star.fill"
-        case .top30, .lacTop30:
-            return "chart.bar.fill"
-        case .top50:
-            return "chart.bar.xaxis"
-        case .fiftyPlus:
-            return "plus.circle"
+        case .all:
+            return "square.grid.2x2"
+        case .nationalUniversities:
+            return "building.columns"
+        case .liberalArtsColleges:
+            return "graduationcap"
         }
     }
 
     var tint: Color {
         switch self {
-        case .all:
-            return .indigo
         case .selected:
             return .green
-        case .top10:
-            return .purple
-        case .top30:
+        case .all:
+            return .indigo
+        case .nationalUniversities:
             return .blue
-        case .top50:
-            return .teal
-        case .fiftyPlus:
-            return .orange
-        case .lacTop10:
-            return .pink
-        case .lacTop30:
+        case .liberalArtsColleges:
             return .orange
         }
     }
 
     func includes(college: College, selectedIDs: Set<String>) -> Bool {
         switch self {
-        case .all:
-            return true
         case .selected:
             return selectedIDs.contains(college.id)
-        case .top10:
-            return college.category == .nationalUniversity && college.rank <= 10
-        case .top30:
-            return college.category == .nationalUniversity && college.rank <= 30
-        case .top50:
-            return college.category == .nationalUniversity && college.rank <= 50
-        case .fiftyPlus:
-            return college.category == .nationalUniversity && college.rank > 50
-        case .lacTop10:
-            return college.category == .liberalArtsCollege && college.rank <= 10
-        case .lacTop30:
-            return college.category == .liberalArtsCollege && college.rank <= 30
+        case .all:
+            return true
+        case .nationalUniversities:
+            return college.category == .nationalUniversity
+        case .liberalArtsColleges:
+            return college.category == .liberalArtsCollege
+        }
+    }
+}
+
+private struct SchoolSelectionHeader: View {
+    let selectedCount: Int
+    let canEvaluate: Bool
+    let onEvaluate: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text("\(selectedCount)")
+                .font(.system(size: 42, weight: .black, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Color.black.opacity(0.88))
+            Text("所已选")
+                .font(.system(.headline, design: .rounded).weight(.bold))
+                .foregroundStyle(Color.black.opacity(0.56))
+            Spacer()
+            Button(action: onEvaluate) {
+                Label("开始计算概率", systemImage: "function")
+            }
+            .buttonStyle(AdmissionSoftButtonStyle(colors: canEvaluate ? AdmissionStyle.blackGlass : [Color.gray.opacity(0.58), Color.gray.opacity(0.32)]))
+            .disabled(!canEvaluate)
+            .opacity(canEvaluate ? 1 : 0.58)
+        }
+    }
+}
+
+private struct SchoolSetupCard: View {
+    let selectedCount: Int
+    let selectedColleges: [College]
+    @Binding var requestedSchoolCount: Int
+    let includeLiberalArtsColleges: Bool
+    let applicationRound: ApplicationRound
+    let onAutoRecommend: () -> Void
+
+    var body: some View {
+        AdmissionGradientCard(
+            title: "选校设置",
+            subtitle: applicationRound == .earlyDecision ? "ED/ED2 是绑定申请；同一轮只保留 1 所。" : "先确定拟选数量，也可以让系统按当前画像自动推荐。",
+            systemImage: "rectangle.stack.badge.plus",
+            colors: AdmissionStyle.lilac
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("\(selectedCount)")
+                    .font(.system(size: 58, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                Text("已选学校数量")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.78))
+            }
+
+            UnboundedCountStepper(title: "拟选数量", value: $requestedSchoolCount)
+
+            Button(action: onAutoRecommend) {
+                Label("自动推荐", systemImage: "wand.and.stars")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.mintNight))
+            .disabled(requestedSchoolCount == 0)
+
+            if selectedColleges.isEmpty {
+                Text("下一张卡片默认显示已选学校；尚未选择时列表为空，可切换到全部学校。")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.72))
+            } else {
+                Text(selectedColleges.prefix(4).map(\.name).joined(separator: "、"))
+                    .font(.subheadline.weight(.bold))
+                    .fixedSize(horizontal: false, vertical: true)
+                if selectedColleges.count > 4 {
+                    Text("另有 \(selectedColleges.count - 4) 所已选学校。")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+            }
+
+            Text(includeLiberalArtsColleges ? "当前选校范围包含综合大学与文理学院。" : "当前选校范围只包含综合大学。")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.72))
         }
     }
 }
@@ -225,10 +334,15 @@ private struct CollegeFilterBar: View {
                         .foregroundStyle(filter == item ? .white : item.tint)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
-                        .background(filter == item ? item.tint : Color(.secondarySystemGroupedBackground), in: Capsule())
+                        .background(
+                            filter == item
+                                ? LinearGradient(colors: [item.tint, .black.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                : LinearGradient(colors: [Color.white.opacity(0.10), Color.white.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: Capsule()
+                        )
                         .overlay(
                             Capsule()
-                                .stroke(item.tint.opacity(filter == item ? 0 : 0.22), lineWidth: 1)
+                                .stroke(Color.white.opacity(filter == item ? 0.20 : 0.12), lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -252,8 +366,7 @@ private struct CollegePickerHero: View {
     let applicationRound: ApplicationRound
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color(red: 0.08, green: 0.16, blue: 0.31)
+        AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(0..<8, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 4)
@@ -270,7 +383,7 @@ private struct CollegePickerHero: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.82))
                 Text("\(selectedCount) 所已选")
-                    .font(.largeTitle.weight(.bold))
+                    .font(AdmissionStyle.titleFont(36))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -279,15 +392,12 @@ private struct CollegePickerHero: View {
                     .foregroundStyle(.white.opacity(0.86))
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
-                    HeroBadge(title: "数据集", value: "\(totalCount)")
-                    HeroBadge(title: "当前", value: "\(filteredCount)")
-                    HeroBadge(title: "来源", value: "v1")
+                    AdmissionMetricPill(title: "数据集", value: "\(totalCount)")
+                    AdmissionMetricPill(title: "当前", value: "\(filteredCount)")
+                    AdmissionMetricPill(title: "来源", value: "v1")
                 }
             }
-            .padding(18)
         }
-        .frame(maxWidth: .infinity, minHeight: 238)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func heroColor(_ index: Int) -> Color {
@@ -304,51 +414,29 @@ private struct CollegePickerHero: View {
     }
 }
 
-private struct HeroBadge: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.white.opacity(0.72))
-            Text(value)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-        }
-        .frame(minWidth: 58, alignment: .leading)
-    }
-}
-
 private struct SelectedPortfolioCard: View {
     let selectedCount: Int
     let selectedColleges: [College]
     let applicationRound: ApplicationRound
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("当前组合", systemImage: "checkmark.seal.fill")
-                .font(.headline)
-                .foregroundStyle(.green)
+        AdmissionGradientCard(
+            title: "当前组合",
+            systemImage: "checkmark.seal.fill",
+            colors: AdmissionStyle.mintNight
+        ) {
             Text(selectedCount == 0 ? "尚未选择学校" : selectedColleges.prefix(4).map(\.name).joined(separator: "、"))
-                .font(.subheadline.weight(.semibold))
+                .font(.system(.subheadline, design: .rounded).weight(.bold))
                 .fixedSize(horizontal: false, vertical: true)
             Text(selectionNote)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.72))
             if selectedColleges.count > 4 {
                 Text("另有 \(selectedColleges.count - 4) 所已选学校。")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.72))
             }
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.green.opacity(0.18), lineWidth: 1)
-        )
     }
 
     private var selectionNote: String {
@@ -380,8 +468,8 @@ private struct CollegeSelectionCard: View {
                             .foregroundStyle(tierColor)
                     }
                     Text(college.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                        .font(.system(.headline, design: .rounded).weight(.black))
+                        .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)
                     HStack(spacing: 12) {
                         MetricPill(title: "基础率", value: college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))), color: .blue)
@@ -389,18 +477,23 @@ private struct CollegeSelectionCard: View {
                     }
                     Text("数据质量 \(college.dataQuality.formatted(.number.precision(.fractionLength(2)))) · 已审核 v1")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.62))
                 }
                 Spacer()
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? .green : .secondary)
+                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                    .font(.title)
+                    .foregroundStyle(isSelected ? .white : .white.opacity(0.70))
+                    .frame(width: 40, height: 40)
+                    .background(isSelected ? Color.white.opacity(0.20) : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .padding(14)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+            .background(
+                LinearGradient(colors: cardColors, startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+            )
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.green.opacity(0.45) : tierColor.opacity(0.16), lineWidth: 1)
+                RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+                    .stroke(isSelected ? Color.white.opacity(0.34) : Color.white.opacity(0.12), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -418,6 +511,13 @@ private struct CollegeSelectionCard: View {
             return .secondary
         }
     }
+
+    private var cardColors: [Color] {
+        if isSelected {
+            return [tierColor.opacity(0.98), Color.black.opacity(0.76)]
+        }
+        return [Color.white.opacity(0.11), tierColor.opacity(0.30), Color.black.opacity(0.72)]
+    }
 }
 
 private struct MetricPill: View {
@@ -429,13 +529,13 @@ private struct MetricPill: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.64))
             Text(value)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(color)
+                .foregroundStyle(.white)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(color.opacity(0.10), in: RoundedRectangle(cornerRadius: 6))
+        .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }

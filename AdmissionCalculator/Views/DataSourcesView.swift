@@ -44,7 +44,7 @@ struct DataSourcesView: View {
             }
             .padding(16)
         }
-        .background(Color(.systemGroupedBackground))
+        .admissionPage()
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索学校或来源")
     }
 }
@@ -59,8 +59,7 @@ private enum DataSourcesMode: String, CaseIterable, Identifiable {
 
 private struct DataSourcesHero: View {
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color(red: 0.07, green: 0.14, blue: 0.28)
+        AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(0..<7, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 4)
@@ -77,22 +76,19 @@ private struct DataSourcesHero: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.82))
                 Text("来源审计")
-                    .font(.largeTitle.weight(.bold))
+                    .font(AdmissionStyle.titleFont(36))
                     .foregroundStyle(.white)
                 Text("查看每个概率输入来自哪里、哪些是官方数据、哪些只是保守代理。")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.86))
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
-                    DataHeroMetric(title: "学校", value: "\(AdmissionsSeedData.colleges.count)")
-                    DataHeroMetric(title: "来源", value: "\(AdmissionsSeedData.sourceRecords.count)")
-                    DataHeroMetric(title: "版本", value: AdmissionsSeedData.dataVersion)
+                    AdmissionMetricPill(title: "学校", value: "\(AdmissionsSeedData.colleges.count)")
+                    AdmissionMetricPill(title: "来源", value: "\(AdmissionsSeedData.sourceRecords.count)")
+                    AdmissionMetricPill(title: "版本", value: AdmissionsSeedData.dataVersion)
                 }
             }
-            .padding(18)
         }
-        .frame(maxWidth: .infinity, minHeight: 238)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func heroColor(_ index: Int) -> Color {
@@ -101,31 +97,13 @@ private struct DataSourcesHero: View {
     }
 }
 
-private struct DataHeroMetric: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.white.opacity(0.72))
-            Text(value)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .frame(minWidth: 58, alignment: .leading)
-    }
-}
-
 private struct DataSnapshotCard: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("当前数据快照", systemImage: "checkmark.seal.fill")
-                .font(.headline)
-                .foregroundStyle(.green)
+        AdmissionGradientCard(
+            title: "当前数据快照",
+            systemImage: "checkmark.seal.fill",
+            colors: AdmissionStyle.mintNight
+        ) {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 DataMetricCell(title: "版本", value: AdmissionsSeedData.dataVersion, tint: .green)
                 DataMetricCell(title: "生成日期", value: AdmissionsSeedData.generatedAt, tint: .blue)
@@ -134,14 +112,8 @@ private struct DataSnapshotCard: View {
             }
             Text("学校统计范围固定为已审核 v1 数据集：AdmissionSight 综合大学与用户提供表格中的 Top30 文理学院；国际生、中国本科、学术基准和硬门槛来源会在逐校审计中单独披露。")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.72))
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.green.opacity(0.16), lineWidth: 1)
-        )
     }
 }
 
@@ -153,17 +125,16 @@ private struct DataMetricCell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.66))
             Text(value)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(tint)
+                .font(.system(.headline, design: .rounded).weight(.black))
+                .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .admissionSmallCard(colors: [tint.opacity(0.92), Color.black.opacity(0.78)])
     }
 }
 
@@ -187,41 +158,33 @@ private struct SourceCard: View {
     let source: DataSourceRecord
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(source.name)
-                        .font(.headline)
-                    Text(source.role)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Text(source.confidence)
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(confidenceColor.opacity(0.14), in: Capsule())
-                    .foregroundStyle(confidenceColor)
-            }
+        AdmissionGradientCard(
+            title: source.name,
+            subtitle: source.role,
+            colors: isHighConfidence ? AdmissionStyle.mintNight : AdmissionStyle.citrus
+        ) {
+            Text(source.confidence)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.12), in: Capsule())
+                .foregroundStyle(.white)
             Text(source.note)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.72))
             LabeledContent("刷新方式", value: source.refreshMode)
                 .font(.caption)
             Link(source.url.absoluteString, destination: source.url)
                 .font(.caption2)
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(confidenceColor.opacity(0.18), lineWidth: 1)
-        )
     }
 
     private var confidenceColor: Color {
-        source.confidence.localizedCaseInsensitiveContains("high") ? .green : .orange
+        isHighConfidence ? .green : .orange
+    }
+
+    private var isHighConfidence: Bool {
+        source.confidence.localizedCaseInsensitiveContains("high")
     }
 }
 
@@ -245,32 +208,24 @@ private struct CollegeStatCard: View {
     let college: College
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(college.name)
-                        .font(.headline)
-                    Text("#\(college.rank) · \(college.tierDisplayName)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Text(college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))))
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.blue)
-            }
+        AdmissionGradientCard(
+            title: college.name,
+            subtitle: "#\(college.rank) · \(college.tierDisplayName)",
+            colors: AdmissionStyle.bluePulse
+        ) {
+            Text(college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))))
+                .font(.system(.title3, design: .rounded).weight(.black))
+                .foregroundStyle(.white)
             HStack(spacing: 10) {
                 DataMetricCell(title: "数据槽", value: "\(college.latestAvailableClassYear)", tint: .purple)
                 DataMetricCell(title: "质量", value: college.dataQuality.formatted(.number.precision(.fractionLength(2))), tint: .green)
             }
             Text(college.sourceNote)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.68))
             Link("基础率来源", destination: college.sourceURL)
                 .font(.caption2)
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -290,20 +245,28 @@ private struct CollegeAuditSection: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(college.name)
-                                .font(.headline)
+                                .font(.system(.headline, design: .rounded).weight(.bold))
+                                .foregroundStyle(.white)
                             Text("录取率、国际生代理、中国本科录取容量、学术基准与硬门槛来源")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.68))
                         }
                         Spacer()
                         Text(college.tierDisplayName)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.white)
                     }
                     .padding(.vertical, 4)
                 }
                 .padding(14)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+                .background(
+                    LinearGradient(colors: AdmissionStyle.roseSlate, startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                )
             }
         }
     }
@@ -319,14 +282,17 @@ private struct SectionTitle: View {
         Label {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.headline)
+                    .font(AdmissionStyle.sectionFont())
+                    .foregroundStyle(.white)
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.68))
             }
         } icon: {
             Image(systemName: systemImage)
-                .foregroundStyle(tint)
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(tint.opacity(0.35), in: Circle())
         }
     }
 }
@@ -535,7 +501,7 @@ private struct SourceAuditRow: View {
                 .font(.caption)
             Text(note)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.70))
             if let url {
                 Link(url.absoluteString, destination: url)
                     .font(.caption2)
@@ -543,6 +509,10 @@ private struct SourceAuditRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .background(tint.opacity(0.18), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        )
     }
 }

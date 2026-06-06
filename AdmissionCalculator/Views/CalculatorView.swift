@@ -5,22 +5,80 @@ struct CalculatorView: View {
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
     let hasExistingResult: Bool
-    let onAutoRecommend: () -> Void
-    let onEvaluate: () -> Void
-    @State private var isCollegePickerPresented = false
+    let onOpenCollegeSelection: () -> Void
+    @State private var cardIndex = 0
+    @State private var maxVisitedCardIndex = 0
+
+    private let profileCardCount = 5
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                CalculatorHero(
+        ZStack {
+            AdmissionPageBackground()
+            VStack(spacing: 14) {
+                ProfileTopBar(
+                    progress: profileCompletionProgress,
+                    canOpenSelection: canOpenSelection,
                     selectedCount: selectedCollegeIDs.count,
-                    promptCount: completionPrompts.count,
-                    requestedTotal: requestedRecommendationTotal
+                    action: onOpenCollegeSelection
                 )
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
 
-                ProfileReadinessCard(prompts: completionPrompts)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        currentProfileCard
+                            .id(cardIndex)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                }
 
-                CardSection(title: "学生画像", subtitle: "先确定身份、成绩口径、课程体系和申请方向。", systemImage: "person.text.rectangle", tint: .indigo) {
+                CardNavigationBar(
+                    currentIndex: cardIndex,
+                    totalCount: profileCardCount,
+                    canGoBack: cardIndex > 0,
+                    canGoForward: cardIndex < profileCardCount - 1,
+                    back: { moveCard(by: -1) },
+                    forward: { moveCard(by: 1) }
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+            }
+        }
+        .onChange(of: profile) { _, _ in
+            if !profile.includeLiberalArtsColleges {
+                selectedCollegeIDs = selectedCollegeIDs.filter { id in
+                    guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
+                        return true
+                    }
+                    return college.category != .liberalArtsCollege
+                }
+            }
+            selectedCollegeIDs = selectedCollegeIDs.filter { id in
+                guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
+                    return true
+                }
+                return allowsCurrentRound(college)
+            }
+            if profile.round == .earlyDecision, selectedCollegeIDs.count > 1 {
+                let firstSelected = AdmissionsSeedData.colleges
+                    .map(\.id)
+                    .first { selectedCollegeIDs.contains($0) }
+                selectedCollegeIDs = firstSelected.map { Set([$0]) } ?? []
+            }
+            selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
+        }
+    }
+
+    @ViewBuilder
+    private var currentProfileCard: some View {
+        switch cardIndex {
+        case 0:
+            CardSection(title: "学生画像", subtitle: "先确定身份、成绩口径、课程体系和申请方向。", systemImage: "person.text.rectangle", colors: AdmissionStyle.mintNight) {
                 Picker("申请身份", selection: $profile.applicantStatus) {
                     ForEach(ApplicantStatus.allCases) { item in
                         Text(item.rawValue).tag(item)
@@ -63,8 +121,8 @@ struct CalculatorView: View {
                 .pickerStyle(.segmented)
                 Toggle("申请资助", isOn: $profile.needsAid)
             }
-
-                CardSection(title: "硬指标", subtitle: "标化和语言成绩会先经过硬门槛，再进入概率修正。", systemImage: "target", tint: .teal) {
+        case 1:
+            CardSection(title: "硬指标", subtitle: "标化和语言成绩会先经过硬门槛，再进入概率修正。", systemImage: "target", colors: AdmissionStyle.bluePulse) {
                 Toggle("Test Optional / 不提交标化", isOn: testOptionalBinding)
                 ScoreField(title: "SAT", value: $profile.sat, range: 400...1600, disabled: profile.testOptional)
                 ScoreField(title: "ACT", value: $profile.act, range: 1...36, disabled: profile.testOptional)
@@ -73,12 +131,12 @@ struct CalculatorView: View {
                 if !profile.applicantStatus.requiresEnglishProof {
                     Text("当前申请身份通常不触发国际生英语硬门槛；语言成绩仍可作为学术证明。")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.70))
                 }
 	                IntArrowInput(title: "课程难度", value: $profile.rigor, range: 1...5, suffix: "/5")
             }
-
-                CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", tint: .pink) {
+        case 2:
+            CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", colors: AdmissionStyle.pinkMist) {
                 BandStepper(title: "活动影响力", value: $profile.activities)
                 BandStepper(title: "科研 / 夏校", value: $profile.research)
                 BandStepper(title: "奖项区分度", value: $profile.honors)
@@ -86,8 +144,8 @@ struct CalculatorView: View {
                 BandStepper(title: "推荐信强度", value: $profile.recommendations)
                 Toggle("艺术作品集已准备", isOn: $profile.hasPortfolio)
             }
-
-                CardSection(title: "中国高中背景", subtitle: "高中背景只是代理校准，不是个人录取证明。", systemImage: "graduationcap.fill", tint: .orange) {
+        case 3:
+            CardSection(title: "中国高中背景", subtitle: "高中背景只是代理校准，不是个人录取证明。", systemImage: "graduationcap.fill", colors: AdmissionStyle.citrus) {
                 Picker("高中学校", selection: $profile.highSchoolID) {
                     ForEach(AdmissionsSeedData.highSchools) { school in
                         Text("\(school.name) · \(school.city)").tag(school.id)
@@ -96,10 +154,10 @@ struct CalculatorView: View {
                 .pickerStyle(.menu)
                 Text("高中背景仅作为 AdmitRanking 风格代理校准；不确定时请选择“其他/手动评估学校”，避免默认名校背景抬高估算。")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
             }
-
-                CardSection(title: "选校数量", subtitle: selectionCountSubtitle, systemImage: "slider.horizontal.3", tint: .blue) {
+        default:
+            CardSection(title: "选校数量", subtitle: selectionCountSubtitle, systemImage: "slider.horizontal.3", colors: AdmissionStyle.lilac) {
                 Toggle("纳入文理学院", isOn: $profile.includeLiberalArtsColleges)
                 UnboundedCountStepper(title: "计划选择大学", value: $profile.requestedSchoolCount)
                 LabeledContent("自动生成数量", value: "\(automaticGeneratedCount) 所")
@@ -107,99 +165,28 @@ struct CalculatorView: View {
                      ? "自动推荐和手动目录会同时包含综合大学与文理学院。"
                      : "关闭后，自动推荐、手动目录和至少一所概率都只考虑综合大学。")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
                 Text(automaticGenerationNote)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
             }
+        }
+    }
 
-                CardSection(title: "选校动作", subtitle: "先自动生成，也可以在下方手动打开大学目录调整。", systemImage: "rectangle.stack.badge.plus", tint: .green) {
-                Button {
-                    onAutoRecommend()
-                } label: {
-                    Label("自动生成 \(automaticGeneratedCount) 所", systemImage: "wand.and.stars")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .disabled(automaticGeneratedCount == 0)
-                if selectionSource == .automatic {
-                    Label("已自动推荐 \(selectedCollegeIDs.count) 所学校", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Text("修改学生画像或计划数量后，旧自动组合会转为手动组合；需要再次点击按钮才会按新条件生成。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button {
-                    isCollegePickerPresented = true
-                } label: {
-                    Label(selectedCollegeIDs.isEmpty ? "手动选择大学" : "手动调整 \(selectedCollegeIDs.count) 所", systemImage: "building.columns")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                if !selectedCollegeIDs.isEmpty {
-                    Button("清空已选学校") {
-                        selectedCollegeIDs.removeAll()
-                        selectionSource = .none
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-                }
-            }
+    private func moveCard(by delta: Int) {
+        let nextIndex = clamped(cardIndex + delta, range: 0...(profileCardCount - 1))
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            cardIndex = nextIndex
+            maxVisitedCardIndex = max(maxVisitedCardIndex, nextIndex)
+        }
+    }
 
-                Button(action: onEvaluate) {
-                    Label(hasExistingResult ? "重新计算" : "计算当前组合", systemImage: hasExistingResult ? "arrow.clockwise" : "function")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(.indigo)
-            }
-            .padding(16)
-        }
-        .background(Color(.systemGroupedBackground))
-        .sheet(isPresented: $isCollegePickerPresented) {
-            NavigationStack {
-                CollegePickerView(
-                    selectedCollegeIDs: $selectedCollegeIDs,
-                    selectionSource: $selectionSource,
-                    includeLiberalArtsColleges: profile.includeLiberalArtsColleges,
-                    applicationRound: profile.round
-                )
-                    .navigationTitle("大学目录")
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("完成") {
-                                isCollegePickerPresented = false
-                            }
-                        }
-                    }
-            }
-        }
-        .onChange(of: profile) { _, _ in
-            if !profile.includeLiberalArtsColleges {
-                selectedCollegeIDs = selectedCollegeIDs.filter { id in
-                    guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
-                        return true
-                    }
-                    return college.category != .liberalArtsCollege
-                }
-            }
-            selectedCollegeIDs = selectedCollegeIDs.filter { id in
-                guard let college = AdmissionsSeedData.colleges.first(where: { $0.id == id }) else {
-                    return true
-                }
-                return allowsCurrentRound(college)
-            }
-            if profile.round == .earlyDecision, selectedCollegeIDs.count > 1 {
-                let firstSelected = AdmissionsSeedData.colleges
-                    .map(\.id)
-                    .first { selectedCollegeIDs.contains($0) }
-                selectedCollegeIDs = firstSelected.map { Set([$0]) } ?? []
-            }
-            selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
-        }
+    private var canOpenSelection: Bool {
+        maxVisitedCardIndex >= profileCardCount - 1
+    }
+
+    private var profileCompletionProgress: Double {
+        Double(maxVisitedCardIndex + 1) / Double(profileCardCount)
     }
 
     private var selectionCountSubtitle: String {
@@ -261,23 +248,96 @@ struct CalculatorView: View {
     }
 }
 
+private struct ProfileTopBar: View {
+    let progress: Double
+    let canOpenSelection: Bool
+    let selectedCount: Int
+    let action: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.black.opacity(0.10))
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: canOpenSelection ? [Color.green, Color.teal] : [Color.gray.opacity(0.58), Color.gray.opacity(0.36)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(8, proxy.size.width * min(1, max(0, progress))))
+                }
+            }
+            .frame(height: 9)
+
+            Button(action: action) {
+                Label(selectedCount == 0 ? "选校" : "选校 \(selectedCount)", systemImage: "building.columns.fill")
+                    .labelStyle(.titleAndIcon)
+            }
+            .buttonStyle(AdmissionSoftButtonStyle(colors: canOpenSelection ? AdmissionStyle.mintNight : [Color.gray.opacity(0.58), Color.gray.opacity(0.34)]))
+            .disabled(!canOpenSelection)
+            .opacity(canOpenSelection ? 1 : 0.58)
+        }
+    }
+}
+
+struct CardNavigationBar: View {
+    let currentIndex: Int
+    let totalCount: Int
+    let canGoBack: Bool
+    let canGoForward: Bool
+    let back: () -> Void
+    let forward: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: back) {
+                Image(systemName: "chevron.left.circle.fill")
+                    .font(.system(size: 38, weight: .bold))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(canGoBack ? Color.black.opacity(0.82) : Color.black.opacity(0.22))
+            .disabled(!canGoBack)
+
+            Spacer()
+
+            Text("\(currentIndex + 1) / \(totalCount)")
+                .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.bold))
+                .foregroundStyle(Color.black.opacity(0.58))
+
+            Spacer()
+
+            Button(action: forward) {
+                Image(systemName: "chevron.right.circle.fill")
+                    .font(.system(size: 38, weight: .bold))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(canGoForward ? Color.black.opacity(0.82) : Color.black.opacity(0.22))
+            .disabled(!canGoForward)
+        }
+        .frame(height: 46)
+    }
+}
+
 private struct CalculatorHero: View {
     let selectedCount: Int
     let promptCount: Int
     let requestedTotal: Int
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color(red: 0.08, green: 0.18, blue: 0.32)
+        AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
             HStack(alignment: .bottom, spacing: 8) {
-                ForEach(0..<9, id: \.self) { index in
+                ForEach(0..<8, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 3)
                         .fill(heroBlockColor(index))
-                        .frame(width: 18, height: CGFloat(34 + index % 4 * 20))
+                        .frame(width: 14, height: CGFloat(28 + index % 4 * 18))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .opacity(0.55)
+            .opacity(0.36)
             .padding(.trailing, 18)
 
             VStack(alignment: .leading, spacing: 14) {
@@ -285,22 +345,19 @@ private struct CalculatorHero: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.82))
                 Text("Admit Chance")
-                    .font(.largeTitle.weight(.bold))
+                    .font(AdmissionStyle.titleFont(36))
                     .foregroundStyle(.white)
                 Text("用硬门槛、学术匹配、国际生数据和中国本科录取容量，生成可解释的选校估算。")
-                    .font(.subheadline)
+                    .font(AdmissionStyle.bodyFont())
                     .foregroundStyle(.white.opacity(0.86))
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
-                    HeroMetric(title: "已选", value: "\(selectedCount)")
-                    HeroMetric(title: "待补", value: "\(promptCount)")
-                    HeroMetric(title: "计划", value: "\(requestedTotal)")
+                    AdmissionMetricPill(title: "已选", value: "\(selectedCount)")
+                    AdmissionMetricPill(title: "待补", value: "\(promptCount)")
+                    AdmissionMetricPill(title: "计划", value: "\(requestedTotal)")
                 }
             }
-            .padding(18)
         }
-        .frame(maxWidth: .infinity, minHeight: 238)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func heroBlockColor(_ index: Int) -> Color {
@@ -309,24 +366,7 @@ private struct CalculatorHero: View {
     }
 }
 
-private struct HeroMetric: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.white.opacity(0.72))
-            Text(value)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-        }
-        .frame(minWidth: 56, alignment: .leading)
-    }
-}
-
-private struct UnboundedCountStepper: View {
+struct UnboundedCountStepper: View {
     let title: String
     @Binding var value: Int
 
@@ -342,7 +382,7 @@ private struct UnboundedCountStepper: View {
                 .disabled(value == 0)
 
                 Text("\(value) 所")
-                    .font(.headline.monospacedDigit())
+                    .font(.system(.headline, design: .rounded).monospacedDigit().weight(.black))
                     .frame(minWidth: 64)
 
                 Button {
@@ -369,14 +409,14 @@ private struct ProfileReadinessCard: View {
                         .font(.headline)
                     Text(prompts.isEmpty ? "可以直接计算，也可以继续微调选校组合。" : "这些信息会影响硬门槛、概率或推荐组合。")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.70))
                 }
             }
 
             if prompts.isEmpty {
                 Text("结果页会显示组合概率；逐校概率和提升建议在报告页查看。")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
             } else {
                 ForEach(prompts.prefix(4)) { prompt in
                     Label {
@@ -391,7 +431,7 @@ private struct ProfileReadinessCard: View {
                                 .font(.subheadline.weight(.semibold))
                             Text(prompt.detail)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.70))
                         }
                     } icon: {
                         Image(systemName: prompt.systemImage)
@@ -401,16 +441,12 @@ private struct ProfileReadinessCard: View {
                 if prompts.count > 4 {
                     Text("还有 \(prompts.count - 4) 项可补充信息会在后续细化中影响判断。")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.70))
                 }
             }
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke((prompts.isEmpty ? Color.green : Color.orange).opacity(0.22), lineWidth: 1)
-        )
+        .foregroundStyle(.white)
+        .admissionSmallCard(colors: prompts.isEmpty ? AdmissionStyle.mintNight : AdmissionStyle.citrus)
     }
 
     private func promptImpactColor(_ impact: ProfileCompletionImpact) -> Color {
@@ -431,46 +467,21 @@ private struct CardSection<Content: View>: View {
     let title: String
     let subtitle: String
     let systemImage: String
-    let tint: Color
+    let colors: [Color]
     private let content: Content
 
-    init(title: String, subtitle: String, systemImage: String, tint: Color, @ViewBuilder content: () -> Content) {
+    init(title: String, subtitle: String, systemImage: String, colors: [Color], @ViewBuilder content: () -> Content) {
         self.title = title
         self.subtitle = subtitle
         self.systemImage = systemImage
-        self.tint = tint
+        self.colors = colors
         self.content = content()
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.headline)
-                    .foregroundStyle(tint)
-                    .frame(width: 28, height: 28)
-                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.headline)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                content
-            }
+        AdmissionGradientCard(title: title, subtitle: subtitle, systemImage: systemImage, colors: colors) {
+            content
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(tint.opacity(0.18), lineWidth: 1)
-        )
     }
 }
 
@@ -502,7 +513,7 @@ private struct CurriculumPerformanceInputs: View {
 	                } else {
                     Text("AP 课程门数为 0 时，AP 平均分不会计入课程体系成绩。")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.70))
                 }
             case .ib:
 	                IntSliderInput(title: "IB 预估总分", value: $profile.ibPredictedScore, range: 24...45, step: 1)
@@ -512,7 +523,7 @@ private struct CurriculumPerformanceInputs: View {
 	                IntArrowInput(title: "A-Level B 科目", value: $profile.aLevelBCount, range: aLevelRange(for: profile.aLevelBCount))
                 Text("A*/A/B 合计最多 \(StudentProfile.maximumALevelSubjectCount) 门；超出上限不会提高课程体系成绩。")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
             }
         }
         .onAppear(perform: clampALevelSubjectsIfNeeded)
@@ -678,7 +689,7 @@ private struct SliderControl: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
             Text(displayText)
-                .font(.subheadline.monospacedDigit().weight(.semibold))
+                .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.black))
                 .foregroundStyle(disabled ? .secondary : .primary)
                 .frame(minWidth: 58, alignment: .trailing)
 
@@ -714,7 +725,7 @@ private struct IntArrowInput: View {
                 }
 
                 Text("\(value)\(suffix)")
-                    .font(.headline.monospacedDigit())
+                    .font(.system(.headline, design: .rounded).monospacedDigit().weight(.black))
                     .frame(minWidth: 54)
 
                 IconAdjustButton(systemImage: "chevron.right.circle.fill", disabled: value >= range.upperBound) {
@@ -741,7 +752,7 @@ private struct OptionArrowInput<Option: Equatable>: View {
                 }
 
                 Text(displayValue(selection))
-                    .font(.headline)
+                    .font(.system(.headline, design: .rounded).weight(.black))
                     .frame(minWidth: 72)
 
                 IconAdjustButton(systemImage: "chevron.right.circle.fill", disabled: currentIndex >= options.count - 1) {
@@ -775,7 +786,8 @@ private struct IconAdjustButton: View {
                 .frame(width: 34, height: 34)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(disabled ? Color.secondary.opacity(0.45) : Color.blue)
+        .foregroundStyle(disabled ? Color.white.opacity(0.28) : Color.white)
+        .background((disabled ? Color.white.opacity(0.06) : Color.white.opacity(0.14)), in: Circle())
         .disabled(disabled)
     }
 }

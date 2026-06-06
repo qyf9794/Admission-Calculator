@@ -5,6 +5,7 @@ struct ReportView: View {
     let result: PortfolioResult?
     @ObservedObject var purchaseState: ReportPurchaseState
     let isStale: Bool
+    let onBackToResults: () -> Void
     var client = OpenAIReportClient()
 
     @State private var reportText: String?
@@ -13,12 +14,16 @@ struct ReportView: View {
     @State private var isGenerating = false
     @State private var errorMessage: String?
     @State private var showingDataSources = false
+    @State private var showingPaymentSheet = false
+    @State private var showingReportSheet = false
 
     var body: some View {
-        ScrollView {
+        ZStack {
+            AdmissionPageBackground()
+            ScrollView {
             if let result {
                 VStack(alignment: .leading, spacing: 16) {
-                    ReportHero(result: result)
+                    ReportFrameworkHeader(result: result, onBackToResults: onBackToResults)
 
                     if isStale {
                         Label("当前结果已过期；请先回到计算页重新计算，再生成付费报告。", systemImage: "exclamationmark.triangle.fill")
@@ -26,7 +31,7 @@ struct ReportView: View {
                             .foregroundStyle(.orange)
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                            .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
                     }
 
                     ReportActionCard(
@@ -35,32 +40,19 @@ struct ReportView: View {
                         isStale: isStale,
                         isGenerating: isGenerating,
                         errorMessage: errorMessage,
-                        onGenerate: { generateReport(for: result) },
+                        onGenerate: { showingPaymentSheet = true },
                         onShowDataSources: { showingDataSources = true }
                     )
 
-                    ReportSchoolProbabilityList(results: result.schoolResults, round: result.profileSnapshot.round)
-
-                    if result.profileSnapshot.round == .regularDecision {
-                        if let reportText {
-                            ReportTextCard(
-                                text: reportText,
-                                pdfURL: pdfURL,
-                                pdfErrorMessage: pdfErrorMessage,
-                                onExportPDF: { exportPDF(text: reportText, result: result) }
-                            )
-                        } else {
-                            ReportTemplatePreview(result: result)
-                        }
-                    }
+                    ReportFrameworkPreview()
                 }
                 .padding()
             } else {
                 ContentUnavailableView("尚未生成报告", systemImage: "doc.text.magnifyingglass", description: Text("请先在计算页提交学生画像并计算结果。"))
                     .padding()
             }
+            }
         }
-        .background(Color(.systemGroupedBackground))
         .sheet(isPresented: $showingDataSources) {
             NavigationStack {
                 DataSourcesView()
@@ -74,9 +66,42 @@ struct ReportView: View {
                     }
             }
         }
+        .sheet(isPresented: $showingPaymentSheet) {
+            if let result {
+                ReportPaymentSheet(
+                    isGenerating: isGenerating,
+                    errorMessage: errorMessage,
+                    onCancel: { showingPaymentSheet = false },
+                    onPayAndGenerate: { completePaymentAndGenerate(for: result) }
+                )
+                .presentationDetents([.medium])
+            }
+        }
+        .sheet(isPresented: $showingReportSheet) {
+            if let result, let reportText {
+                NavigationStack {
+                    ReportTextCard(
+                        text: reportText,
+                        pdfURL: pdfURL,
+                        pdfErrorMessage: pdfErrorMessage,
+                        onExportPDF: { exportPDF(text: reportText, result: result) }
+                    )
+                    .padding()
+                    .admissionPage()
+                    .navigationTitle("录取分析报告")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("完成") {
+                                showingReportSheet = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    private func generateReport(for result: PortfolioResult) {
+    private func completePaymentAndGenerate(for result: PortfolioResult) {
         guard !isStale else {
             return
         }
@@ -85,6 +110,10 @@ struct ReportView: View {
             return
         }
         purchaseState.unlockForPrototype()
+        generateReport(for: result)
+    }
+
+    private func generateReport(for result: PortfolioResult) {
         isGenerating = true
         errorMessage = nil
         pdfURL = nil
@@ -98,6 +127,8 @@ struct ReportView: View {
                     reportText = generated
                     pdfURL = nil
                     isGenerating = false
+                    showingPaymentSheet = false
+                    showingReportSheet = true
                 }
             } catch {
                 await MainActor.run {
@@ -105,6 +136,8 @@ struct ReportView: View {
                     pdfURL = nil
                     errorMessage = "OpenAI 生成失败，已显示本地模板报告：\(error.localizedDescription)"
                     isGenerating = false
+                    showingPaymentSheet = false
+                    showingReportSheet = true
                 }
             }
         }
@@ -134,25 +167,17 @@ private struct ReportHero: View {
     let result: PortfolioResult
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color(red: 0.12, green: 0.10, blue: 0.27)
-            HStack(alignment: .bottom, spacing: 10) {
-                ForEach(Array(result.schoolResults.prefix(8).enumerated()), id: \.offset) { index, school in
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(color(for: school.bucket))
-                        .frame(width: 22, height: CGFloat(38 + index * 8) + CGFloat(school.adjustedProbability * 80))
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .opacity(0.65)
-            .padding(.trailing, 18)
-
+        AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
             VStack(alignment: .leading, spacing: 14) {
-                Label("付费 AI 综合报告 · \(result.profileSnapshot.round.rawValue)", systemImage: "doc.text.magnifyingglass")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.82))
+                HStack(alignment: .top, spacing: 12) {
+                    Label("付费 AI 综合报告 · \(result.profileSnapshot.round.rawValue)", systemImage: "doc.text.magnifyingglass")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.82))
+                    Spacer(minLength: 8)
+                    ReportBarsSummary(results: Array(result.schoolResults.prefix(6)))
+                }
                 Text("Application Report")
-                    .font(.largeTitle.weight(.bold))
+                    .font(AdmissionStyle.titleFont(34))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
@@ -162,16 +187,160 @@ private struct ReportHero: View {
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.86))
                     .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 10) {
+                    AdmissionProbabilityCard(
+                        title: "全部已选",
+                        subtitle: "综合报告基准概率",
+                        value: result.selectedAtLeastOne,
+                        colors: [Color.green.opacity(0.92), Color.black.opacity(0.84)],
+                        countText: "当前组合 \(result.schoolResults.count) 所",
+                        delayIndex: 0,
+                        symbolName: "doc.text.magnifyingglass",
+                        fontSize: 42
+                    )
+                    HStack(spacing: 10) {
+                        AdmissionMetricPill(title: "学校", value: "\(result.schoolResults.count)")
+                        AdmissionMetricPill(title: "阻断", value: "\(result.selectedBucketCounts.blocked)")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct ReportFrameworkHeader: View {
+    let result: PortfolioResult
+    let onBackToResults: () -> Void
+
+    var body: some View {
+        AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
+            VStack(alignment: .leading, spacing: 14) {
+                Button(action: onBackToResults) {
+                    Label("返回结果", systemImage: "chevron.left")
+                }
+                .buttonStyle(AdmissionQuietButtonStyle())
+                .fixedSize()
+
+                Label("付费 AI 综合报告 · \(result.profileSnapshot.round.rawValue)", systemImage: "doc.text.magnifyingglass")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+                Text("Report Framework")
+                    .font(AdmissionStyle.titleFont(34))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                Text("生成前只展示报告结构。支付并生成后，报告会以弹窗显示，并可导出 PDF。")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.86))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+private struct ReportFrameworkPreview: View {
+    private let sections = [
+        ("测算摘要", "组合概率、风险层级、是否存在硬门槛阻断。"),
+        ("逐校解释", "每所已选学校的概率、主要加分项和主要扣分项。"),
+        ("学术画像对比", "GPA、排名、课程难度、标化和目标校基准差距。"),
+        ("选校组合策略", "申请数量、排名价值、自动推荐逻辑和组合风险。"),
+        ("提升行动计划", "短期补强事项、材料重点、家庭沟通版结论。")
+    ]
+
+    var body: some View {
+        AdmissionGradientCard(
+            title: "报告包含内容",
+            subtitle: "这里只展示框架，不展示具体学校概率或个性化建议。",
+            systemImage: "list.bullet.rectangle",
+            colors: AdmissionStyle.mintNight
+        ) {
+            ForEach(sections, id: \.0) { section in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.white.opacity(0.86))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(section.0)
+                            .font(.subheadline.weight(.black))
+                        Text(section.1)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.72))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct ReportPaymentSheet: View {
+    let isGenerating: Bool
+    let errorMessage: String?
+    let onCancel: () -> Void
+    let onPayAndGenerate: () -> Void
+
+    var body: some View {
+        ZStack {
+            AdmissionPageBackground()
+            VStack(alignment: .leading, spacing: 16) {
+                Text("报告支付")
+                    .font(AdmissionStyle.titleFont(30))
+                    .foregroundStyle(Color.black.opacity(0.88))
+                Text("支付后生成完整录取分析报告。当前为 StoreKit-ready 原型流程，不会改变任何已计算概率。")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.black.opacity(0.62))
+                if let errorMessage {
+                    Label(errorMessage, systemImage: "info.circle")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
                 HStack(spacing: 10) {
-                    ReportHeroMetric(title: "全部已选", value: result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))
-                    ReportHeroMetric(title: "学校", value: "\(result.schoolResults.count)")
-                    ReportHeroMetric(title: "阻断", value: "\(result.selectedBucketCounts.blocked)")
+                    Button("取消", action: onCancel)
+                        .buttonStyle(AdmissionQuietButtonStyle(foreground: .black))
+                        .disabled(isGenerating)
+                    Button(action: onPayAndGenerate) {
+                        HStack(spacing: 8) {
+                            if isGenerating {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "lock.open.fill")
+                            }
+                            Text(isGenerating ? "正在生成" : "支付并生成")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
+                    .disabled(isGenerating)
                 }
             }
             .padding(18)
         }
-        .frame(maxWidth: .infinity, minHeight: 250)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct ReportBarsSummary: View {
+    let results: [ChanceResult]
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 5) {
+            if results.isEmpty {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.white.opacity(0.24))
+                    .frame(width: 12, height: 18)
+            } else {
+                ForEach(Array(results.enumerated()), id: \.offset) { index, school in
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(color(for: school.bucket))
+                        .frame(width: 10, height: CGFloat(18 + index * 4) + CGFloat(school.adjustedProbability * 32))
+                }
+            }
+        }
+        .frame(height: 52, alignment: .bottom)
+        .padding(8)
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private func color(for bucket: RecommendationBucket) -> Color {
@@ -181,23 +350,6 @@ private struct ReportHero: View {
         case .likely: .green
         case .blocked: .red
         }
-    }
-}
-
-private struct ReportHeroMetric: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.white.opacity(0.72))
-            Text(value)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-        }
-        .frame(minWidth: 56, alignment: .leading)
     }
 }
 
@@ -211,13 +363,12 @@ private struct ReportActionCard: View {
     let onShowDataSources: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("报告生成", systemImage: "sparkles")
-                .font(.headline)
-                .foregroundStyle(.purple)
-            Text("报告会围绕逐校概率、组合概率、差距优势和提升路径展开；AI 只解释已计算结果，不改变概率。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+        AdmissionGradientCard(
+            title: "报告生成",
+            subtitle: "报告会围绕逐校概率、组合概率、差距优势和提升路径展开；AI 只解释已计算结果，不改变概率。",
+            systemImage: "sparkles",
+            colors: AdmissionStyle.pinkMist
+        ) {
             if result.profileSnapshot.round != .regularDecision {
                 Label("综合报告仅针对 RD 轮次。当前为 \(result.profileSnapshot.round.rawValue)，可查看本轮逐校概率，但不能生成综合报告。", systemImage: "lock.fill")
                     .font(.footnote)
@@ -239,8 +390,7 @@ private struct ReportActionCard: View {
                     }
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.purple)
+                .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
                 .disabled(isStale || isGenerating || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)
 
                 Button {
@@ -248,21 +398,21 @@ private struct ReportActionCard: View {
                 } label: {
                     Label("说明", systemImage: "info.circle")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(AdmissionQuietButtonStyle())
             }
             Text(purchaseState.statusText)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.74))
             if isGenerating {
                 HStack(spacing: 10) {
                     ProgressView()
                     Text("AI 正在整理不足项、申请策略和学校简表，请保持页面打开。")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.70))
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.purple.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
             }
             if result.schoolResults.isEmpty {
                 Label("当前没有进入计算的学校，请先选择学校并重新计算。", systemImage: "exclamationmark.triangle")
@@ -275,12 +425,6 @@ private struct ReportActionCard: View {
                     .foregroundStyle(.orange)
             }
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.purple.opacity(0.16), lineWidth: 1)
-        )
     }
 }
 
@@ -289,40 +433,28 @@ private struct ReportSchoolProbabilityList: View {
     let round: ApplicationRound
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("逐校概率 · \(round.rawValue)", systemImage: "building.2.crop.circle")
-                .font(.headline)
-                .foregroundStyle(.indigo)
-            Text("以下概率只对应 \(round.rawValue) 轮次；不会混合其他轮次。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+        AdmissionGradientCard(
+            title: "逐校概率 · \(round.rawValue)",
+            subtitle: "以下概率只对应 \(round.rawValue) 轮次；不会混合其他轮次。",
+            systemImage: "building.2.crop.circle",
+            colors: AdmissionStyle.bluePulse
+        ) {
             if results.isEmpty {
                 ContentUnavailableView("暂无逐校概率", systemImage: "building.columns", description: Text("请先在计算页选择学校并计算。"))
             }
-            ForEach(results) { result in
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(result.college.name)
-                            .font(.subheadline.weight(.semibold))
-                        Text("#\(result.college.rank) · \(result.college.tierDisplayName) · \(result.bucket.rawValue)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text(result.adjustedProbability.formatted(.percent.precision(.fractionLength(0))))
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(color(for: result.bucket))
-                }
-                .padding(12)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(color(for: result.bucket).opacity(0.18), lineWidth: 1)
+            ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                AdmissionProbabilityCard(
+                    title: result.college.name,
+                    subtitle: "#\(result.college.rank) · \(result.college.tierDisplayName) · \(result.bucket.rawValue)",
+                    value: result.adjustedProbability,
+                    colors: [color(for: result.bucket).opacity(0.62), Color.black.opacity(0.84)],
+                    countText: "\(round.rawValue) 轮次单校估算",
+                    delayIndex: min(index, 12),
+                    symbolName: symbol(for: result.bucket),
+                    fontSize: 32
                 )
             }
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func color(for bucket: RecommendationBucket) -> Color {
@@ -333,27 +465,37 @@ private struct ReportSchoolProbabilityList: View {
         case .blocked: .red
         }
     }
+
+    private func symbol(for bucket: RecommendationBucket) -> String {
+        switch bucket {
+        case .reach:
+            return "flame"
+        case .target:
+            return "scope"
+        case .likely:
+            return "checkmark.seal"
+        case .blocked:
+            return "xmark.octagon"
+        }
+    }
 }
 
 private struct ReportTemplatePreview: View {
     let result: PortfolioResult
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("报告模板", systemImage: "doc.plaintext")
-                .font(.headline)
-                .foregroundStyle(.blue)
-            Text("生成后报告会覆盖以下内容：测算结果、当前不足、申请数量影响、学校简表、提升动作、选校策略和家庭沟通版结论。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+        AdmissionGradientCard(
+            title: "报告模板",
+            subtitle: "生成后报告会覆盖测算结果、当前不足、申请数量影响、学校简表、提升动作、选校策略和家庭沟通版结论。",
+            systemImage: "doc.plaintext",
+            colors: AdmissionStyle.mintNight
+        ) {
             Text(ReportService.makeReport(result: result))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.72))
                 .lineLimit(12)
                 .textSelection(.enabled)
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -364,24 +506,24 @@ private struct ReportTextCard: View {
     let onExportPDF: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("生成报告", systemImage: "doc.text")
-                .font(.headline)
-                .foregroundStyle(.green)
+        AdmissionGradientCard(
+            title: "生成报告",
+            systemImage: "doc.text",
+            colors: AdmissionStyle.mintNight
+        ) {
             HStack(spacing: 10) {
                 Button {
                     onExportPDF()
                 } label: {
                     Label(pdfURL == nil ? "生成 PDF" : "重新生成 PDF", systemImage: "doc.richtext")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(AdmissionQuietButtonStyle())
 
                 if let pdfURL {
                     ShareLink(item: pdfURL) {
                         Label("下载 PDF", systemImage: "square.and.arrow.down")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
+                    .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
                 }
             }
             if let pdfErrorMessage {
@@ -393,12 +535,6 @@ private struct ReportTextCard: View {
                 .font(.callout)
                 .textSelection(.enabled)
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.green.opacity(0.16), lineWidth: 1)
-        )
     }
 }
 
