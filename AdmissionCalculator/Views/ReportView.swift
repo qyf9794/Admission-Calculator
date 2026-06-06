@@ -45,6 +45,8 @@ struct ReportView: View {
                                 .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
                         }
 
+                        ResultsSnapshotCard(result: result)
+
                         ReportActionCard(
                             result: result,
                             purchaseState: purchaseState,
@@ -412,34 +414,41 @@ private struct ReportTextCard: View {
     let onExportPDF: () -> Void
 
     var body: some View {
-        AdmissionGradientCard(
-            title: "生成报告",
-            systemImage: "doc.text",
-            colors: AdmissionStyle.mintNight
-        ) {
-            HStack(spacing: 10) {
-                Button {
-                    onExportPDF()
-                } label: {
-                    Label(pdfURL == nil ? "生成 PDF" : "重新生成 PDF", systemImage: "doc.richtext")
-                }
-                .buttonStyle(AdmissionQuietButtonStyle())
-
-                if let pdfURL {
-                    ShareLink(item: pdfURL) {
-                        Label("下载 PDF", systemImage: "square.and.arrow.down")
+        GeometryReader { proxy in
+            AdmissionGradientCard(
+                title: "生成报告",
+                systemImage: "doc.text",
+                colors: AdmissionStyle.mintNight,
+                fixedHeight: proxy.size.height
+            ) {
+                HStack(spacing: 10) {
+                    Button {
+                        onExportPDF()
+                    } label: {
+                        Label(pdfURL == nil ? "生成 PDF" : "重新生成 PDF", systemImage: "doc.richtext")
                     }
-                    .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
+                    .buttonStyle(AdmissionQuietButtonStyle())
+
+                    if let pdfURL {
+                        ShareLink(item: pdfURL) {
+                            Label("下载 PDF", systemImage: "square.and.arrow.down")
+                        }
+                        .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
+                    }
                 }
+                if let pdfErrorMessage {
+                    Label(pdfErrorMessage, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
+                ScrollView {
+                    Text(text)
+                        .font(.callout)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            if let pdfErrorMessage {
-                Label(pdfErrorMessage, systemImage: "exclamationmark.triangle")
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-            }
-            Text(text)
-                .font(.callout)
-                .textSelection(.enabled)
         }
     }
 }

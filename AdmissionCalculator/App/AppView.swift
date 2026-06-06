@@ -147,26 +147,34 @@ private struct LandingHeroView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Spacer(minLength: 18)
                 AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        Label("中国学生美本录取概率规划", systemImage: "sparkle.magnifyingglass")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.82))
-                        Text("美本录取计算器")
-                            .font(AdmissionStyle.titleFont(44))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.72)
-                        Text("基于学术匹配、国际生数据和中国本科录取容量，估算当前选校组合的录取机会。")
-                            .font(.system(.body, design: .rounded).weight(.medium))
-                            .foregroundStyle(.white.opacity(0.84))
-                            .fixedSize(horizontal: false, vertical: true)
-                        Button(action: onStart) {
-                            Label("开始", systemImage: "arrow.right.circle.fill")
-                                .frame(maxWidth: .infinity)
+                    ZStack(alignment: .bottomLeading) {
+                        LandingHeroCircleGrid()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                            .allowsHitTesting(false)
+
+                        VStack(alignment: .leading, spacing: 18) {
+                            Label("中国学生美本录取概率规划", systemImage: "sparkle.magnifyingglass")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.82))
+                            Text("美本录取计算器")
+                                .font(AdmissionStyle.titleFont(44))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.72)
+                            Text("基于学术匹配、国际生数据和中国本科录取容量，估算当前选校组合的录取机会。")
+                                .font(.system(.body, design: .rounded).weight(.medium))
+                                .foregroundStyle(.white.opacity(0.84))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button(action: onStart) {
+                                Label("开始", systemImage: "arrow.right.circle.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
+                            .controlSize(.large)
                         }
-                        .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
-                        .controlSize(.large)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .frame(maxWidth: .infinity, minHeight: 420, alignment: .bottomLeading)
                 }
                 .frame(maxHeight: 520)
                 Spacer(minLength: 18)
@@ -174,4 +182,33 @@ private struct LandingHeroView: View {
             .padding(16)
         }
     }
+}
+
+private struct LandingHeroCircleGrid: View {
+    private let columns = 5
+    private let rows = 4
+    private let inset: CGFloat = 30
+    private let circleSize: CGFloat = 55
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = max(0, proxy.size.width - inset * 2)
+            let height = max(0, proxy.size.height * 0.50 - inset * 2)
+            let xStep = columns > 1 ? width / CGFloat(columns - 1) : 0
+            let yStep = rows > 1 ? height / CGFloat(rows - 1) : 0
+
+            ForEach(0..<(rows * columns), id: \.self) { index in
+                let row = index / columns
+                let column = index % columns
+                Circle()
+                    .fill(Color(red: 0.10, green: 0.11, blue: 0.12).opacity(0.50))
+                    .frame(width: circleSize, height: circleSize)
+                    .position(
+                        x: inset + CGFloat(column) * xStep,
+                        y: inset + CGFloat(row) * yStep
+                    )
+            }
+        }
+    }
+
 }
