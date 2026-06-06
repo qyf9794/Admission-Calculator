@@ -16,6 +16,11 @@ final class ReportPurchaseState: ObservableObject {
         isUnlocked = true
         statusText = "已完成报告生成权限"
     }
+
+    func resetForNewCalculation() {
+        isUnlocked = false
+        statusText = "综合报告未付费生成"
+    }
 }
 
 enum OpenAIReportError: LocalizedError {
@@ -198,6 +203,7 @@ enum ReportService {
         let factorHighlights = factorHighlightSummary(result: result)
         let improvementPlan = comprehensiveImprovementPlan(result: result)
         let deficitSummary = coreDeficitSummary(result: result)
+        let requiredSections = makeRequiredReportSections(result: result)
         let recommendationNotes: String
         switch result.selectionSource {
         case .automatic:
@@ -233,6 +239,8 @@ enum ReportService {
         文理学院 T10 至少一所（当前组合 \(tierCount(in: result, category: .liberalArtsCollege, maxRank: 10)) 所）：\(percent(result.liberalArtsT10AtLeastOne))
         文理学院 T30 至少一所（当前组合 \(tierCount(in: result, category: .liberalArtsCollege, maxRank: 30)) 所）：\(percent(result.liberalArtsT30AtLeastOne))
         全部已选至少一所（\(result.schoolResults.count) 所）：\(percent(result.selectedAtLeastOne))
+
+        \(requiredSections)
 
         当前组合结构：
         来源：\(result.selectionSource.rawValue)。
@@ -280,6 +288,35 @@ enum ReportService {
         """
     }
 
+    static func makeRequiredReportSections(result: PortfolioResult) -> String {
+        guard result.profileSnapshot.round == .regularDecision else {
+            return "当前为 \(result.profileSnapshot.round.rawValue) 轮次；综合报告表格仅在 RD 综合报告中展示。"
+        }
+        return """
+        逐校录取概率表：
+        \(schoolProbabilityTable(result: result))
+
+        学校平均/内部基准差距表：
+        \(benchmarkGapTable(result: result))
+
+        主要差距与提升建议：
+        \(structuredGapActionSummary(result: result))
+        """
+    }
+
+    static func mergeGeneratedReport(_ generated: String, result: PortfolioResult) -> String {
+        let required = makeRequiredReportSections(result: result)
+        guard result.profileSnapshot.round == .regularDecision else {
+            return generated
+        }
+        return """
+        \(required)
+
+        AI 详细分析正文：
+        \(generated)
+        """
+    }
+
     static func makeOpenAIReportPrompt(result: PortfolioResult) -> String {
         guard result.profileSnapshot.round == .regularDecision else {
             return makeReport(result: result)
@@ -292,9 +329,10 @@ enum ReportService {
         - 画像诊断：学生当前最强证据和最薄弱证据，不要泛泛鼓励。
         - 测算结果总览：原样保留综合大学 T10/T11-T30/T30/T50、文理学院 T10/T30、全部已选至少一所概率；解释同层相关性折扣。
         - 当前不足优先级：按“必须立即处理、明显拖累概率、材料优化项”归纳，不要机械逐校重复。
-        - 学校简表：每所学校都要出现，包含学校名、单校概率、分档、硬门槛状态、基准比较文字、关键风险和优先动作。
+        - 逐校录取概率表：必须用 Markdown 表格列出每所学校，字段至少包含学校、排名/类型、单校概率、分档、硬门槛、主要差距、优先动作。
+        - 学校平均/内部基准差距表：必须用 Markdown 表格逐校比较申请者与本校 GPA/学术指数、班级排名、SAT 等效或 test optional/test-free 状态、课程难度的差距；逐校保留清楚的基准比较文字；凡是 inferred/mixed 基准，只能说“学校平均/内部基准”或“可比基准”，不得说成官方录取平均。
         - 逐校策略：只写每所学校最值得家长和学生关注的判断，不要把每所大学写成长篇百科。
-        - 提升方案：按 0-1 个月、1-3 个月、3-6 个月列行动，并说明影响路径，例如硬门槛、学术匹配、画像分、专业竞争、轮次/资助、选校结构。
+        - 提升方案：按“问题 -> 影响学校/概率路径 -> 证据差距 -> 具体动作 -> 优先级”结构化表达；再按 0-1 个月、1-3 个月、3-6 个月列行动，并说明影响路径，例如硬门槛、学术匹配、画像分、专业竞争、轮次/资助、选校结构。
         - 选校组合策略：说明保底/目标/争取/阻断结构、申请数量对至少一所概率的方向性影响、当前学校的边际收益测算，以及为什么精力有限时不是越多越好。
         - 家庭沟通版结论：克制、清楚、可执行，不制造焦虑。
 
@@ -305,6 +343,7 @@ enum ReportService {
         - 不要展开系统缺失数据、来源审计或置信度说明。
         - 除已计算概率、学校数量、硬门槛结果和事实包里的学生/学校基准值外，不要用数字描述影响强度；影响强度用“极强、强、中、弱、极弱”等档位。
         - 不要暴露内部调整值、权重、参数或公式。
+        - 禁止使用空泛表达，例如“继续努力”“全面提升”“增强综合实力”；每条建议都必须指出具体材料、具体动作、对应概率路径或影响学校类型。
         - 如果事实包中同一信息在本地报告和结构化事实里重复，以结构化事实包为准。
 
         完整事实包如下：
@@ -369,6 +408,9 @@ enum ReportService {
 
         自动推荐/组合策略依据：
         \(recommendationStrategySummary(result: result))
+
+        ## 必须保留的确定性报告表格
+        \(makeRequiredReportSections(result: result))
 
         ## 逐校计算事实
         比较说明：高于本校基准、接近本校基准、低于本校基准、暂无可比基准或不适用。
@@ -619,6 +661,166 @@ enum ReportService {
         let action = schoolActionLines(profile: profile, school: school, benchmark: benchmark).first?
             .replacingOccurrences(of: "- ", with: "") ?? "保持材料一致性，重点优化专业叙事和选校结构。"
         return "\(school.college.name)：\(percent(school.adjustedProbability))（\(school.bucket.rawValue)）｜硬门槛通过｜学术 \(academics) 标化 \(testing) 课程 \(rigor)｜关键风险：\(risk)｜优先动作：\(action)"
+    }
+
+    private static func schoolProbabilityTable(result: PortfolioResult) -> String {
+        guard !result.schoolResults.isEmpty else {
+            return "尚未选择学校。"
+        }
+        let header = "| 学校 | 排名/类型 | 单校概率 | 分档 | 硬门槛 | 主要差距 | 优先动作 |\n| --- | --- | ---: | --- | --- | --- | --- |"
+        let rows = result.schoolResults.map { school in
+            let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
+            let gate = school.gateResult.passed ? "通过" : "未通过"
+            let gap = primaryGapSummary(profile: result.profileSnapshot, school: school, benchmark: benchmark)
+            let action = primaryActionSummary(profile: result.profileSnapshot, school: school, benchmark: benchmark)
+            return "| \(school.college.name) | #\(school.college.rank) \(school.college.category.rawValue) | \(percent(school.adjustedProbability)) | \(school.bucket.rawValue) | \(gate) | \(gap) | \(action) |"
+        }
+        return ([header] + rows).joined(separator: "\n")
+    }
+
+    private static func benchmarkGapTable(result: PortfolioResult) -> String {
+        guard !result.schoolResults.isEmpty else {
+            return "尚未选择学校。"
+        }
+        let header = "| 学校 | GPA/学术指数差距 | 班级排名差距 | 标化差距 | 课程难度差距 |\n| --- | --- | --- | --- | --- |"
+        let rows = result.schoolResults.map { school in
+            let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
+            return "| \(school.college.name) | \(gpaGapCell(profile: result.profileSnapshot, benchmark: benchmark)) | \(rankGapCell(profile: result.profileSnapshot, benchmark: benchmark)) | \(testingGapCell(profile: result.profileSnapshot, school: school, benchmark: benchmark)) | \(rigorGapCell(profile: result.profileSnapshot, benchmark: benchmark)) |"
+        }
+        return ([header] + rows).joined(separator: "\n")
+    }
+
+    private static func structuredGapActionSummary(result: PortfolioResult) -> String {
+        let profile = result.profileSnapshot
+        let blocked = result.schoolResults.filter { !$0.gateResult.passed }
+        let schoolsWithBenchmarks = result.schoolResults.map { school in
+            (school, AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id })
+        }
+
+        var items: [String] = []
+        if !blocked.isEmpty {
+            let schoolNames = compactSchoolNames(blocked)
+            let failed = unique(blocked.flatMap { $0.gateResult.failedRules.map(\.title) }).joined(separator: "、")
+            items.append("P0 硬门槛阻断｜影响学校：\(schoolNames)｜差距：\(failed.isEmpty ? "required 条件未满足" : failed)｜动作：先补齐对应 required 标化、英语、作品集或轮次条件；阻断解除前这些学校单校概率保持 0%。")
+        }
+
+        let gpaWeak = schoolsWithBenchmarks.compactMap { school, benchmark -> ChanceResult? in
+            guard let target = benchmark?.gpaPercentBenchmark, academicIndex(profile) < target - 2 else {
+                return nil
+            }
+            return school
+        }
+        if !gpaWeak.isEmpty {
+            items.append("P1 学术成绩低于学校基准｜影响学校：\(compactSchoolNames(gpaWeak))｜概率路径：目标校学术匹配｜动作：补交最近学期核心课成绩、解释高阶课程难度和上升趋势；若离基准超过 5 分，同步增加更稳健目标校。")
+        }
+
+        let rankWeak = schoolsWithBenchmarks.compactMap { school, benchmark -> ChanceResult? in
+            guard let target = benchmark?.classRankPercentileBenchmark, profile.classRankPercentile > target + 3 else {
+                return nil
+            }
+            return school
+        }
+        if !rankWeak.isEmpty {
+            items.append("P1 校内排名弱于学校基准｜影响学校：\(compactSchoolNames(rankWeak))｜概率路径：目标校学术匹配/高中队列校准｜动作：用最强课程、年级位置说明、竞赛或项目产出证明相对学术强度；不要只在文书中泛泛解释。")
+        }
+
+        let testingWeak = schoolsWithBenchmarks.compactMap { school, benchmark -> ChanceResult? in
+            guard !isTestFreeCollege(school.college), let target = benchmark?.satBenchmark else {
+                return nil
+            }
+            if let equivalent = submittedSATEquivalent(profile) {
+                return equivalent < target - 30 ? school : nil
+            }
+            return profile.testOptional ? nil : school
+        }
+        if !testingWeak.isEmpty {
+            items.append("P1 标化低于或缺少学校基准｜影响学校：\(compactSchoolNames(testingWeak))｜概率路径：硬门槛/学术匹配｜动作：用官方 ACT/SAT 等效口径评估是否提交；若低于基准 80 分以上，谨慎提交并把资源转向课程成绩和专业证据。")
+        }
+
+        let rigorWeak = schoolsWithBenchmarks.compactMap { school, benchmark -> ChanceResult? in
+            guard let target = benchmark?.rigorBenchmark, profile.rigor < target else {
+                return nil
+            }
+            return school
+        }
+        if !rigorWeak.isEmpty {
+            items.append("P2 课程难度证据不足｜影响学校：\(compactSchoolNames(rigorWeak))｜概率路径：课程严谨度/学术匹配｜动作：补充 AP/IB/A-Level/高阶课程证明；申请季无法加课时，让推荐信和项目材料证明实际挑战度。")
+        }
+
+        if profile.activities < 4 || profile.research < 4 || profile.honors < 4 {
+            items.append("P2 专业证据链不集中｜影响学校：热门专业和高选择性学校｜概率路径：学生画像/专业竞争｜动作：围绕 \(profile.major.rawValue) 选择 1-2 个项目深挖，写清问题、方法、个人贡献、产出和影响，减少散点式活动罗列。")
+        }
+        if profile.essay < 4 {
+            items.append("P2 文书主线不足｜影响学校：所有未阻断学校｜概率路径：材料表达/学校适配｜动作：把课程、项目、活动和目标专业连接成一条申请论证链，每所学校补充文书必须落到具体课程、研究机会或社区贡献。")
+        }
+        if profile.needsAid && profile.applicantStatus.isInternational {
+            items.append("P2 国际生资助策略风险｜影响学校：need-aware 或国际生资助有限学校｜概率路径：资助需求｜动作：逐校核对资助政策，对高风险学校提高材料适配度，并准备不申请资助或替代学校的家庭决策方案。")
+        }
+        if result.selectedBucketCounts.likely == 0 {
+            items.append("P3 组合缺少保底梯度｜影响学校：组合整体｜概率路径：至少一所概率/同层相关性｜动作：增加硬门槛明确通过、画像匹配度更高的稳健学校；不要只增加同层高难度学校。")
+        }
+
+        if items.isEmpty {
+            items.append("P2 材料精修｜影响学校：所有未阻断学校｜概率路径：学校适配/专业竞争｜动作：当前主要短板不集中，重点做逐校适配、推荐信证据清单和专业叙事一致性。")
+        }
+        return items.joined(separator: "\n")
+    }
+
+    private static func primaryGapSummary(profile: StudentProfile, school: ChanceResult, benchmark: AcademicBenchmark?) -> String {
+        if !school.gateResult.passed {
+            return "硬门槛未通过"
+        }
+        let risks = schoolRiskLines(profile: profile, school: school, benchmark: benchmark)
+        return risks.first ?? "核心指标接近或高于基准"
+    }
+
+    private static func primaryActionSummary(profile: StudentProfile, school: ChanceResult, benchmark: AcademicBenchmark?) -> String {
+        schoolActionLines(profile: profile, school: school, benchmark: benchmark)
+            .first?
+            .replacingOccurrences(of: "- ", with: "") ?? "保持材料一致性，优化专业叙事和逐校适配。"
+    }
+
+    private static func compactSchoolNames(_ schools: [ChanceResult]) -> String {
+        let names = schools.map(\.college.name)
+        guard names.count > 6 else {
+            return names.joined(separator: "、")
+        }
+        return names.prefix(6).joined(separator: "、") + " 等 \(names.count) 所"
+    }
+
+    private static func gpaGapCell(profile: StudentProfile, benchmark: AcademicBenchmark?) -> String {
+        let value = academicIndex(profile)
+        guard let target = benchmark?.gpaPercentBenchmark else {
+            return "申请者 \(formatNumber(value))/100；暂无可比基准"
+        }
+        return "申请者 \(formatNumber(value))/100；基准 \(formatNumber(target))/100；\(gapText(value: value - target, unit: "分", positiveIsGood: true, smallThreshold: 2, largeThreshold: 5))"
+    }
+
+    private static func rankGapCell(profile: StudentProfile, benchmark: AcademicBenchmark?) -> String {
+        guard let target = benchmark?.classRankPercentileBenchmark else {
+            return "申请者前 \(formatNumber(profile.classRankPercentile))%；暂无可比基准"
+        }
+        return "申请者前 \(formatNumber(profile.classRankPercentile))%；基准前 \(formatNumber(target))%；\(rankGapText(profile.classRankPercentile - target))"
+    }
+
+    private static func testingGapCell(profile: StudentProfile, school: ChanceResult, benchmark: AcademicBenchmark?) -> String {
+        if isTestFreeCollege(school.college) {
+            return "该校 test-free/test-blind；不进入概率"
+        }
+        guard let target = benchmark?.satBenchmark else {
+            return profile.testOptional ? "Test Optional；暂无 SAT 基准" : "暂无 SAT 基准"
+        }
+        if let equivalent = submittedSATEquivalent(profile) {
+            return "申请者 SAT 等效 \(equivalent)；基准 \(target)；\(gapText(value: Double(equivalent - target), unit: "分", positiveIsGood: true, smallThreshold: 30, largeThreshold: 80))"
+        }
+        return profile.testOptional ? "不提交；基准 \(target)；需用课程/材料补强" : "未填；基准 \(target)；需明确提交或不提交"
+    }
+
+    private static func rigorGapCell(profile: StudentProfile, benchmark: AcademicBenchmark?) -> String {
+        guard let target = benchmark?.rigorBenchmark else {
+            return "申请者 \(profile.rigor)/5；暂无可比基准"
+        }
+        return "申请者 \(profile.rigor)/5；基准 \(target)/5；\(gapText(value: Double(profile.rigor - target), unit: "档", positiveIsGood: true, smallThreshold: 0.5, largeThreshold: 1.5))"
     }
 
     private static func benchmarkComparisonText(value: Double?, target: Double?, higherIsBetter: Bool, closeThreshold: Double) -> String {

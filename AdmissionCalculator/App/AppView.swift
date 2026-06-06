@@ -9,7 +9,7 @@ private enum AdmissionFlowStage {
 }
 
 struct AppView: View {
-    @State private var profile = StudentProfile.sample
+    @State private var profile = StudentProfile.formDefault
     @State private var selectedCollegeIDs: Set<String> = []
     @State private var selectionSource: PortfolioSelectionSource = .none
     @State private var latestResult: PortfolioResult?
@@ -29,13 +29,13 @@ struct AppView: View {
                         }
                     }
                 case .profile:
-                CalculatorView(
-                    profile: $profile,
-                    selectedCollegeIDs: $selectedCollegeIDs,
-                    selectionSource: $selectionSource,
-                    hasExistingResult: latestResult != nil,
+                    CalculatorView(
+                        profile: $profile,
+                        selectedCollegeIDs: $selectedCollegeIDs,
+                        selectionSource: $selectionSource,
+                        hasExistingResult: latestResult != nil,
                         onOpenCollegeSelection: openCollegeSelection
-                )
+                    )
                 case .schools:
                     CollegePickerView(
                         selectedCollegeIDs: $selectedCollegeIDs,
@@ -51,6 +51,7 @@ struct AppView: View {
                     ResultsView(
                         result: latestResult,
                         isStale: resultIsStale,
+                        onBackToSchools: { withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { stage = .schools } },
                         onAnalyze: { withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { stage = .report } }
                     )
                 case .report:
@@ -58,10 +59,14 @@ struct AppView: View {
                         result: latestResult,
                         purchaseState: purchaseState,
                         isStale: resultIsStale,
-                        onBackToResults: { withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { stage = .results } }
+                        onBackToResults: { withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { stage = .results } },
+                        onRecalculate: resetAndGoBackToHero
                     )
                 }
             }
+            .id(stage)
+            .transition(stageTransition)
+            .animation(.spring(response: 0.42, dampingFraction: 0.88), value: stage)
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(.black)
@@ -90,6 +95,28 @@ struct AppView: View {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
             stage = .schools
         }
+    }
+
+    private func goBackToHero() {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+            stage = .hero
+        }
+    }
+
+    private func resetAndGoBackToHero() {
+        profile = StudentProfile.formDefault
+        selectedCollegeIDs = []
+        selectionSource = .none
+        latestResult = nil
+        purchaseState.resetForNewCalculation()
+        goBackToHero()
+    }
+
+    private var stageTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: .trailing).combined(with: .opacity),
+            removal: .move(edge: .leading).combined(with: .opacity)
+        )
     }
 
     private func saveProfileLocally() {

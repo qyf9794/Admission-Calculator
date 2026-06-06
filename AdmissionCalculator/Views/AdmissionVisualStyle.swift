@@ -217,6 +217,7 @@ struct AdmissionAnimatedPercentText: View {
     var foreground: Color = .white
     var startDelayMilliseconds = 0
     var finalLabel: String? = nil
+    var onSettled: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var displayedPercent = 0
@@ -260,6 +261,7 @@ struct AdmissionAnimatedPercentText: View {
         if reduceMotion {
             displayedPercent = targetPercent
             hasSettled = true
+            onSettled?()
             return
         }
 
@@ -269,6 +271,7 @@ struct AdmissionAnimatedPercentText: View {
 
         guard targetPercent > 0 else {
             hasSettled = true
+            onSettled?()
             return
         }
 
@@ -286,6 +289,7 @@ struct AdmissionAnimatedPercentText: View {
         withAnimation(.easeOut(duration: 0.24)) {
             hasSettled = true
         }
+        onSettled?()
     }
 }
 
@@ -334,6 +338,169 @@ struct AdmissionProbabilityCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .admissionSmallCard(colors: colors)
+    }
+}
+
+struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview: View>: View {
+    let canSwipeBack: Bool
+    let canSwipeForward: Bool
+    let onSwipeBack: () -> Void
+    let onSwipeForward: () -> Void
+    let previousPreview: PreviousPreview
+    let nextPreview: NextPreview
+    let content: Content
+
+    @State private var dragOffset: CGFloat = 0
+    @State private var isTrackingHorizontalSwipe = false
+    @State private var cardWidth: CGFloat = 340
+
+    init(
+        canSwipeBack: Bool,
+        canSwipeForward: Bool,
+        onSwipeBack: @escaping () -> Void,
+        onSwipeForward: @escaping () -> Void,
+        @ViewBuilder previousPreview: () -> PreviousPreview,
+        @ViewBuilder nextPreview: () -> NextPreview,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.canSwipeBack = canSwipeBack
+        self.canSwipeForward = canSwipeForward
+        self.onSwipeBack = onSwipeBack
+        self.onSwipeForward = onSwipeForward
+        self.previousPreview = previousPreview()
+        self.nextPreview = nextPreview()
+        self.content = content()
+    }
+
+    var body: some View {
+        ZStack {
+            previewLayer(width: cardWidth)
+            content
+                .offset(x: dragOffset)
+                .rotationEffect(.degrees(Double(dragOffset / 360) * 2.4))
+                .scaleEffect(1 - min(abs(dragOffset), 180) / 12000)
+                .shadow(color: Color.black.opacity(abs(dragOffset) > 0 ? 0.18 : 0), radius: 18, x: 0, y: 10)
+                .contentShape(RoundedRectangle(cornerRadius: AdmissionStyle.cornerRadius, style: .continuous))
+                .gesture(cardGesture(width: cardWidth), including: .gesture)
+                .zIndex(2)
+        }
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        cardWidth = max(proxy.size.width, 1)
+                    }
+                    .onChange(of: proxy.size.width) { _, width in
+                        cardWidth = max(width, 1)
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func previewLayer(width: CGFloat) -> some View {
+        let progress = min(1, abs(dragOffset) / max(width * 0.36, 1))
+        if dragOffset > 0 {
+            previousPreview
+                .previewCardStyle(progress: progress)
+        } else if dragOffset < 0 {
+            nextPreview
+                .previewCardStyle(progress: progress)
+        }
+    }
+
+    private func cardGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 24, coordinateSpace: .local)
+            .onChanged { value in
+                let horizontal = value.translation.width
+                let vertical = abs(value.translation.height)
+                if !isTrackingHorizontalSwipe {
+                    isTrackingHorizontalSwipe = abs(horizontal) > 26 && abs(horizontal) > vertical * 1.25
+                }
+                guard isTrackingHorizontalSwipe else {
+                    return
+                }
+
+                if horizontal > 0 {
+                    dragOffset = canSwipeBack ? min(horizontal, width * 0.86) : min(horizontal * 0.16, 34)
+                } else {
+                    dragOffset = canSwipeForward ? max(horizontal, -width * 0.86) : max(horizontal * 0.16, -34)
+                }
+            }
+            .onEnded { value in
+                guard isTrackingHorizontalSwipe else {
+                    resetCardSwipe()
+                    return
+                }
+
+                let threshold: CGFloat = 88
+                let projected = value.predictedEndTranslation.width
+                if dragOffset > threshold || projected > threshold * 1.7 {
+                    finishCardSwipe(width: width, direction: 1, action: canSwipeBack ? onSwipeBack : nil)
+                } else if dragOffset < -threshold || projected < -threshold * 1.7 {
+                    finishCardSwipe(width: width, direction: -1, action: canSwipeForward ? onSwipeForward : nil)
+                } else {
+                    resetCardSwipe()
+                }
+            }
+    }
+
+    private func finishCardSwipe(width: CGFloat, direction: CGFloat, action: (() -> Void)?) {
+        guard let action else {
+            resetCardSwipe()
+            return
+        }
+        withAnimation(.interpolatingSpring(mass: 0.78, stiffness: 190, damping: 22, initialVelocity: 0.9)) {
+            dragOffset = direction * width * 1.08
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+            action()
+            dragOffset = 0
+            isTrackingHorizontalSwipe = false
+        }
+    }
+
+    private func resetCardSwipe() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+            dragOffset = 0
+        }
+        isTrackingHorizontalSwipe = false
+    }
+}
+
+private extension View {
+    func previewCardStyle(progress: CGFloat) -> some View {
+        self
+            .allowsHitTesting(false)
+            .scaleEffect(0.94 + progress * 0.025)
+            .offset(y: 8 - progress * 5)
+            .saturation(0.42)
+            .contrast(0.76)
+            .brightness(-0.08)
+            .opacity(0.18 + progress * 0.48)
+            .blur(radius: 0.2)
+            .zIndex(1)
+    }
+}
+
+struct AdmissionPreviewCard: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let colors: [Color]
+
+    var body: some View {
+        AdmissionGradientCard(title: title, subtitle: subtitle, systemImage: systemImage, colors: colors) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.16))
+                .frame(height: 12)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.10))
+                .frame(width: 170, height: 12)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.12))
+                .frame(height: 88)
+        }
     }
 }
 

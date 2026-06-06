@@ -5,7 +5,9 @@ struct DataSourcesView: View {
     @State private var mode: DataSourcesMode = .sources
 
     private var filteredSources: [DataSourceRecord] {
-        AdmissionsSeedData.sourceRecords.filter { $0.matchesSourceQuery(searchText) }
+        AdmissionsSeedData.sourceRecords.filter { source in
+            source.isPubliclyDisplayableAuthority && source.matchesSourceQuery(searchText)
+        }
     }
 
     private var filteredColleges: [College] {
@@ -45,7 +47,7 @@ struct DataSourcesView: View {
             .padding(16)
         }
         .admissionPage()
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索学校或来源")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索学校或官方来源")
     }
 }
 
@@ -84,7 +86,7 @@ private struct DataSourcesHero: View {
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     AdmissionMetricPill(title: "学校", value: "\(AdmissionsSeedData.colleges.count)")
-                    AdmissionMetricPill(title: "来源", value: "\(AdmissionsSeedData.sourceRecords.count)")
+                    AdmissionMetricPill(title: "来源", value: "\(AdmissionsSeedData.sourceRecords.filter(\.isPubliclyDisplayableAuthority).count)")
                     AdmissionMetricPill(title: "版本", value: AdmissionsSeedData.dataVersion)
                 }
             }
@@ -110,7 +112,7 @@ private struct DataSnapshotCard: View {
                 DataMetricCell(title: "学校数量", value: "\(AdmissionsSeedData.colleges.count)", tint: .purple)
                 DataMetricCell(title: "硬门槛", value: "\(AdmissionsSeedData.gateRules.count)", tint: .orange)
             }
-            Text("学校统计范围固定为已审核 v1 数据集：AdmissionSight 综合大学与用户提供表格中的 Top30 文理学院；国际生、中国本科、学术基准和硬门槛来源会在逐校审计中单独披露。")
+            Text("学校统计范围固定为已审核 v1 数据集；说明页仅展开官方、权威或公开授权来源。其他代理资料统一标记为根据互联网公开信息补充，不显示具体来源。")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.72))
         }
@@ -143,13 +145,28 @@ private struct SourceRecordsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionTitle(title: "固定数据源", subtitle: "来源只说明角色和口径；不会自动提高概率。", systemImage: "link.circle", tint: .blue)
+            SectionTitle(title: "固定数据源", subtitle: "仅显示官方、权威或公开授权来源；来源不会自动提高概率。", systemImage: "link.circle", tint: .blue)
+            SupplementalSourceNotice()
             if sources.isEmpty {
                 ContentUnavailableView("没有匹配来源", systemImage: "magnifyingglass", description: Text("换一个来源名或关键词。"))
             }
             ForEach(sources) { source in
                 SourceCard(source: source)
             }
+        }
+    }
+}
+
+private struct SupplementalSourceNotice: View {
+    var body: some View {
+        AdmissionGradientCard(
+            title: "公开信息补充",
+            subtitle: "非官方代理资料不在说明中展示具体来源名。",
+            colors: AdmissionStyle.roseSlate
+        ) {
+            Text("当官方学校页、Common Data Set、IPEDS 或 Scorecard 缺少可直接使用字段时，模型只会使用保守的互联网公开信息补充，并在口径中标记为代理或推断，不把它当作官方录取事实。")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.74))
         }
     }
 }
@@ -220,11 +237,13 @@ private struct CollegeStatCard: View {
                 DataMetricCell(title: "数据槽", value: "\(college.latestAvailableClassYear)", tint: .purple)
                 DataMetricCell(title: "质量", value: college.dataQuality.formatted(.number.precision(.fractionLength(2))), tint: .green)
             }
-            Text(college.sourceNote)
+            Text(publicDisplaySourceNote(note: college.sourceNote, url: college.sourceURL))
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
-            Link("基础率来源", destination: college.sourceURL)
-                .font(.caption2)
+            if college.sourceURL.isPublicAuthorityURL {
+                Link("基础率来源", destination: college.sourceURL)
+                    .font(.caption2)
+            }
         }
     }
 }
@@ -325,16 +344,16 @@ private struct CollegeSourceAudit: View {
             SourceAuditRow(
                 title: "学校统计",
                 value: "最新可用基础录取率 \(college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))))",
-                note: "\(collegeStatsSourceLabel)；\(college.sourceNote)；数据槽 \(college.latestAvailableClassYear)，数据质量 \(college.dataQuality.formatted(.number.precision(.fractionLength(2))))。",
-                url: college.sourceURL,
+                note: "\(collegeStatsSourceLabel)；\(publicDisplaySourceNote(note: college.sourceNote, url: college.sourceURL))；数据槽 \(college.latestAvailableClassYear)，数据质量 \(college.dataQuality.formatted(.number.precision(.fractionLength(2))))。",
+                url: college.sourceURL.publicAuthorityURL,
                 tint: .blue
             )
             if let internationalSignal {
                 SourceAuditRow(
                     title: "国际生本科信号",
                     value: internationalSignalValue(internationalSignal),
-                    note: "\(internationalSignal.dataScope)：\(internationalSignal.sourceNote)",
-                    url: internationalSignal.sourceURL,
+                    note: "\(internationalSignal.dataScope)：\(publicDisplaySourceNote(note: internationalSignal.sourceNote, url: internationalSignal.sourceURL))",
+                    url: internationalSignal.sourceURL?.publicAuthorityURL,
                     tint: .teal
                 )
             } else {
@@ -350,7 +369,7 @@ private struct CollegeSourceAudit: View {
                 SourceAuditRow(
                     title: "中国本科录取容量",
                     value: chinaSignalValue(chinaSignal),
-                    note: "\(chinaSignal.dataScope)：\(chinaSignal.sourceNote)",
+                    note: "\(chinaSignal.dataScope)：\(publicDisplaySourceNote(note: chinaSignal.sourceNote, url: nil))",
                     url: nil,
                     tint: .purple
                 )
@@ -367,8 +386,8 @@ private struct CollegeSourceAudit: View {
                 SourceAuditRow(
                     title: "目标校学术基准",
                     value: academicBenchmarkValue(benchmark),
-                    note: "\(benchmarkSourceLabel(benchmark))：\(benchmark.sourceNote)",
-                    url: benchmark.sourceURL,
+                    note: "\(benchmarkSourceLabel(benchmark))：\(publicDisplaySourceNote(note: benchmark.sourceNote, url: benchmark.sourceURL))",
+                    url: benchmark.sourceURL?.publicAuthorityURL,
                     tint: .green
                 )
             } else {
@@ -413,7 +432,7 @@ private struct CollegeSourceAudit: View {
     private var collegeStatsSourceLabel: String {
         switch college.category {
         case .nationalUniversity:
-            return "AdmissionSight National Universities 表；v1 综合大学统计种子"
+            return "公开授权统计表；v1 综合大学统计种子"
         case .liberalArtsCollege:
             if college.sourceURL.absoluteString.hasPrefix("https://collegescorecard.ed.gov/school/?") {
                 return "U.S. Department of Education College Scorecard；v1 文理学院基础率来源"
@@ -481,7 +500,7 @@ private struct CollegeSourceAudit: View {
         if benchmark.isInferred && benchmark.sourceFields.contains(where: { $0.localizedCaseInsensitiveContains("official") }) {
             return "部分官方/部分推断"
         }
-        return benchmark.isInferred ? "推断值" : "官方/学校来源"
+        return benchmark.isInferred ? "根据互联网公开信息补充" : "官方/学校来源"
     }
 }
 
@@ -514,5 +533,49 @@ private struct SourceAuditRow: View {
             RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
                 .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
+    }
+}
+
+private func publicDisplaySourceNote(note: String, url: URL?) -> String {
+    guard url?.isPublicAuthorityURL == true || note.localizedCaseInsensitiveContains("official") || note.localizedCaseInsensitiveContains("IPEDS") || note.localizedCaseInsensitiveContains("Scorecard") || note.localizedCaseInsensitiveContains("Common Data Set") else {
+        return "根据互联网公开信息补充；具体非官方/代理来源不在说明中展开，且不会被表述为官方录取事实。"
+    }
+    return note
+}
+
+private extension DataSourceRecord {
+    var isPubliclyDisplayableAuthority: Bool {
+        url.isPublicAuthorityURL ||
+            name.localizedCaseInsensitiveContains("U.S. Department") ||
+            name.localizedCaseInsensitiveContains("NCES") ||
+            name.localizedCaseInsensitiveContains("IPEDS") ||
+            name.localizedCaseInsensitiveContains("Common Data Set") ||
+            name.localizedCaseInsensitiveContains("Official admissions")
+    }
+}
+
+private extension Optional where Wrapped == URL {
+    var publicAuthorityURL: URL? {
+        guard let self, self.isPublicAuthorityURL else {
+            return nil
+        }
+        return self
+    }
+}
+
+private extension URL {
+    var publicAuthorityURL: URL? {
+        isPublicAuthorityURL ? self : nil
+    }
+
+    var isPublicAuthorityURL: Bool {
+        guard let host = host?.lowercased() else {
+            return false
+        }
+        return host == "collegescorecard.ed.gov" ||
+            host.hasSuffix(".collegescorecard.ed.gov") ||
+            host == "nces.ed.gov" ||
+            host.hasSuffix(".nces.ed.gov") ||
+            host.hasSuffix(".edu")
     }
 }

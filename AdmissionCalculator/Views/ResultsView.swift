@@ -3,78 +3,43 @@ import SwiftUI
 struct ResultsView: View {
     let result: PortfolioResult?
     let isStale: Bool
+    let onBackToSchools: () -> Void
     let onAnalyze: () -> Void
     @State private var revealedResultCount = 0
+    @State private var settledResultIDs: Set<String> = []
+    @State private var showAnalyzeButton = false
+
+    private let resultRevealIDs: Set<String> = ["top10", "top11to30", "top30", "top50", "total"]
 
     var body: some View {
         ZStack {
             AdmissionPageBackground()
             if let result {
-                VStack(alignment: .leading, spacing: 12) {
-                    if isStale {
-                        Label("当前结果基于上一次提交的画像或选校；请回到计算页重新计算后再用于决策。", systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
-                    }
-
-                    ResultRevealCard(
-                        title: "Total",
-                        subtitle: "全部已选至少一所",
-                        value: result.selectedAtLeastOne,
-                        colors: AdmissionStyle.blackGlass,
-                        countText: "\(result.schoolResults.count) 所学校",
-                        isRevealed: revealedResultCount >= 4,
-                        fontSize: 64
-                    )
-
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        ResultRevealCard(
-                            title: "Top10",
-                            subtitle: "综大 T10 至少一所",
-                            value: result.t10AtLeastOne,
-                            colors: [Color.purple.opacity(0.94), Color.black.opacity(0.82)],
-                            countText: "\(tierCount(in: result, maxRank: 10)) 所",
-                            isRevealed: revealedResultCount >= 1,
-                            fontSize: 30
+                AdmissionSwipeableCard(
+                    canSwipeBack: true,
+                    canSwipeForward: showAnalyzeButton && !isStale,
+                    onSwipeBack: onBackToSchools,
+                    onSwipeForward: onAnalyze,
+                    previousPreview: {
+                        AdmissionPreviewCard(
+                            title: "学校列表",
+                            subtitle: "上一页最后一张卡片，已选学校仍会保留。",
+                            systemImage: "building.columns",
+                            colors: AdmissionStyle.roseSlate
                         )
-                        ResultRevealCard(
-                            title: "Top30",
-                            subtitle: "综大 T30 至少一所",
-                            value: result.t30AtLeastOne,
-                            colors: [Color.blue.opacity(0.94), Color.black.opacity(0.82)],
-                            countText: "\(tierCount(in: result, maxRank: 30)) 所",
-                            isRevealed: revealedResultCount >= 2,
-                            fontSize: 30
-                        )
-                        ResultRevealCard(
-                            title: "Top50",
-                            subtitle: "综大 T50 至少一所",
-                            value: result.t50AtLeastOne,
-                            colors: [Color.teal.opacity(0.94), Color.black.opacity(0.82)],
-                            countText: "\(tierCount(in: result, maxRank: 50)) 所",
-                            isRevealed: revealedResultCount >= 3,
-                            fontSize: 30
-                        )
-                    }
-
-                    Spacer(minLength: 6)
-
-                    if revealedResultCount >= 4 {
-                        Button(action: onAnalyze) {
-                            Label("分析结果", systemImage: "doc.text.magnifyingglass")
-                                .frame(maxWidth: .infinity)
+                    },
+                    nextPreview: {
+                        if showAnalyzeButton && !isStale {
+                            AdmissionPreviewCard(
+                                title: "分析报告",
+                                subtitle: "进入报告页查看逐校差距和提升建议。",
+                                systemImage: "doc.text.magnifyingglass",
+                                colors: AdmissionStyle.pinkMist
+                            )
                         }
-                        .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-
-                    Text("估算结果用于申请规划，不代表录取承诺。逐校概率与具体建议会在付费报告中显示。")
-                        .font(.caption)
-                        .foregroundStyle(Color.black.opacity(0.52))
-                        .fixedSize(horizontal: false, vertical: true)
+                ) {
+                    resultContent(result)
                 }
                 .padding(16)
                 .task(id: result.generatedAt) {
@@ -86,10 +51,96 @@ struct ResultsView: View {
         }
     }
 
+    @ViewBuilder
+    private func resultContent(_ result: PortfolioResult) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if isStale {
+                Label("当前结果基于上一次提交的画像或选校；请回到计算页重新计算后再用于决策。", systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
+            }
+
+            ResultRevealCard(
+                title: "Total",
+                subtitle: "全部已选至少一所",
+                value: result.selectedAtLeastOne,
+                colors: AdmissionStyle.blackGlass,
+                countText: "\(result.schoolResults.count) 所学校",
+                isRevealed: revealedResultCount >= 5,
+                fontSize: 64,
+                onSettled: { markResultSettled("total") }
+            )
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ResultRevealCard(
+                    title: "Top10",
+                    subtitle: "综大 T10 至少一所",
+                    value: result.t10AtLeastOne,
+                    colors: [Color.purple.opacity(0.94), Color.black.opacity(0.82)],
+                    countText: "\(tierCount(in: result, maxRank: 10)) 所",
+                    isRevealed: revealedResultCount >= 1,
+                    fontSize: 30,
+                    onSettled: { markResultSettled("top10") }
+                )
+                ResultRevealCard(
+                    title: "T11-T30",
+                    subtitle: "综大 T11-T30 至少一所",
+                    value: result.t11T30AtLeastOne,
+                    colors: [Color.indigo.opacity(0.94), Color.black.opacity(0.82)],
+                    countText: "\(tierCount(in: result, minRankExclusive: 10, maxRank: 30)) 所",
+                    isRevealed: revealedResultCount >= 2,
+                    fontSize: 30,
+                    onSettled: { markResultSettled("top11to30") }
+                )
+                ResultRevealCard(
+                    title: "Top30",
+                    subtitle: "综大 T30 至少一所",
+                    value: result.t30AtLeastOne,
+                    colors: [Color.blue.opacity(0.94), Color.black.opacity(0.82)],
+                    countText: "\(tierCount(in: result, maxRank: 30)) 所",
+                    isRevealed: revealedResultCount >= 3,
+                    fontSize: 30,
+                    onSettled: { markResultSettled("top30") }
+                )
+                ResultRevealCard(
+                    title: "Top50",
+                    subtitle: "综大 T50 至少一所",
+                    value: result.t50AtLeastOne,
+                    colors: [Color.teal.opacity(0.94), Color.black.opacity(0.82)],
+                    countText: "\(tierCount(in: result, maxRank: 50)) 所",
+                    isRevealed: revealedResultCount >= 4,
+                    fontSize: 30,
+                    onSettled: { markResultSettled("top50") }
+                )
+            }
+
+            Spacer(minLength: 6)
+
+            if showAnalyzeButton {
+                Button(action: onAnalyze) {
+                    Label("分析结果", systemImage: "doc.text.magnifyingglass")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            Text("估算结果用于申请规划，不代表录取承诺。逐校概率与具体建议会在付费报告中显示。")
+                .font(.caption)
+                .foregroundStyle(Color.black.opacity(0.52))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     @MainActor
     private func revealResultsInOrder() async {
         revealedResultCount = 0
-        for nextCount in 1...4 {
+        settledResultIDs = []
+        showAnalyzeButton = false
+        for nextCount in 1...5 {
             try? await Task.sleep(nanoseconds: nextCount == 1 ? 260_000_000 : 1_250_000_000)
             guard !Task.isCancelled else { return }
             withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
@@ -98,8 +149,29 @@ struct ResultsView: View {
         }
     }
 
-    private func tierCount(in result: PortfolioResult, maxRank: Int) -> Int {
-        result.schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank <= maxRank }.count
+    @MainActor
+    private func markResultSettled(_ id: String) {
+        guard resultRevealIDs.contains(id) else {
+            return
+        }
+        settledResultIDs.insert(id)
+        guard settledResultIDs == resultRevealIDs, !showAnalyzeButton else {
+            return
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard settledResultIDs == resultRevealIDs else {
+                return
+            }
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                showAnalyzeButton = true
+            }
+        }
+    }
+
+    private func tierCount(in result: PortfolioResult, minRankExclusive: Int = 0, maxRank: Int) -> Int {
+        result.schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank > minRankExclusive && $0.college.rank <= maxRank }.count
     }
 }
 
@@ -111,6 +183,7 @@ private struct ResultRevealCard: View {
     let countText: String
     let isRevealed: Bool
     let fontSize: CGFloat
+    let onSettled: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -128,7 +201,8 @@ private struct ResultRevealCard: View {
                     value: value,
                     font: .system(size: fontSize, weight: .black, design: .rounded),
                     foreground: .white,
-                    finalLabel: countText
+                    finalLabel: countText,
+                    onSettled: onSettled
                 )
             } else {
                 Spacer(minLength: fontSize > 40 ? 80 : 42)

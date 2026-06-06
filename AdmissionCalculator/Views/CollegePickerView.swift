@@ -44,7 +44,50 @@ struct CollegePickerView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        currentSelectionCard
+                        AdmissionSwipeableCard(
+                            canSwipeBack: true,
+                            canSwipeForward: cardIndex < cardCount - 1 || !selectedCollegeIDs.isEmpty,
+                            onSwipeBack: {
+                                if cardIndex > 0 {
+                                    moveCard(by: -1)
+                                } else {
+                                    onBackToProfile()
+                                }
+                            },
+                            onSwipeForward: {
+                                if cardIndex < cardCount - 1 {
+                                    moveCard(by: 1)
+                                } else if !selectedCollegeIDs.isEmpty {
+                                    onEvaluate()
+                                }
+                            },
+                            previousPreview: {
+                                if cardIndex > 0 {
+                                    selectionCard(at: cardIndex - 1)
+                                } else {
+                                    AdmissionPreviewCard(
+                                        title: "选校数量",
+                                        subtitle: "上一页最后一张卡片，保留当前填写数据。",
+                                        systemImage: "slider.horizontal.3",
+                                        colors: AdmissionStyle.lilac
+                                    )
+                                }
+                            },
+                            nextPreview: {
+                                if cardIndex < cardCount - 1 {
+                                    selectionCard(at: cardIndex + 1)
+                                } else if !selectedCollegeIDs.isEmpty {
+                                    AdmissionPreviewCard(
+                                        title: "结果生成",
+                                        subtitle: "按当前画像和已选学校计算组合概率。",
+                                        systemImage: "chart.bar.xaxis",
+                                        colors: AdmissionStyle.blackGlass
+                                    )
+                                }
+                            }
+                        ) {
+                            selectionCard(at: cardIndex)
+                        }
                             .id(cardIndex)
                             .transition(.asymmetric(
                                 insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -59,15 +102,9 @@ struct CollegePickerView: View {
                 CardNavigationBar(
                     currentIndex: cardIndex,
                     totalCount: cardCount,
-                    canGoBack: true,
+                    canGoBack: cardIndex > 0,
                     canGoForward: cardIndex < cardCount - 1,
-                    back: {
-                        if cardIndex == 0 {
-                            onBackToProfile()
-                        } else {
-                            moveCard(by: -1)
-                        }
-                    },
+                    back: { moveCard(by: -1) },
                     forward: { moveCard(by: 1) }
                 )
                 .padding(.horizontal, 16)
@@ -81,8 +118,8 @@ struct CollegePickerView: View {
     }
 
     @ViewBuilder
-    private var currentSelectionCard: some View {
-        if cardIndex == 0 {
+    private func selectionCard(at index: Int) -> some View {
+        if index == 0 {
             SchoolSetupCard(
                 selectedCount: selectedCollegeIDs.count,
                 selectedColleges: selectedColleges,

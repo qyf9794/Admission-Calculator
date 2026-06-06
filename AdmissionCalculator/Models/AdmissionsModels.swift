@@ -516,6 +516,46 @@ struct StudentProfile: Hashable, Codable {
         requestedSchoolCount: 12
     )
 
+    static let formDefault = StudentProfile(
+        applicantStatus: .chineseInternational,
+        gradeScale: .percent,
+        gpaPercent: 50,
+        gpaFourPoint: 2.0,
+        gpaFivePoint: 2.5,
+        letterGrade: .bMinus,
+        classRankPercentile: 50,
+        curriculum: .ap,
+        rigor: 3,
+        curriculumGradeScale: .percent,
+        apCourseCount: 6,
+        apAverageScore: 3.0,
+        ibPredictedScore: 35,
+        aLevelAStarCount: 1,
+        aLevelACount: 1,
+        aLevelBCount: 1,
+        chineseCurriculumScore: 50,
+        chineseCurriculumGPAFourPoint: 2.0,
+        chineseCurriculumGPAFivePoint: 2.5,
+        chineseCurriculumLetterGrade: .bMinus,
+        sat: nil,
+        act: nil,
+        toefl: nil,
+        ielts: nil,
+        testOptional: false,
+        activities: 3,
+        research: 3,
+        honors: 3,
+        essay: 3,
+        recommendations: 3,
+        highSchoolID: "unknown",
+        major: .computerScience,
+        round: .regularDecision,
+        needsAid: false,
+        hasPortfolio: false,
+        includeLiberalArtsColleges: true,
+        requestedSchoolCount: 12
+    )
+
     var aLevelSubjectCount: Int {
         aLevelAStarCount + aLevelACount + aLevelBCount
     }

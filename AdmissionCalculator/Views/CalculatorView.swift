@@ -8,6 +8,7 @@ struct CalculatorView: View {
     let onOpenCollegeSelection: () -> Void
     @State private var cardIndex = 0
     @State private var maxVisitedCardIndex = 0
+    @State private var showingHighSchoolSearch = false
 
     private let profileCardCount = 5
 
@@ -26,7 +27,37 @@ struct CalculatorView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        currentProfileCard
+                        AdmissionSwipeableCard(
+                            canSwipeBack: cardIndex > 0,
+                            canSwipeForward: cardIndex < profileCardCount - 1 || canOpenSelection,
+                            onSwipeBack: { moveCard(by: -1) },
+                            onSwipeForward: {
+                                if cardIndex < profileCardCount - 1 {
+                                    moveCard(by: 1)
+                                } else if canOpenSelection {
+                                    onOpenCollegeSelection()
+                                }
+                            },
+                            previousPreview: {
+                                if cardIndex > 0 {
+                                    profileCard(at: cardIndex - 1)
+                                }
+                            },
+                            nextPreview: {
+                                if cardIndex < profileCardCount - 1 {
+                                    profileCard(at: cardIndex + 1)
+                                } else if canOpenSelection {
+                                    AdmissionPreviewCard(
+                                        title: "选校设置",
+                                        subtitle: "进入下一页后设置自动推荐或手动学校列表。",
+                                        systemImage: "building.columns.fill",
+                                        colors: AdmissionStyle.roseSlate
+                                    )
+                                }
+                            }
+                        ) {
+                            profileCard(at: cardIndex)
+                        }
                             .id(cardIndex)
                             .transition(.asymmetric(
                                 insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -72,11 +103,17 @@ struct CalculatorView: View {
             }
             selectionSource = selectionSource.afterProfileEdit(selectedCollegeIDs: selectedCollegeIDs)
         }
+        .sheet(isPresented: $showingHighSchoolSearch) {
+            HighSchoolSearchSheet(
+                selectedHighSchoolID: $profile.highSchoolID,
+                highSchools: AdmissionsSeedData.highSchools
+            )
+        }
     }
 
     @ViewBuilder
-    private var currentProfileCard: some View {
-        switch cardIndex {
+    private func profileCard(at index: Int) -> some View {
+        switch index {
         case 0:
             CardSection(title: "学生画像", subtitle: "先确定身份、成绩口径、课程体系和申请方向。", systemImage: "person.text.rectangle", colors: AdmissionStyle.mintNight) {
                 Picker("申请身份", selection: $profile.applicantStatus) {
@@ -146,12 +183,13 @@ struct CalculatorView: View {
             }
         case 3:
             CardSection(title: "中国高中背景", subtitle: "高中背景只是代理校准，不是个人录取证明。", systemImage: "graduationcap.fill", colors: AdmissionStyle.citrus) {
-                Picker("高中学校", selection: $profile.highSchoolID) {
-                    ForEach(AdmissionsSeedData.highSchools) { school in
-                        Text("\(school.name) · \(school.city)").tag(school.id)
-                    }
-                }
-                .pickerStyle(.menu)
+                HighSchoolSearchButton(
+                    school: selectedHighSchool,
+                    openSearch: { showingHighSchoolSearch = true }
+                )
+                Text("打开后可按学校名称搜索；当前默认项会固定在列表最上方。")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.70))
                 Text("高中背景仅作为 AdmitRanking 风格代理校准；不确定时请选择“其他/手动评估学校”，避免默认名校背景抬高估算。")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.70))
@@ -173,6 +211,21 @@ struct CalculatorView: View {
         }
     }
 
+    private var selectedHighSchool: HighSchoolContext {
+        AdmissionsSeedData.highSchools.first { $0.id == profile.highSchoolID } ??
+            AdmissionsSeedData.highSchools.first { $0.id == "unknown" } ??
+            HighSchoolContext(
+                id: "unknown",
+                name: "其他/手动评估学校",
+                city: "未知",
+                admitRankingBand: 3,
+                resources: 3,
+                counseling: 3,
+                top30TrackRecord: 2,
+                transparency: 3
+            )
+    }
+
     private func moveCard(by delta: Int) {
         let nextIndex = clamped(cardIndex + delta, range: 0...(profileCardCount - 1))
         withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
@@ -182,7 +235,7 @@ struct CalculatorView: View {
     }
 
     private var canOpenSelection: Bool {
-        maxVisitedCardIndex >= profileCardCount - 1
+        maxVisitedCardIndex >= profileCardCount - 1 && completionPrompts.isEmpty
     }
 
     private var profileCompletionProgress: Double {
@@ -245,6 +298,139 @@ struct CalculatorView: View {
                 }
             }
         )
+    }
+}
+
+private struct HighSchoolSearchButton: View {
+    let school: HighSchoolContext
+    let openSearch: () -> Void
+
+    var body: some View {
+        Button(action: openSearch) {
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass.circle.fill")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("高中学校")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                    Text(school.name)
+                        .font(.subheadline.weight(.black))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    Text(school.city)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.70))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.black))
+                    .foregroundStyle(.white.opacity(0.68))
+            }
+            .padding(12)
+            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("高中学校，当前选择 \(school.name)，点击搜索")
+    }
+}
+
+private struct HighSchoolSearchSheet: View {
+    @Binding var selectedHighSchoolID: String
+    let highSchools: [HighSchoolContext]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+
+    private var orderedHighSchools: [HighSchoolContext] {
+        let filtered = highSchools.filter { school in
+            let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !query.isEmpty else {
+                return true
+            }
+            return school.name.localizedCaseInsensitiveContains(query) ||
+                school.city.localizedCaseInsensitiveContains(query) ||
+                school.id.localizedCaseInsensitiveContains(query)
+        }
+        return filtered.sorted { lhs, rhs in
+            if lhs.id == selectedHighSchoolID {
+                return true
+            }
+            if rhs.id == selectedHighSchoolID {
+                return false
+            }
+            if lhs.id == "unknown" {
+                return true
+            }
+            if rhs.id == "unknown" {
+                return false
+            }
+            if lhs.admitRankingBand != rhs.admitRankingBand {
+                return lhs.admitRankingBand < rhs.admitRankingBand
+            }
+            return lhs.name.localizedCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(orderedHighSchools) { school in
+                        Button {
+                            selectedHighSchoolID = school.id
+                            dismiss()
+                        } label: {
+                            HighSchoolSearchRow(
+                                school: school,
+                                isSelected: school.id == selectedHighSchoolID
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text("当前/默认项固定在最上方，可按学校名称搜索")
+                }
+            }
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索高中名称")
+            .navigationTitle("选择高中")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct HighSchoolSearchRow: View {
+    let school: HighSchoolContext
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(isSelected ? .green : .secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(school.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("\(school.city) · 背景档 \(school.admitRankingBand)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -648,7 +834,7 @@ private struct OptionalIntSliderInput: View {
 
     private var valueBinding: Binding<Double> {
         Binding(
-            get: { Double(value ?? range.lowerBound) },
+            get: { Double(value ?? midpoint(range)) },
             set: { value = clamped(Int($0.rounded()), range: range) }
         )
     }
@@ -673,7 +859,7 @@ private struct OptionalDecimalSliderInput: View {
 
     private var valueBinding: Binding<Double> {
         Binding(
-            get: { value ?? range.lowerBound },
+            get: { value ?? midpoint(range) },
             set: { value = snapped($0, range: range, step: step) }
         )
     }
@@ -803,6 +989,15 @@ private func snapped(_ rawValue: Double, range: ClosedRange<Double>, step: Doubl
 
 private func clamped(_ value: Int, range: ClosedRange<Int>) -> Int {
     min(max(value, range.lowerBound), range.upperBound)
+}
+
+private func midpoint(_ range: ClosedRange<Int>) -> Int {
+    let rawMidpoint = (Double(range.lowerBound) + Double(range.upperBound)) / 2.0
+    return Int(rawMidpoint.rounded())
+}
+
+private func midpoint(_ range: ClosedRange<Double>) -> Double {
+    (range.lowerBound + range.upperBound) / 2.0
 }
 
 private struct ScoreField: View {

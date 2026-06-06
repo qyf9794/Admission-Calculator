@@ -6,6 +6,7 @@ struct ReportView: View {
     @ObservedObject var purchaseState: ReportPurchaseState
     let isStale: Bool
     let onBackToResults: () -> Void
+    let onRecalculate: () -> Void
     var client = OpenAIReportClient()
 
     @State private var reportText: String?
@@ -22,29 +23,48 @@ struct ReportView: View {
             AdmissionPageBackground()
             ScrollView {
             if let result {
-                VStack(alignment: .leading, spacing: 16) {
-                    ReportFrameworkHeader(result: result, onBackToResults: onBackToResults)
-
-                    if isStale {
-                        Label("当前结果已过期；请先回到计算页重新计算，再生成付费报告。", systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
+                AdmissionSwipeableCard(
+                    canSwipeBack: true,
+                    canSwipeForward: false,
+                    onSwipeBack: onBackToResults,
+                    onSwipeForward: {},
+                    previousPreview: {
+                        AdmissionPreviewCard(
+                            title: "结果页",
+                            subtitle: "上一页为组合概率结果，数据保持不变。",
+                            systemImage: "chart.bar.xaxis",
+                            colors: AdmissionStyle.blackGlass
+                        )
+                    },
+                    nextPreview: {
+                        EmptyView()
                     }
+                ) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ReportResultSummaryHeader(result: result)
 
-                    ReportActionCard(
-                        result: result,
-                        purchaseState: purchaseState,
-                        isStale: isStale,
-                        isGenerating: isGenerating,
-                        errorMessage: errorMessage,
-                        onGenerate: { showingPaymentSheet = true },
-                        onShowDataSources: { showingDataSources = true }
-                    )
+                        if isStale {
+                            Label("当前结果已过期；请先回到计算页重新计算，再生成付费报告。", systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
+                        }
 
-                    ReportFrameworkPreview()
+                        ReportFrameworkPreview()
+
+                        ReportActionCard(
+                            result: result,
+                            purchaseState: purchaseState,
+                            isStale: isStale,
+                            isGenerating: isGenerating,
+                            errorMessage: errorMessage,
+                            onGenerate: { showingPaymentSheet = true },
+                            onRegenerateFromStart: onRecalculate,
+                            onShowDataSources: { showingDataSources = true }
+                        )
+                    }
                 }
                 .padding()
             } else {
@@ -124,7 +144,7 @@ struct ReportView: View {
                 let prompt = ReportService.makeOpenAIReportPrompt(result: result)
                 let generated = try await client.generateReport(prompt: prompt)
                 await MainActor.run {
-                    reportText = generated
+                    reportText = ReportService.mergeGeneratedReport(generated, result: result)
                     pdfURL = nil
                     isGenerating = false
                     showingPaymentSheet = false
@@ -208,33 +228,76 @@ private struct ReportHero: View {
     }
 }
 
-private struct ReportFrameworkHeader: View {
+private struct ReportResultSummaryHeader: View {
     let result: PortfolioResult
-    let onBackToResults: () -> Void
 
     var body: some View {
         AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
             VStack(alignment: .leading, spacing: 14) {
-                Button(action: onBackToResults) {
-                    Label("返回结果", systemImage: "chevron.left")
-                }
-                .buttonStyle(AdmissionQuietButtonStyle())
-                .fixedSize()
-
-                Label("付费 AI 综合报告 · \(result.profileSnapshot.round.rawValue)", systemImage: "doc.text.magnifyingglass")
+                Label("结果缩略 · \(result.profileSnapshot.round.rawValue)", systemImage: "chart.bar.xaxis")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.82))
-                Text("Report Framework")
-                    .font(AdmissionStyle.titleFont(34))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                Text("生成前只展示报告结构。支付并生成后，报告会以弹窗显示，并可导出 PDF。")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.86))
+                HStack(alignment: .center, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("全部已选")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.68))
+                        Text(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))
+                            .font(.system(size: 58, weight: .black, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.62)
+                        Text("\(result.schoolResults.count) 所学校 · \(result.selectionSource.rawValue)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.66))
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        ReportMiniMetric(title: "综大T10", value: result.t10AtLeastOne)
+                        ReportMiniMetric(title: "T11-T30", value: result.t11T30AtLeastOne)
+                        ReportMiniMetric(title: "综大T30", value: result.t30AtLeastOne)
+                        ReportMiniMetric(title: "综大T50", value: result.t50AtLeastOne)
+                    }
+                    .frame(maxWidth: 178)
+                }
+                Text("概率仍是规划估算，不是录取承诺；报告只解释这次已计算结果。")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.70))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+private struct ReportMiniMetric: View {
+    let title: String
+    let value: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(value.formatted(.percent.precision(.fractionLength(0))))
+                .font(.system(.headline, design: .rounded).weight(.black))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.70)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.11), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 
@@ -360,6 +423,7 @@ private struct ReportActionCard: View {
     let isGenerating: Bool
     let errorMessage: String?
     let onGenerate: () -> Void
+    let onRegenerateFromStart: () -> Void
     let onShowDataSources: () -> Void
 
     var body: some View {
@@ -376,7 +440,11 @@ private struct ReportActionCard: View {
             }
             HStack(spacing: 10) {
                 Button {
-                    onGenerate()
+                    if purchaseState.isUnlocked {
+                        onRegenerateFromStart()
+                    } else {
+                        onGenerate()
+                    }
                 } label: {
                     HStack(spacing: 8) {
                         if isGenerating {
@@ -391,7 +459,7 @@ private struct ReportActionCard: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
-                .disabled(isStale || isGenerating || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)
+                .disabled(isGenerating || (!purchaseState.isUnlocked && (isStale || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)))
 
                 Button {
                     onShowDataSources()
@@ -550,6 +618,7 @@ enum ReportPDFRenderer {
         try renderer.writePDF(to: url) { context in
             beginPage(context: context, pageRect: pageRect)
             var y = drawHeader(result: result, in: pageRect, margin: margin)
+            y = drawProbabilityCards(result: result, in: pageRect, margin: margin, y: y) + 18
 
             for rawLine in text.components(separatedBy: .newlines) {
                 let displayLine = normalizeMarkdown(rawLine)
@@ -595,6 +664,100 @@ enum ReportPDFRenderer {
             ]
         )
         return margin + 66
+    }
+
+    private static func drawProbabilityCards(result: PortfolioResult, in pageRect: CGRect, margin: CGFloat, y: CGFloat) -> CGFloat {
+        let contentWidth = pageRect.width - margin * 2
+        let gap: CGFloat = 10
+        let leftWidth: CGFloat = 178
+        let rightWidth = contentWidth - leftWidth - gap
+        let smallWidth = (rightWidth - gap) / 2
+        let smallHeight: CGFloat = 42
+        let totalHeight = smallHeight * 3 + gap * 2
+
+        drawCard(
+            rect: CGRect(x: margin, y: y, width: leftWidth, height: totalHeight),
+            title: "全部已选至少一所",
+            value: result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))),
+            detail: "\(result.schoolResults.count) 所学校 · \(result.selectionSource.rawValue)",
+            fill: UIColor(red: 0.04, green: 0.05, blue: 0.07, alpha: 1),
+            valueSize: 34
+        )
+
+        let metrics: [(String, String, String)] = [
+            ("综大 T10", result.t10AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 10, result: result)) 所"),
+            ("综大 T11-T30", result.t11T30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, minRankExclusive: 10, maxRank: 30, result: result)) 所"),
+            ("综大 T30", result.t30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 30, result: result)) 所"),
+            ("综大 T50", result.t50AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 50, result: result)) 所"),
+            ("文理 T10", result.liberalArtsT10AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .liberalArtsCollege, maxRank: 10, result: result)) 所"),
+            ("文理 T30", result.liberalArtsT30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .liberalArtsCollege, maxRank: 30, result: result)) 所")
+        ]
+
+        for (index, metric) in metrics.enumerated() {
+            let column = index % 2
+            let row = index / 2
+            let rect = CGRect(
+                x: margin + leftWidth + gap + CGFloat(column) * (smallWidth + gap),
+                y: y + CGFloat(row) * (smallHeight + gap),
+                width: smallWidth,
+                height: smallHeight
+            )
+            drawCard(
+                rect: rect,
+                title: metric.0,
+                value: metric.1,
+                detail: metric.2,
+                fill: UIColor(red: 0.11 + CGFloat(row) * 0.03, green: 0.13 + CGFloat(column) * 0.04, blue: 0.18 + CGFloat(index) * 0.012, alpha: 1),
+                valueSize: 17
+            )
+        }
+
+        let note = "以上概率均为当前 RD 选校组合的估算结果，不代表录取承诺；PDF 正文中的表格继续逐校解释差距和行动。"
+        let noteRect = CGRect(x: margin, y: y + totalHeight + 8, width: contentWidth, height: 18)
+        (note as NSString).draw(
+            in: noteRect,
+            withAttributes: [
+                .font: UIFont.systemFont(ofSize: 8.8, weight: .regular),
+                .foregroundColor: UIColor.darkGray
+            ]
+        )
+        return y + totalHeight + 26
+    }
+
+    private static func drawCard(rect: CGRect, title: String, value: String, detail: String, fill: UIColor, valueSize: CGFloat) {
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
+        fill.setFill()
+        path.fill()
+
+        UIColor(white: 1, alpha: 0.22).setStroke()
+        path.lineWidth = 0.7
+        path.stroke()
+
+        (title as NSString).draw(
+            in: CGRect(x: rect.minX + 10, y: rect.minY + 8, width: rect.width - 20, height: 12),
+            withAttributes: [
+                .font: UIFont.systemFont(ofSize: 8.5, weight: .semibold),
+                .foregroundColor: UIColor(white: 1, alpha: 0.72)
+            ]
+        )
+        (value as NSString).draw(
+            in: CGRect(x: rect.minX + 10, y: rect.minY + (rect.height > 70 ? 32 : 19), width: rect.width - 20, height: valueSize + 8),
+            withAttributes: [
+                .font: UIFont.systemFont(ofSize: valueSize, weight: .bold),
+                .foregroundColor: UIColor.white
+            ]
+        )
+        (detail as NSString).draw(
+            in: CGRect(x: rect.minX + 10, y: rect.maxY - 18, width: rect.width - 20, height: 12),
+            withAttributes: [
+                .font: UIFont.systemFont(ofSize: 7.8, weight: .medium),
+                .foregroundColor: UIColor(white: 1, alpha: 0.66)
+            ]
+        )
+    }
+
+    private static func tierCount(category: CollegeCategory, minRankExclusive: Int = 0, maxRank: Int, result: PortfolioResult) -> Int {
+        result.schoolResults.filter { $0.college.category == category && $0.college.rank > minRankExclusive && $0.college.rank <= maxRank }.count
     }
 
     private static func normalizeMarkdown(_ line: String) -> String {
