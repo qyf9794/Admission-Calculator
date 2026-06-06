@@ -1,6 +1,10 @@
 import SwiftUI
 
 struct CollegePickerView: View {
+    static let lastCardIndex = 1
+
+    let initialCardIndex: Int
+    @Binding var profile: StudentProfile
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
     let includeLiberalArtsColleges: Bool
@@ -13,6 +17,7 @@ struct CollegePickerView: View {
     @State private var filter: CollegePickerFilter = .selected
     @State private var cardIndex = 0
     @State private var swipeCommand: AdmissionCardSwipeCommand?
+    @State private var hasAppliedInitialCardIndex = false
     private let colleges = AdmissionsSeedData.colleges
     private let cardCount = 2
 
@@ -38,7 +43,7 @@ struct CollegePickerView: View {
                 SchoolSelectionHeader(
                     selectedCount: selectedCollegeIDs.count,
                     canEvaluate: !selectedCollegeIDs.isEmpty,
-                    onEvaluate: onEvaluate
+                    onEvaluate: { requestCardSwipe(.forward) }
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -69,11 +74,9 @@ struct CollegePickerView: View {
                                     if cardIndex > 0 {
                                         selectionCard(at: cardIndex - 1)
                                     } else {
-                                        AdmissionPreviewCard(
-                                            title: "选校数量",
-                                            subtitle: "上一页最后一张卡片，保留当前填写数据。",
-                                            systemImage: "slider.horizontal.3",
-                                            colors: AdmissionStyle.lilac
+                                        ProfileSelectionSettingsCard(
+                                            profile: $profile,
+                                            fixedHeight: CalculatorView.profileCardHeight
                                         )
                                     }
                                 },
@@ -113,6 +116,9 @@ struct CollegePickerView: View {
                 .padding(.bottom, 14)
             }
         }
+        .onAppear {
+            applyInitialCardIndexIfNeeded()
+        }
     }
 
     private var selectedColleges: [College] {
@@ -138,9 +144,11 @@ struct CollegePickerView: View {
         } else {
             AdmissionGradientCard(
                 title: "学校列表",
-                subtitle: "列表按 U.S. News 排名排列；右侧方框点击后选择或取消选择。",
+                subtitle: "列表按 U.S. News 排名排列；未选学校可点击加入，已选学校保持选中。",
                 systemImage: "building.columns",
-                colors: AdmissionStyle.roseSlate
+                colors: AdmissionStyle.softGray,
+                foreground: AdmissionStyle.darkTextPrimary,
+                secondary: AdmissionStyle.darkTextSecondary
             ) {
                 CollegeFilterBar(
                     filter: $filter,
@@ -157,7 +165,7 @@ struct CollegePickerView: View {
                     CollegeSelectionCard(
                         college: college,
                         isSelected: selectedCollegeIDs.contains(college.id),
-                        toggle: { toggle(college.id) }
+                        select: { select(college.id) }
                     )
                 }
             }
@@ -166,6 +174,14 @@ struct CollegePickerView: View {
 
     private func moveCard(by delta: Int) {
         cardIndex = min(max(cardIndex + delta, 0), cardCount - 1)
+    }
+
+    private func applyInitialCardIndexIfNeeded() {
+        guard !hasAppliedInitialCardIndex else {
+            return
+        }
+        cardIndex = min(max(initialCardIndex, 0), cardCount - 1)
+        hasAppliedInitialCardIndex = true
     }
 
     private func requestCardSwipe(_ direction: AdmissionCardSwipeDirection) {
@@ -198,15 +214,14 @@ struct CollegePickerView: View {
         }
     }
 
-    private func toggle(_ id: String) {
-        if selectedCollegeIDs.contains(id) {
-            selectedCollegeIDs.remove(id)
+    private func select(_ id: String) {
+        guard !selectedCollegeIDs.contains(id) else {
+            return
+        }
+        if applicationRound == .earlyDecision {
+            selectedCollegeIDs = Set([id])
         } else {
-            if applicationRound == .earlyDecision {
-                selectedCollegeIDs = Set([id])
-            } else {
-                selectedCollegeIDs.insert(id)
-            }
+            selectedCollegeIDs.insert(id)
         }
         selectionSource = selectedCollegeIDs.isEmpty ? .none : .manual
     }
@@ -370,7 +385,7 @@ private struct CollegeFilterBar: View {
                                 .font(.caption2.weight(.bold))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background((filter == item ? Color.white : item.tint).opacity(filter == item ? 0.22 : 0.12), in: Capsule())
+                                .background((filter == item ? Color.white : item.tint).opacity(filter == item ? 0.22 : 0.14), in: Capsule())
                         }
                         .foregroundStyle(filter == item ? .white : item.tint)
                         .padding(.horizontal, 12)
@@ -378,12 +393,12 @@ private struct CollegeFilterBar: View {
                         .background(
                             filter == item
                                 ? LinearGradient(colors: [item.tint, .black.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                : LinearGradient(colors: [Color.white.opacity(0.10), Color.white.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                                : LinearGradient(colors: [Color.black.opacity(0.08), Color.black.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing),
                             in: Capsule()
                         )
                         .overlay(
                             Capsule()
-                                .stroke(Color.white.opacity(filter == item ? 0.20 : 0.12), lineWidth: 1)
+                                .stroke((filter == item ? Color.white : Color.black).opacity(filter == item ? 0.20 : 0.10), lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -491,53 +506,62 @@ private struct SelectedPortfolioCard: View {
 private struct CollegeSelectionCard: View {
     let college: College
     let isSelected: Bool
-    let toggle: () -> Void
+    let select: () -> Void
 
     var body: some View {
-        Button(action: toggle) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Text("#\(college.rank)")
-                            .font(.caption.weight(.bold))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(tierColor.opacity(0.14), in: Capsule())
-                            .foregroundStyle(tierColor)
-                        Text(college.tierDisplayName)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(tierColor)
-                    }
-                    Text(college.name)
-                        .font(.system(.headline, design: .rounded).weight(.black))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.leading)
-                    HStack(spacing: 12) {
-                        MetricPill(title: "基础率", value: college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))), color: .blue)
-                        MetricPill(title: "届别", value: "\(college.latestAvailableClassYear)", color: .purple)
-                    }
-                    Text("数据质量 \(college.dataQuality.formatted(.number.precision(.fractionLength(2)))) · 已审核 v1")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.62))
+        Group {
+            if isSelected {
+                cardContent
+            } else {
+                Button(action: select) {
+                    cardContent
                 }
-                Spacer()
-                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .font(.title)
-                    .foregroundStyle(isSelected ? .white : .white.opacity(0.70))
-                    .frame(width: 40, height: 40)
-                    .background(isSelected ? Color.white.opacity(0.20) : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .buttonStyle(.plain)
             }
-            .padding(14)
-            .background(
-                LinearGradient(colors: cardColors, startPoint: .topLeading, endPoint: .bottomTrailing),
-                in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
-                    .stroke(isSelected ? Color.white.opacity(0.34) : Color.white.opacity(0.12), lineWidth: 1)
-            )
         }
-        .buttonStyle(.plain)
+    }
+
+    private var cardContent: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Text("#\(college.rank)")
+                        .font(.caption.weight(.bold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(tierColor.opacity(0.14), in: Capsule())
+                        .foregroundStyle(tierColor)
+                    Text(college.tierDisplayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(tierColor)
+                }
+                Text(college.name)
+                    .font(.system(.headline, design: .rounded).weight(.black))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.leading)
+                HStack(spacing: 12) {
+                    MetricPill(title: "基础录取率", value: college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))), color: .blue)
+                    MetricPill(title: "目标分类", value: baseRateBucket.rawValue, color: .purple)
+                }
+            }
+            Spacer()
+            if !isSelected {
+                Image(systemName: "square")
+                    .font(.title)
+                    .foregroundStyle(.white.opacity(0.70))
+                    .frame(width: 40, height: 40)
+                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+        .padding(14)
+        .background(
+            LinearGradient(colors: cardColors, startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+                .stroke(isSelected ? Color.white.opacity(0.34) : Color.white.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private var tierColor: Color {
@@ -559,6 +583,17 @@ private struct CollegeSelectionCard: View {
         }
         return [Color.white.opacity(0.11), tierColor.opacity(0.30), Color.black.opacity(0.72)]
     }
+
+    private var baseRateBucket: RecommendationBucket {
+        switch college.latestAvailableRate {
+        case ..<0.20:
+            return .reach
+        case ..<0.60:
+            return .target
+        default:
+            return .likely
+        }
+    }
 }
 
 private struct MetricPill: View {
@@ -574,6 +609,8 @@ private struct MetricPill: View {
             Text(value)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)

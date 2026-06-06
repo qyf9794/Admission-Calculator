@@ -8,6 +8,7 @@ struct ResultsView: View {
     @State private var revealedResultCount = 0
     @State private var settledResultIDs: Set<String> = []
     @State private var showAnalyzeButton = false
+    @State private var swipeCommand: AdmissionCardSwipeCommand?
 
     private let resultRevealIDs: Set<String> = ["top10", "top11to30", "top30", "top50", "total"]
 
@@ -16,17 +17,13 @@ struct ResultsView: View {
             AdmissionPageBackground()
             if let result {
                 AdmissionSwipeableCard(
+                    swipeCommand: $swipeCommand,
                     canSwipeBack: true,
                     canSwipeForward: showAnalyzeButton && !isStale,
                     onSwipeBack: onBackToSchools,
                     onSwipeForward: onAnalyze,
                     previousPreview: {
-                        AdmissionPreviewCard(
-                            title: "学校列表",
-                            subtitle: "上一页最后一张卡片，已选学校仍会保留。",
-                            systemImage: "building.columns",
-                            colors: AdmissionStyle.roseSlate
-                        )
+                        SchoolListSnapshotCard(result: result)
                     },
                     nextPreview: {
                         if showAnalyzeButton && !isStale {
@@ -120,7 +117,7 @@ struct ResultsView: View {
             Spacer(minLength: 6)
 
             if showAnalyzeButton {
-                Button(action: onAnalyze) {
+                Button(action: { requestSwipe(.forward) }) {
                     Label("分析结果", systemImage: "doc.text.magnifyingglass")
                         .frame(maxWidth: .infinity)
                 }
@@ -172,6 +169,127 @@ struct ResultsView: View {
 
     private func tierCount(in result: PortfolioResult, minRankExclusive: Int = 0, maxRank: Int) -> Int {
         result.schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank > minRankExclusive && $0.college.rank <= maxRank }.count
+    }
+
+    private func requestSwipe(_ direction: AdmissionCardSwipeDirection) {
+        swipeCommand = AdmissionCardSwipeCommand(direction: direction)
+    }
+}
+
+struct SchoolListSnapshotCard: View {
+    let result: PortfolioResult
+
+    var body: some View {
+        AdmissionGradientCard(
+            title: "学校列表",
+            subtitle: "上一页最后一张卡片；当前组合 \(result.schoolResults.count) 所学校。",
+            systemImage: "building.columns",
+            colors: AdmissionStyle.roseSlate
+        ) {
+            if result.schoolResults.isEmpty {
+                Text("尚未选择学校。")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.72))
+            } else {
+                ForEach(Array(result.schoolResults.prefix(5).enumerated()), id: \.element.college.id) { index, schoolResult in
+                    SchoolListSnapshotRow(index: index + 1, result: schoolResult)
+                }
+                if result.schoolResults.count > 5 {
+                    Text("另有 \(result.schoolResults.count - 5) 所学校。")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+            }
+        }
+    }
+}
+
+private struct SchoolListSnapshotRow: View {
+    let index: Int
+    let result: ChanceResult
+
+    private var rankAndBucketText: String {
+        "#\(result.college.rank) · \(result.bucket.rawValue)"
+    }
+
+    private var probabilityText: String {
+        result.adjustedProbability.formatted(.percent.precision(.fractionLength(0)))
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("\(index)")
+                .font(.caption.weight(.black))
+                .frame(width: 24, height: 24)
+                .background(Color.white.opacity(0.14), in: Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(result.college.name)
+                    .font(.subheadline.weight(.bold))
+                    .lineLimit(1)
+                Text(rankAndBucketText)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.68))
+            }
+
+            Spacer()
+
+            Text(probabilityText)
+                .font(.headline.monospacedDigit().weight(.black))
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+struct ResultsSnapshotCard: View {
+    let result: PortfolioResult
+
+    var body: some View {
+        AdmissionGradientCard(
+            title: "概率计算结果",
+            subtitle: "上一页组合概率快照；结果基于提交时的画像和选校。",
+            systemImage: "chart.bar.xaxis",
+            colors: AdmissionStyle.blackGlass
+        ) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))
+                    .font(.system(size: 58, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("全部已选至少一所")
+                        .font(.headline.weight(.bold))
+                    Text("\(result.schoolResults.count) 所学校 · \(result.selectionSource.rawValue)")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.70))
+                }
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                SnapshotMetric(title: "Top10", value: result.t10AtLeastOne)
+                SnapshotMetric(title: "T11-T30", value: result.t11T30AtLeastOne)
+                SnapshotMetric(title: "Top30", value: result.t30AtLeastOne)
+                SnapshotMetric(title: "Top50", value: result.t50AtLeastOne)
+            }
+        }
+    }
+}
+
+private struct SnapshotMetric: View {
+    let title: String
+    let value: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.66))
+            Text(value.formatted(.percent.precision(.fractionLength(0))))
+                .font(.headline.monospacedDigit().weight(.black))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.white.opacity(0.11), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

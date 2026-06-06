@@ -1,6 +1,10 @@
 import SwiftUI
 
 struct CalculatorView: View {
+    static let lastProfileCardIndex = 4
+    static let profileCardHeight: CGFloat = 502
+
+    let initialCardIndex: Int
     @Binding var profile: StudentProfile
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
@@ -10,9 +14,9 @@ struct CalculatorView: View {
     @State private var maxVisitedCardIndex = 0
     @State private var showingHighSchoolSearch = false
     @State private var swipeCommand: AdmissionCardSwipeCommand?
+    @State private var hasAppliedInitialCardIndex = false
 
     private let profileCardCount = 5
-    private let profileCardHeight: CGFloat = 502
 
     var body: some View {
         ZStack {
@@ -83,6 +87,9 @@ struct CalculatorView: View {
                 .padding(.bottom, 14)
             }
         }
+        .onAppear {
+            applyInitialCardIndexIfNeeded()
+        }
         .onChange(of: profile) { _, _ in
             if !profile.includeLiberalArtsColleges {
                 selectedCollegeIDs = selectedCollegeIDs.filter { id in
@@ -118,7 +125,7 @@ struct CalculatorView: View {
     private func profileCard(at index: Int) -> some View {
         switch index {
         case 0:
-            CardSection(title: "学生画像", systemImage: "person.text.rectangle", colors: AdmissionStyle.mintNight, minHeight: profileCardHeight) {
+            CardSection(title: "学生画像", subtitle: "先确定目标方向与校内成绩基准。", systemImage: "person.text.rectangle", colors: AdmissionStyle.profileCalm, minHeight: Self.profileCardHeight) {
                 HStack(spacing: 12) {
                     Picker("目标专业", selection: $profile.major) {
                         ForEach(MajorCategory.allCases) { item in
@@ -126,6 +133,7 @@ struct CalculatorView: View {
                         }
                     }
                     .pickerStyle(.menu)
+                    .tint(.white)
 
                     Spacer(minLength: 8)
 
@@ -135,6 +143,7 @@ struct CalculatorView: View {
                         }
                     }
                     .pickerStyle(.menu)
+                    .tint(.white)
                 }
                 GradeValueInput(
                     title: "GPA / 校内成绩",
@@ -157,10 +166,11 @@ struct CalculatorView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .tint(.white)
                 CurriculumPerformanceInputs(profile: $profile)
             }
         case 1:
-            CardSection(title: "硬指标", subtitle: "标化和语言成绩会先经过硬门槛，再进入概率修正。", systemImage: "target", colors: AdmissionStyle.bluePulse, minHeight: profileCardHeight) {
+            CardSection(title: "标准化成绩", subtitle: "标化和语言成绩会进入资格校验，并参与概率修正。", systemImage: "target", colors: AdmissionStyle.bluePulse, minHeight: Self.profileCardHeight, contentVerticalAlignment: .center) {
                 Toggle("Test Optional / 不提交标化", isOn: testOptionalBinding)
                     .tint(AdmissionStyle.controlBlue)
                 ScoreField(title: "SAT", value: $profile.sat, range: 400...1600, disabled: profile.testOptional)
@@ -175,7 +185,7 @@ struct CalculatorView: View {
 	                IntArrowInput(title: "课程难度", value: $profile.rigor, range: 1...5, suffix: "/5")
             }
         case 2:
-            CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", colors: AdmissionStyle.pinkMist, minHeight: profileCardHeight, contentVerticalAlignment: .center) {
+            CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", colors: AdmissionStyle.pinkMist, minHeight: Self.profileCardHeight, contentVerticalAlignment: .center) {
                 BandStepper(title: "活动影响力", value: $profile.activities)
                 BandStepper(title: "科研 / 夏校", value: $profile.research)
                 BandStepper(title: "奖项区分度", value: $profile.honors)
@@ -185,13 +195,14 @@ struct CalculatorView: View {
                     .tint(AdmissionStyle.controlBlue)
             }
         case 3:
-            CardSection(title: "高中背景与身份", subtitle: "确认是否中国籍国际生，并选择高中背景；两者都会影响中国申请者容量代理。", systemImage: "graduationcap.fill", colors: AdmissionStyle.citrus, minHeight: profileCardHeight, contentVerticalAlignment: .center) {
+            CardSection(title: "高中背景与身份", subtitle: "确认是否中国籍国际生，并选择高中背景；两者都会影响中国申请者容量代理。", systemImage: "graduationcap.fill", colors: AdmissionStyle.citrus, minHeight: Self.profileCardHeight, contentVerticalAlignment: .center) {
                 Picker("申请身份 / 是否中国籍", selection: $profile.applicantStatus) {
                     ForEach(ApplicantStatus.allCases) { item in
                         Text(item.rawValue).tag(item)
                     }
                 }
                 .pickerStyle(.menu)
+                .tint(.white)
                 HighSchoolSearchButton(
                     school: selectedHighSchool,
                     openSearch: { showingHighSchoolSearch = true }
@@ -206,28 +217,7 @@ struct CalculatorView: View {
                     .foregroundStyle(.white.opacity(0.70))
             }
         default:
-            CardSection(title: "轮次、资助与选校数量", subtitle: selectionCountSubtitle, systemImage: "slider.horizontal.3", colors: AdmissionStyle.lilac, minHeight: profileCardHeight, contentVerticalAlignment: .center) {
-                Picker("申请轮次", selection: $profile.round) {
-                    ForEach(ApplicationRound.allCases) { item in
-                        Text(item.rawValue).tag(item)
-                    }
-                }
-                .pickerStyle(.segmented)
-                Toggle("申请资助", isOn: $profile.needsAid)
-                    .tint(AdmissionStyle.controlBlue)
-                Toggle("纳入文理学院", isOn: $profile.includeLiberalArtsColleges)
-                    .tint(AdmissionStyle.controlBlue)
-                UnboundedCountStepper(title: "计划选择大学", value: $profile.requestedSchoolCount)
-                LabeledContent("自动生成数量", value: "\(automaticGeneratedCount) 所")
-                Text(profile.includeLiberalArtsColleges
-                     ? "自动推荐和手动目录会同时包含综合大学与文理学院。"
-                     : "关闭后，自动推荐、手动目录和至少一所概率都只考虑综合大学。")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.70))
-                Text(automaticGenerationNote)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.70))
-            }
+            ProfileSelectionSettingsCard(profile: $profile, fixedHeight: Self.profileCardHeight)
         }
     }
 
@@ -252,6 +242,16 @@ struct CalculatorView: View {
         maxVisitedCardIndex = max(maxVisitedCardIndex, nextIndex)
     }
 
+    private func applyInitialCardIndexIfNeeded() {
+        guard !hasAppliedInitialCardIndex else {
+            return
+        }
+        let initialIndex = clamped(initialCardIndex, range: 0...(profileCardCount - 1))
+        cardIndex = initialIndex
+        maxVisitedCardIndex = max(maxVisitedCardIndex, initialIndex)
+        hasAppliedInitialCardIndex = true
+    }
+
     private func requestCardSwipe(_ direction: AdmissionCardSwipeDirection) {
         swipeCommand = AdmissionCardSwipeCommand(direction: direction)
     }
@@ -261,35 +261,10 @@ struct CalculatorView: View {
     }
 
     private var profileCompletionProgress: Double {
-        if maxVisitedCardIndex >= profileCardCount - 1 {
+        if canOpenSelection {
             return 1
         }
         return Double(maxVisitedCardIndex) / Double(profileCardCount)
-    }
-
-    private var selectionCountSubtitle: String {
-        if profile.round == .earlyDecision {
-            return "ED/ED2 是绑定申请；同一轮只能保留 1 所。"
-        }
-        return "设置计划申请数量；EA/RD 和手动选校可多所。"
-    }
-
-    private var requestedRecommendationTotal: Int {
-        automaticGeneratedCount
-    }
-
-    private var automaticGeneratedCount: Int {
-        guard profile.round == .earlyDecision else {
-            return profile.requestedSchoolCount
-        }
-        return min(profile.requestedSchoolCount, 1)
-    }
-
-    private var automaticGenerationNote: String {
-        if profile.round == .earlyDecision {
-            return "ED/ED2 是绑定申请；自动推荐同一轮最多生成 1 所 ED 学校。EA 可以多所，手动选校没有数量上限但会提示无效 ED 组合。"
-        }
-        return "自动推荐会尽量生成与计划选择数量一致的学校组合；若当前画像下合格学校不足，会在结果中披露缺口。"
     }
 
     private func allowsCurrentRound(_ college: College) -> Bool {
@@ -387,23 +362,21 @@ private struct HighSchoolSearchSheet: View {
                 school.id.localizedCaseInsensitiveContains(query)
         }
         return filtered.sorted { lhs, rhs in
-            if lhs.id == selectedHighSchoolID {
-                return true
-            }
-            if rhs.id == selectedHighSchoolID {
-                return false
-            }
             if lhs.id == "unknown" {
                 return true
             }
             if rhs.id == "unknown" {
                 return false
             }
-            if lhs.admitRankingBand != rhs.admitRankingBand {
-                return lhs.admitRankingBand < rhs.admitRankingBand
-            }
-            return lhs.name.localizedCompare(rhs.name) == .orderedAscending
+            return highSchoolSortKey(for: lhs).localizedStandardCompare(highSchoolSortKey(for: rhs)) == .orderedAscending
         }
+    }
+
+    private func highSchoolSortKey(for school: HighSchoolContext) -> String {
+        let latinName = school.name.applyingTransform(.toLatin, reverse: false) ?? school.name
+        return latinName
+            .applyingTransform(.stripDiacritics, reverse: false)?
+            .lowercased() ?? latinName.lowercased()
     }
 
     var body: some View {
@@ -423,7 +396,7 @@ private struct HighSchoolSearchSheet: View {
                         .buttonStyle(.plain)
                     }
                 } header: {
-                    Text("当前/默认项固定在最上方，可按学校名称搜索")
+                    Text("默认项固定在最上方，其余学校按拼音排序")
                 }
             }
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索高中名称")
@@ -453,7 +426,7 @@ private struct HighSchoolSearchRow: View {
                 Text(school.name)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
-                Text("\(school.city) · 背景档 \(school.admitRankingBand)")
+                Text(school.city)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -470,33 +443,44 @@ private struct ProfileTopBar: View {
     let action: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            GeometryReader { proxy in
-                let clampedProgress = min(1, max(0, progress))
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.black.opacity(0.10))
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [AdmissionStyle.controlBlue, Color.cyan.opacity(0.86)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: clampedProgress == 0 ? 0 : max(8, proxy.size.width * clampedProgress))
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Spacer()
+                Button(action: action) {
+                    Label(selectedCount == 0 ? "选校" : "选校 \(selectedCount)", systemImage: "building.columns.fill")
+                        .labelStyle(.titleAndIcon)
                 }
+                .buttonStyle(AdmissionSoftButtonStyle(colors: canOpenSelection ? AdmissionStyle.mintNight : [Color.gray.opacity(0.58), Color.gray.opacity(0.34)]))
+                .disabled(!canOpenSelection)
+                .opacity(canOpenSelection ? 1 : 0.58)
             }
-            .frame(height: 9)
 
-            Button(action: action) {
-                Label(selectedCount == 0 ? "选校" : "选校 \(selectedCount)", systemImage: "building.columns.fill")
-                    .labelStyle(.titleAndIcon)
-            }
-            .buttonStyle(AdmissionSoftButtonStyle(colors: canOpenSelection ? AdmissionStyle.mintNight : [Color.gray.opacity(0.58), Color.gray.opacity(0.34)]))
-            .disabled(!canOpenSelection)
-            .opacity(canOpenSelection ? 1 : 0.58)
+            ProfileCompletionBar(progress: progress)
         }
+    }
+}
+
+private struct ProfileCompletionBar: View {
+    let progress: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            let clampedProgress = min(1, max(0, progress))
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.black.opacity(0.10))
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [AdmissionStyle.controlBlue, Color.cyan.opacity(0.86)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: clampedProgress == 0 ? 0 : max(8, proxy.size.width * clampedProgress))
+            }
+        }
+        .frame(height: 9)
     }
 }
 
@@ -560,10 +544,10 @@ private struct CalculatorHero: View {
                 Label("中国学生美本录取概率规划", systemImage: "sparkle.magnifyingglass")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.82))
-                Text("Admit Chance")
+                Text("美本录取计算器")
                     .font(AdmissionStyle.titleFont(36))
                     .foregroundStyle(.white)
-                Text("用硬门槛、学术匹配、国际生数据和中国本科录取容量，生成可解释的选校估算。")
+                Text("结合学术匹配、国际生数据和中国本科录取容量，生成可解释的选校估算。")
                     .font(AdmissionStyle.bodyFont())
                     .foregroundStyle(.white.opacity(0.86))
                     .fixedSize(horizontal: false, vertical: true)
@@ -717,6 +701,64 @@ private struct CardSection<Content: View>: View {
         ) {
             content
         }
+    }
+}
+
+struct ProfileSelectionSettingsCard: View {
+    @Binding var profile: StudentProfile
+    var fixedHeight: CGFloat? = nil
+
+    var body: some View {
+        CardSection(
+            title: "轮次、资助与选校数量",
+            subtitle: selectionCountSubtitle,
+            systemImage: "slider.horizontal.3",
+            colors: AdmissionStyle.lilac,
+            minHeight: fixedHeight,
+            contentVerticalAlignment: .center
+        ) {
+            Picker("申请轮次", selection: $profile.round) {
+                ForEach(ApplicationRound.allCases) { item in
+                    Text(item.rawValue).tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
+            Toggle("申请资助", isOn: $profile.needsAid)
+                .tint(AdmissionStyle.controlBlue)
+            Toggle("纳入文理学院", isOn: $profile.includeLiberalArtsColleges)
+                .tint(AdmissionStyle.controlBlue)
+            UnboundedCountStepper(title: "计划选择大学", value: $profile.requestedSchoolCount)
+            LabeledContent("自动生成数量", value: "\(automaticGeneratedCount) 所")
+            Text(profile.includeLiberalArtsColleges
+                 ? "自动推荐和手动目录会同时包含综合大学与文理学院。"
+                 : "关闭后，自动推荐、手动目录和至少一所概率都只考虑综合大学。")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.70))
+            Text(automaticGenerationNote)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.70))
+        }
+    }
+
+    private var selectionCountSubtitle: String {
+        if profile.round == .earlyDecision {
+            return "ED/ED2 是绑定申请；同一轮只能保留 1 所。"
+        }
+        return "设置计划申请数量；EA/RD 和手动选校可多所。"
+    }
+
+    private var automaticGeneratedCount: Int {
+        guard profile.round == .earlyDecision else {
+            return profile.requestedSchoolCount
+        }
+        return min(profile.requestedSchoolCount, 1)
+    }
+
+    private var automaticGenerationNote: String {
+        if profile.round == .earlyDecision {
+            return "ED/ED2 是绑定申请；自动推荐同一轮最多生成 1 所 ED 学校。EA 可以多所，手动选校没有数量上限但会提示无效 ED 组合。"
+        }
+        return "自动推荐会尽量生成与计划选择数量一致的学校组合；若当前画像下合格学校不足，会在结果中披露缺口。"
     }
 }
 
@@ -895,10 +937,11 @@ private struct OptionalIntSliderInput: View {
             value: valueBinding,
             range: Double(range.lowerBound)...Double(range.upperBound),
             step: Double(step),
-            displayText: value.map(String.init) ?? "未填写",
+            displayText: value.map(String.init),
             disabled: disabled
         )
         .accessibilityLabel(title)
+        .accessibilityValue(value.map(String.init) ?? "未填写")
     }
 
     private var valueBinding: Binding<Double> {
@@ -921,9 +964,10 @@ private struct OptionalDecimalSliderInput: View {
             value: valueBinding,
             range: range,
             step: step,
-            displayText: value.map(displayValue) ?? "未填写"
+            displayText: value.map(displayValue)
         )
         .accessibilityLabel(title)
+        .accessibilityValue(value.map(displayValue) ?? "未填写")
     }
 
     private var valueBinding: Binding<Double> {
@@ -938,15 +982,17 @@ private struct SliderControl: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
     let step: Double
-    let displayText: String
+    let displayText: String?
     var disabled = false
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            Text(displayText)
-                .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.black))
-                .foregroundStyle(disabled ? .secondary : .primary)
-                .frame(minWidth: 58, alignment: .trailing)
+            if let displayText {
+                Text(displayText)
+                    .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.black))
+                    .foregroundStyle(disabled ? .secondary : .primary)
+                    .frame(minWidth: 58, alignment: .trailing)
+            }
 
             HStack(spacing: 8) {
                 IconAdjustButton(systemImage: "minus.circle.fill", disabled: disabled || value <= range.lowerBound) {
@@ -955,14 +1001,14 @@ private struct SliderControl: View {
 
                 Slider(value: $value, in: range, step: step)
                     .disabled(disabled)
-                    .frame(minWidth: 126)
+                    .frame(minWidth: 112)
 
                 IconAdjustButton(systemImage: "plus.circle.fill", disabled: disabled || value >= range.upperBound) {
                     value = snapped(value + step, range: range, step: step)
                 }
             }
         }
-        .frame(maxWidth: 260)
+        .frame(maxWidth: 238)
     }
 }
 
@@ -1076,25 +1122,16 @@ private struct ScoreField: View {
     let disabled: Bool
 
     var body: some View {
-        LabeledContent(title) {
-	            HStack {
-	                Button {
-	                    value = nil
-	                } label: {
-	                    Image(systemName: "xmark.circle")
-	                }
-	                .disabled(value == nil || disabled)
-
-	                OptionalIntSliderInput(
-	                    title: title,
-	                    value: $value,
-	                    range: range,
-	                    step: title == "SAT" ? 10 : 1,
-	                    disabled: disabled
-	                )
-	            }
-	        }
-	    }
+        ScoreSliderRow(title: title, canClear: value != nil && !disabled, clearAction: { value = nil }) {
+            OptionalIntSliderInput(
+                title: title,
+                value: $value,
+                range: range,
+                step: title == "SAT" ? 10 : 1,
+                disabled: disabled
+            )
+        }
+    }
 }
 
 private struct DecimalScoreField: View {
@@ -1104,25 +1141,50 @@ private struct DecimalScoreField: View {
     let step: Double
 
     var body: some View {
-        LabeledContent(title) {
-	            HStack {
-	                Button {
-	                    value = nil
-	                } label: {
-                    Image(systemName: "xmark.circle")
-                }
-                .disabled(value == nil)
+        ScoreSliderRow(title: title, canClear: value != nil, clearAction: { value = nil }) {
+            OptionalDecimalSliderInput(
+                title: title,
+                value: $value,
+                range: range,
+                step: step,
+                displayValue: { String(format: "%.1f", $0) }
+            )
+        }
+    }
+}
 
-	                OptionalDecimalSliderInput(
-	                    title: title,
-	                    value: $value,
-	                    range: range,
-	                    step: step,
-	                    displayValue: { String(format: "%.1f", $0) }
-	                )
-	            }
-	        }
-	    }
+private struct ScoreSliderRow<Control: View>: View {
+    let title: String
+    let canClear: Bool
+    let clearAction: () -> Void
+    let control: Control
+
+    init(title: String, canClear: Bool, clearAction: @escaping () -> Void, @ViewBuilder control: () -> Control) {
+        self.title = title
+        self.canClear = canClear
+        self.clearAction = clearAction
+        self.control = control()
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            Text(title)
+                .frame(width: 54, height: 34, alignment: .leading)
+
+            Button(action: clearAction) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 28, height: 34)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(canClear ? Color.white.opacity(0.78) : Color.white.opacity(0.24))
+            .disabled(!canClear)
+
+            control
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 }
 
 private struct BandStepper: View {

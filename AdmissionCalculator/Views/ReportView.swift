@@ -29,20 +29,13 @@ struct ReportView: View {
                     onSwipeBack: onBackToResults,
                     onSwipeForward: {},
                     previousPreview: {
-                        AdmissionPreviewCard(
-                            title: "结果页",
-                            subtitle: "上一页为组合概率结果，数据保持不变。",
-                            systemImage: "chart.bar.xaxis",
-                            colors: AdmissionStyle.blackGlass
-                        )
+                        ResultsSnapshotCard(result: result)
                     },
                     nextPreview: {
                         EmptyView()
                     }
                 ) {
                     VStack(alignment: .leading, spacing: 16) {
-                        ReportResultSummaryHeader(result: result)
-
                         if isStale {
                             Label("当前结果已过期；请先回到计算页重新计算，再生成付费报告。", systemImage: "exclamationmark.triangle.fill")
                                 .font(.footnote)
@@ -51,8 +44,6 @@ struct ReportView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
                         }
-
-                        ReportFrameworkPreview()
 
                         ReportActionCard(
                             result: result,
@@ -64,6 +55,8 @@ struct ReportView: View {
                             onRegenerateFromStart: onRecalculate,
                             onShowDataSources: { showingDataSources = true }
                         )
+
+                        ReportFrameworkPreview()
                     }
                 }
                 .padding()
@@ -183,124 +176,6 @@ struct ReportView: View {
     }()
 }
 
-private struct ReportHero: View {
-    let result: PortfolioResult
-
-    var body: some View {
-        AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 12) {
-                    Label("付费 AI 综合报告 · \(result.profileSnapshot.round.rawValue)", systemImage: "doc.text.magnifyingglass")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.82))
-                    Spacer(minLength: 8)
-                    ReportBarsSummary(results: Array(result.schoolResults.prefix(6)))
-                }
-                Text("Application Report")
-                    .font(AdmissionStyle.titleFont(34))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                Text(result.profileSnapshot.round == .regularDecision
-                     ? "逐校解释概率、差距、提升路径和选校组合策略；AI 只解释已计算结果，不改变概率。"
-                     : "EA/ED 只提供本轮次概率结果；综合报告仅开放给 RD 轮次。")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.86))
-                    .fixedSize(horizontal: false, vertical: true)
-                VStack(alignment: .leading, spacing: 10) {
-                    AdmissionProbabilityCard(
-                        title: "全部已选",
-                        subtitle: "综合报告基准概率",
-                        value: result.selectedAtLeastOne,
-                        colors: [Color.green.opacity(0.92), Color.black.opacity(0.84)],
-                        countText: "当前组合 \(result.schoolResults.count) 所",
-                        delayIndex: 0,
-                        symbolName: "doc.text.magnifyingglass",
-                        fontSize: 42
-                    )
-                    HStack(spacing: 10) {
-                        AdmissionMetricPill(title: "学校", value: "\(result.schoolResults.count)")
-                        AdmissionMetricPill(title: "阻断", value: "\(result.selectedBucketCounts.blocked)")
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct ReportResultSummaryHeader: View {
-    let result: PortfolioResult
-
-    var body: some View {
-        AdmissionHeroCard(colors: AdmissionStyle.blackGlass) {
-            VStack(alignment: .leading, spacing: 14) {
-                Label("结果缩略 · \(result.profileSnapshot.round.rawValue)", systemImage: "chart.bar.xaxis")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.82))
-                HStack(alignment: .center, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("全部已选")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.68))
-                        Text(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))
-                            .font(.system(size: 58, weight: .black, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.62)
-                        Text("\(result.schoolResults.count) 所学校 · \(result.selectionSource.rawValue)")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.66))
-                            .lineLimit(2)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                        ReportMiniMetric(title: "综大T10", value: result.t10AtLeastOne)
-                        ReportMiniMetric(title: "T11-T30", value: result.t11T30AtLeastOne)
-                        ReportMiniMetric(title: "综大T30", value: result.t30AtLeastOne)
-                        ReportMiniMetric(title: "综大T50", value: result.t50AtLeastOne)
-                    }
-                    .frame(maxWidth: 178)
-                }
-                Text("概率仍是规划估算，不是录取承诺；报告只解释这次已计算结果。")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.70))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-}
-
-private struct ReportMiniMetric: View {
-    let title: String
-    let value: Double
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-            Text(value.formatted(.percent.precision(.fractionLength(0))))
-                .font(.system(.headline, design: .rounded).weight(.black))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.70)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.11), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-    }
-}
-
 private struct ReportFrameworkPreview: View {
     private let sections = [
         ("测算摘要", "组合概率、风险层级、是否存在硬门槛阻断。"),
@@ -313,7 +188,6 @@ private struct ReportFrameworkPreview: View {
     var body: some View {
         AdmissionGradientCard(
             title: "报告包含内容",
-            subtitle: "这里只展示框架，不展示具体学校概率或个性化建议。",
             systemImage: "list.bullet.rectangle",
             colors: AdmissionStyle.mintNight
         ) {
@@ -376,42 +250,6 @@ private struct ReportPaymentSheet: View {
                 }
             }
             .padding(18)
-        }
-    }
-}
-
-private struct ReportBarsSummary: View {
-    let results: [ChanceResult]
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 5) {
-            if results.isEmpty {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.white.opacity(0.24))
-                    .frame(width: 12, height: 18)
-            } else {
-                ForEach(Array(results.enumerated()), id: \.offset) { index, school in
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(color(for: school.bucket))
-                        .frame(width: 10, height: CGFloat(18 + index * 4) + CGFloat(school.adjustedProbability * 32))
-                }
-            }
-        }
-        .frame(height: 52, alignment: .bottom)
-        .padding(8)
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-    }
-
-    private func color(for bucket: RecommendationBucket) -> Color {
-        switch bucket {
-        case .reach: .orange
-        case .target: .blue
-        case .likely: .green
-        case .blocked: .red
         }
     }
 }

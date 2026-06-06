@@ -10,7 +10,7 @@ enum AdmissionStyle {
     static let textSecondary = Color.white.opacity(0.72)
     static let darkTextPrimary = Color(red: 0.05, green: 0.05, blue: 0.055)
     static let darkTextSecondary = Color.black.opacity(0.58)
-    static let controlBlue = Color(red: 0.10, green: 0.34, blue: 0.95)
+    static let controlBlue = Color(red: 0.34, green: 0.50, blue: 0.66)
 
     static let aurora: [Color] = [
         Color(red: 0.07, green: 0.08, blue: 0.10),
@@ -39,6 +39,13 @@ enum AdmissionStyle {
         Color(red: 0.66, green: 0.86, blue: 0.76)
     ]
 
+    static let profileCalm: [Color] = [
+        Color(red: 0.70, green: 0.88, blue: 0.82),
+        Color(red: 0.27, green: 0.42, blue: 0.49),
+        Color(red: 0.13, green: 0.21, blue: 0.28),
+        Color(red: 0.58, green: 0.76, blue: 0.80)
+    ]
+
     static let citrus: [Color] = [
         Color(red: 1.00, green: 0.77, blue: 0.26),
         Color(red: 0.98, green: 0.33, blue: 0.24),
@@ -61,6 +68,12 @@ enum AdmissionStyle {
         Color(red: 0.95, green: 0.56, blue: 0.62),
         Color(red: 0.46, green: 0.37, blue: 0.48),
         Color(red: 0.08, green: 0.09, blue: 0.12)
+    ]
+
+    static let softGray: [Color] = [
+        Color(red: 0.97, green: 0.97, blue: 0.98),
+        Color(red: 0.90, green: 0.91, blue: 0.93),
+        Color(red: 0.80, green: 0.82, blue: 0.85)
     ]
 
     static func titleFont(_ size: CGFloat = 30) -> Font {

@@ -14,6 +14,8 @@ struct AppView: View {
     @State private var selectionSource: PortfolioSelectionSource = .none
     @State private var latestResult: PortfolioResult?
     @State private var stage: AdmissionFlowStage = .hero
+    @State private var profileInitialCardIndex = 0
+    @State private var schoolInitialCardIndex = 0
     @StateObject private var purchaseState = ReportPurchaseState()
 
     private let engine = ChanceEngine()
@@ -24,12 +26,12 @@ struct AppView: View {
                 switch stage {
                 case .hero:
                     LandingHeroView {
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-                            stage = .profile
-                        }
+                        profileInitialCardIndex = 0
+                        stage = .profile
                     }
                 case .profile:
                     CalculatorView(
+                        initialCardIndex: profileInitialCardIndex,
                         profile: $profile,
                         selectedCollegeIDs: $selectedCollegeIDs,
                         selectionSource: $selectionSource,
@@ -38,35 +40,45 @@ struct AppView: View {
                     )
                 case .schools:
                     CollegePickerView(
+                        initialCardIndex: schoolInitialCardIndex,
+                        profile: $profile,
                         selectedCollegeIDs: $selectedCollegeIDs,
                         selectionSource: $selectionSource,
                         includeLiberalArtsColleges: profile.includeLiberalArtsColleges,
                         applicationRound: profile.round,
                         requestedSchoolCount: $profile.requestedSchoolCount,
                         onAutoRecommend: autoRecommendForSelection,
-                        onBackToProfile: { withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { stage = .profile } },
+                        onBackToProfile: {
+                            profileInitialCardIndex = CalculatorView.lastProfileCardIndex
+                            stage = .profile
+                        },
                         onEvaluate: evaluateAndShowResults
                     )
                 case .results:
                     ResultsView(
                         result: latestResult,
                         isStale: resultIsStale,
-                        onBackToSchools: { withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { stage = .schools } },
-                        onAnalyze: { withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { stage = .report } }
+                        onBackToSchools: {
+                            schoolInitialCardIndex = CollegePickerView.lastCardIndex
+                            stage = .schools
+                        },
+                        onAnalyze: {
+                            stage = .report
+                        }
                     )
                 case .report:
                     ReportView(
                         result: latestResult,
                         purchaseState: purchaseState,
                         isStale: resultIsStale,
-                        onBackToResults: { withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { stage = .results } },
+                        onBackToResults: {
+                            stage = .results
+                        },
                         onRecalculate: resetAndGoBackToHero
                     )
                 }
             }
             .id(stage)
-            .transition(.opacity)
-            .animation(.spring(response: 0.42, dampingFraction: 0.88), value: stage)
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(.black)
@@ -78,9 +90,7 @@ struct AppView: View {
 
     private func evaluateAndShowResults() {
         latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: selectedCollegeIDs, selectionSource: selectionSource)
-        withAnimation(.spring(response: 0.44, dampingFraction: 0.88)) {
-            stage = .results
-        }
+        stage = .results
     }
 
     private func autoRecommendForSelection() {
@@ -92,15 +102,12 @@ struct AppView: View {
 
     private func openCollegeSelection() {
         saveProfileLocally()
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
-            stage = .schools
-        }
+        schoolInitialCardIndex = 0
+        stage = .schools
     }
 
     private func goBackToHero() {
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
-            stage = .hero
-        }
+        stage = .hero
     }
 
     private func resetAndGoBackToHero() {
@@ -108,6 +115,8 @@ struct AppView: View {
         selectedCollegeIDs = []
         selectionSource = .none
         latestResult = nil
+        profileInitialCardIndex = 0
+        schoolInitialCardIndex = 0
         purchaseState.resetForNewCalculation()
         goBackToHero()
     }
@@ -142,12 +151,12 @@ private struct LandingHeroView: View {
                         Label("中国学生美本录取概率规划", systemImage: "sparkle.magnifyingglass")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.82))
-                        Text("Admit Chance")
+                        Text("美本录取计算器")
                             .font(AdmissionStyle.titleFont(44))
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
-                        Text("按硬门槛、学术匹配、国际生数据和中国本科录取容量，估算当前选校组合的录取机会。结果用于规划，不是承诺。")
+                        Text("基于学术匹配、国际生数据和中国本科录取容量，估算当前选校组合的录取机会。")
                             .font(.system(.body, design: .rounded).weight(.medium))
                             .foregroundStyle(.white.opacity(0.84))
                             .fixedSize(horizontal: false, vertical: true)
