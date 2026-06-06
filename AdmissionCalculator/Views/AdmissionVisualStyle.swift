@@ -123,6 +123,9 @@ struct AdmissionGradientCard<Content: View>: View {
     let colors: [Color]
     let foreground: Color
     let secondary: Color
+    let fixedHeight: CGFloat?
+    let contentVerticalAlignment: VerticalAlignment
+    let contentSpacing: CGFloat
     let content: Content
 
     init(
@@ -132,6 +135,9 @@ struct AdmissionGradientCard<Content: View>: View {
         colors: [Color],
         foreground: Color = AdmissionStyle.textPrimary,
         secondary: Color = AdmissionStyle.textSecondary,
+        fixedHeight: CGFloat? = nil,
+        contentVerticalAlignment: VerticalAlignment = .top,
+        contentSpacing: CGFloat = 12,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
@@ -140,16 +146,19 @@ struct AdmissionGradientCard<Content: View>: View {
         self.colors = colors
         self.foreground = foreground
         self.secondary = secondary
+        self.fixedHeight = fixedHeight
+        self.contentVerticalAlignment = contentVerticalAlignment
+        self.contentSpacing = contentSpacing
         self.content = content()
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
                 if let systemImage {
                     Image(systemName: systemImage)
                         .font(.headline.weight(.bold))
-                        .frame(width: 34, height: 34)
+                        .frame(width: 30, height: 30)
                         .foregroundStyle(foreground)
                         .background(foreground.opacity(0.14), in: Circle())
                 }
@@ -166,14 +175,20 @@ struct AdmissionGradientCard<Content: View>: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: contentSpacing) {
                 content
             }
             .font(AdmissionStyle.bodyFont())
             .tint(AdmissionStyle.controlBlue)
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: fixedHeight == nil ? nil : .infinity,
+                alignment: contentAlignment
+            )
         }
-        .padding(16)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: fixedHeight, alignment: .topLeading)
         .background(
             LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: AdmissionStyle.cornerRadius, style: .continuous)
@@ -185,6 +200,17 @@ struct AdmissionGradientCard<Content: View>: View {
         .foregroundStyle(foreground)
         .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 8)
         .environment(\.colorScheme, .dark)
+    }
+
+    private var contentAlignment: Alignment {
+        switch contentVerticalAlignment {
+        case .center:
+            return .leading
+        case .bottom:
+            return .bottomLeading
+        default:
+            return .topLeading
+        }
     }
 }
 

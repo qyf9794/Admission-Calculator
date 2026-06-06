@@ -47,6 +47,7 @@ enum ApplicationRound: String, CaseIterable, Identifiable, Codable {
 }
 
 enum MajorCategory: String, CaseIterable, Identifiable, Codable {
+    case undecided = "选择专业"
     case computerScience = "Computer Science"
     case engineering = "Engineering"
     case business = "Business"
@@ -62,7 +63,7 @@ enum MajorCategory: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .computerScience, .engineering, .naturalScience:
             return true
-        case .business, .economics, .socialScience, .humanities, .arts:
+        case .undecided, .business, .economics, .socialScience, .humanities, .arts:
             return false
         }
     }
@@ -548,7 +549,7 @@ struct StudentProfile: Hashable, Codable {
         essay: 3,
         recommendations: 3,
         highSchoolID: "unknown",
-        major: .computerScience,
+        major: .undecided,
         round: .regularDecision,
         needsAid: false,
         hasPortfolio: false,
@@ -591,6 +592,15 @@ struct ProfileCompletionPrompt: Identifiable, Hashable {
     let detail: String
     let systemImage: String
     let impact: ProfileCompletionImpact
+
+    var blocksProfileCompletion: Bool {
+        switch id {
+        case "english-proof", "standardized-test", "major":
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 extension StudentProfile {
@@ -624,6 +634,16 @@ extension StudentProfile {
                 detail: "若计划提交标化，请填写 SAT 或 ACT；若不提交，请开启 Test Optional，系统会忽略残留分数。",
                 systemImage: "checklist.checked",
                 impact: .gate
+            ))
+        }
+
+        if major == .undecided {
+            prompts.append(ProfileCompletionPrompt(
+                id: "major",
+                title: "选择目标专业方向",
+                detail: "专业竞争强度会影响概率修正；未选择专业时无法进入选校和计算。",
+                systemImage: "rectangle.stack.person.crop",
+                impact: .probability
             ))
         }
 

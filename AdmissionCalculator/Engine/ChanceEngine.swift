@@ -1284,6 +1284,7 @@ struct ChanceEngine {
 
     private func majorAdjustment(_ major: MajorCategory) -> Double {
         switch major {
+        case .undecided: return 0
         case .computerScience: return -0.26
         case .engineering: return -0.18
         case .business: return -0.12

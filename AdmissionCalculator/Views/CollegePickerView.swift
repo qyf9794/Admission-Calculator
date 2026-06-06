@@ -345,7 +345,6 @@ private struct SchoolSetupCard: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.72))
         }
-        .frame(minHeight: 430)
     }
 }
 

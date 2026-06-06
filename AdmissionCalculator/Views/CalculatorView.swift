@@ -12,7 +12,7 @@ struct CalculatorView: View {
     @State private var swipeCommand: AdmissionCardSwipeCommand?
 
     private let profileCardCount = 5
-    private let balancedProfileCardHeight: CGFloat = 430
+    private let profileCardHeight: CGFloat = 502
 
     var body: some View {
         ZStack {
@@ -118,8 +118,25 @@ struct CalculatorView: View {
     private func profileCard(at index: Int) -> some View {
         switch index {
         case 0:
-            CardSection(title: "学生画像", subtitle: "先录入成绩口径、课程体系和申请方向；身份与高中背景在后续卡片确认。", systemImage: "person.text.rectangle", colors: AdmissionStyle.mintNight) {
-                GradeScaleInputs(
+            CardSection(title: "学生画像", systemImage: "person.text.rectangle", colors: AdmissionStyle.mintNight, minHeight: profileCardHeight) {
+                HStack(spacing: 12) {
+                    Picker("目标专业", selection: $profile.major) {
+                        ForEach(MajorCategory.allCases) { item in
+                            Text(item.rawValue).tag(item)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    Spacer(minLength: 8)
+
+                    Picker("成绩方式", selection: $profile.gradeScale) {
+                        ForEach(GradeScale.allCases) { item in
+                            Text(item.rawValue).tag(item)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                GradeValueInput(
                     title: "GPA / 校内成绩",
                     scale: $profile.gradeScale,
                     percent: $profile.gpaPercent,
@@ -141,16 +158,11 @@ struct CalculatorView: View {
                 }
                 .pickerStyle(.menu)
                 CurriculumPerformanceInputs(profile: $profile)
-                Picker("目标专业", selection: $profile.major) {
-                    ForEach(MajorCategory.allCases) { item in
-                        Text(item.rawValue).tag(item)
-                    }
-                }
-                .pickerStyle(.menu)
             }
         case 1:
-            CardSection(title: "硬指标", subtitle: "标化和语言成绩会先经过硬门槛，再进入概率修正。", systemImage: "target", colors: AdmissionStyle.bluePulse) {
+            CardSection(title: "硬指标", subtitle: "标化和语言成绩会先经过硬门槛，再进入概率修正。", systemImage: "target", colors: AdmissionStyle.bluePulse, minHeight: profileCardHeight) {
                 Toggle("Test Optional / 不提交标化", isOn: testOptionalBinding)
+                    .tint(AdmissionStyle.controlBlue)
                 ScoreField(title: "SAT", value: $profile.sat, range: 400...1600, disabled: profile.testOptional)
                 ScoreField(title: "ACT", value: $profile.act, range: 1...36, disabled: profile.testOptional)
                 ScoreField(title: "TOEFL", value: $profile.toefl, range: 0...120, disabled: false)
@@ -163,16 +175,17 @@ struct CalculatorView: View {
 	                IntArrowInput(title: "课程难度", value: $profile.rigor, range: 1...5, suffix: "/5")
             }
         case 2:
-            CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", colors: AdmissionStyle.pinkMist, minHeight: balancedProfileCardHeight) {
+            CardSection(title: "软实力", subtitle: "顶尖校不能只看 GPA，活动、奖项、文书和推荐信会影响画像分。", systemImage: "sparkles", colors: AdmissionStyle.pinkMist, minHeight: profileCardHeight, contentVerticalAlignment: .center) {
                 BandStepper(title: "活动影响力", value: $profile.activities)
                 BandStepper(title: "科研 / 夏校", value: $profile.research)
                 BandStepper(title: "奖项区分度", value: $profile.honors)
                 BandStepper(title: "文书成熟度", value: $profile.essay)
                 BandStepper(title: "推荐信强度", value: $profile.recommendations)
                 Toggle("艺术作品集已准备", isOn: $profile.hasPortfolio)
+                    .tint(AdmissionStyle.controlBlue)
             }
         case 3:
-            CardSection(title: "高中背景与身份", subtitle: "确认是否中国籍国际生，并选择高中背景；两者都会影响中国申请者容量代理。", systemImage: "graduationcap.fill", colors: AdmissionStyle.citrus, minHeight: balancedProfileCardHeight) {
+            CardSection(title: "高中背景与身份", subtitle: "确认是否中国籍国际生，并选择高中背景；两者都会影响中国申请者容量代理。", systemImage: "graduationcap.fill", colors: AdmissionStyle.citrus, minHeight: profileCardHeight, contentVerticalAlignment: .center) {
                 Picker("申请身份 / 是否中国籍", selection: $profile.applicantStatus) {
                     ForEach(ApplicantStatus.allCases) { item in
                         Text(item.rawValue).tag(item)
@@ -193,7 +206,7 @@ struct CalculatorView: View {
                     .foregroundStyle(.white.opacity(0.70))
             }
         default:
-            CardSection(title: "轮次、资助与选校数量", subtitle: selectionCountSubtitle, systemImage: "slider.horizontal.3", colors: AdmissionStyle.lilac, minHeight: balancedProfileCardHeight) {
+            CardSection(title: "轮次、资助与选校数量", subtitle: selectionCountSubtitle, systemImage: "slider.horizontal.3", colors: AdmissionStyle.lilac, minHeight: profileCardHeight, contentVerticalAlignment: .center) {
                 Picker("申请轮次", selection: $profile.round) {
                     ForEach(ApplicationRound.allCases) { item in
                         Text(item.rawValue).tag(item)
@@ -201,7 +214,9 @@ struct CalculatorView: View {
                 }
                 .pickerStyle(.segmented)
                 Toggle("申请资助", isOn: $profile.needsAid)
+                    .tint(AdmissionStyle.controlBlue)
                 Toggle("纳入文理学院", isOn: $profile.includeLiberalArtsColleges)
+                    .tint(AdmissionStyle.controlBlue)
                 UnboundedCountStepper(title: "计划选择大学", value: $profile.requestedSchoolCount)
                 LabeledContent("自动生成数量", value: "\(automaticGeneratedCount) 所")
                 Text(profile.includeLiberalArtsColleges
@@ -242,11 +257,11 @@ struct CalculatorView: View {
     }
 
     private var canOpenSelection: Bool {
-        maxVisitedCardIndex >= profileCardCount - 1 && completionPrompts.isEmpty
+        maxVisitedCardIndex >= profileCardCount - 1 && profileBlockingPrompts.isEmpty
     }
 
     private var profileCompletionProgress: Double {
-        if canOpenSelection {
+        if maxVisitedCardIndex >= profileCardCount - 1 {
             return 1
         }
         return Double(maxVisitedCardIndex) / Double(profileCardCount)
@@ -295,6 +310,10 @@ struct CalculatorView: View {
 
     private var completionPrompts: [ProfileCompletionPrompt] {
         profile.completionPrompts(selectedCollegeIDs: selectedCollegeIDs)
+    }
+
+    private var profileBlockingPrompts: [ProfileCompletionPrompt] {
+        completionPrompts.filter(\.blocksProfileCompletion)
     }
 
     private var testOptionalBinding: Binding<Bool> {
@@ -662,26 +681,42 @@ private struct ProfileReadinessCard: View {
 
 private struct CardSection<Content: View>: View {
     let title: String
-    let subtitle: String
+    let subtitle: String?
     let systemImage: String
     let colors: [Color]
     let minHeight: CGFloat?
+    let contentVerticalAlignment: VerticalAlignment
     private let content: Content
 
-    init(title: String, subtitle: String, systemImage: String, colors: [Color], minHeight: CGFloat? = nil, @ViewBuilder content: () -> Content) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        systemImage: String,
+        colors: [Color],
+        minHeight: CGFloat? = nil,
+        contentVerticalAlignment: VerticalAlignment = .top,
+        @ViewBuilder content: () -> Content
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.systemImage = systemImage
         self.colors = colors
         self.minHeight = minHeight
+        self.contentVerticalAlignment = contentVerticalAlignment
         self.content = content()
     }
 
     var body: some View {
-        AdmissionGradientCard(title: title, subtitle: subtitle, systemImage: systemImage, colors: colors) {
+        AdmissionGradientCard(
+            title: title,
+            subtitle: subtitle,
+            systemImage: systemImage,
+            colors: colors,
+            fixedHeight: minHeight,
+            contentVerticalAlignment: contentVerticalAlignment
+        ) {
             content
         }
-        .frame(minHeight: minHeight)
     }
 }
 
@@ -760,17 +795,37 @@ private struct GradeScaleInputs: View {
             }
         }
 
+        GradeValueInput(
+            title: title,
+            scale: $scale,
+            percent: $percent,
+            fourPoint: $fourPoint,
+            fivePoint: $fivePoint,
+            letterGrade: $letterGrade
+        )
+    }
+}
+
+private struct GradeValueInput: View {
+    let title: String
+    @Binding var scale: GradeScale
+    @Binding var percent: Double
+    @Binding var fourPoint: Double
+    @Binding var fivePoint: Double
+    @Binding var letterGrade: LetterGradeBand
+
+    var body: some View {
         switch scale {
         case .percent:
-	            DecimalSliderInput(title: title, value: $percent, range: 0...100, step: 1) { "\(Int($0))" }
-	        case .fourPoint:
-	            DecimalSliderInput(title: title, value: $fourPoint, range: 0...4, step: 0.1) { String(format: "%.1f", $0) }
-	        case .fivePoint:
-	            DecimalSliderInput(title: title, value: $fivePoint, range: 0...5, step: 0.1) { String(format: "%.1f", $0) }
-	        case .letter:
-	            OptionArrowInput(title: title, selection: $letterGrade, options: LetterGradeBand.allCases) { $0.rawValue }
-	        }
-	}
+            DecimalSliderInput(title: title, value: $percent, range: 0...100, step: 1) { "\(Int($0))" }
+        case .fourPoint:
+            DecimalSliderInput(title: title, value: $fourPoint, range: 0...4, step: 0.1) { String(format: "%.1f", $0) }
+        case .fivePoint:
+            DecimalSliderInput(title: title, value: $fivePoint, range: 0...5, step: 0.1) { String(format: "%.1f", $0) }
+        case .letter:
+            OptionArrowInput(title: title, selection: $letterGrade, options: LetterGradeBand.allCases) { $0.rawValue }
+        }
+    }
 }
 
 private struct DecimalSliderInput: View {

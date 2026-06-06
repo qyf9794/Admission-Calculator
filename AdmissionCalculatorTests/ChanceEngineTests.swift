@@ -91,6 +91,30 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(prompts.isEmpty)
     }
 
+    func testProfileCompletionBlockersIgnorePortfolioAndConservativeContextPrompts() {
+        let profile = StudentProfile.sample
+
+        let prompts = profile.completionPrompts(selectedCollegeIDs: [])
+        let blockingIDs = Set(prompts.filter(\.blocksProfileCompletion).map(\.id))
+
+        XCTAssertTrue(Set(prompts.map(\.id)).contains("selected-schools"))
+        XCTAssertTrue(Set(prompts.map(\.id)).contains("high-school-context"))
+        XCTAssertTrue(blockingIDs.isEmpty)
+    }
+
+    func testFormDefaultRequiresExplicitMajorSelection() {
+        let profile = StudentProfile.formDefault
+
+        let prompts = profile.completionPrompts(selectedCollegeIDs: Set(["bu"]))
+        let ids = Set(prompts.map(\.id))
+        let blockingIDs = Set(prompts.filter(\.blocksProfileCompletion).map(\.id))
+
+        XCTAssertEqual(profile.major, .undecided)
+        XCTAssertTrue(ids.contains("major"))
+        XCTAssertTrue(blockingIDs.contains("major"))
+        XCTAssertEqual(prompts.first { $0.id == "major" }?.impact, .probability)
+    }
+
     func testReportListsDecisionCriticalMissingInputs() {
         var profile = StudentProfile.sample
         profile.toefl = nil
