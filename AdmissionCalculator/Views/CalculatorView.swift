@@ -622,7 +622,7 @@ private struct HighSchoolSearchSheet: View {
                         .buttonStyle(.plain)
                     }
                 } header: {
-                    Text("默认项固定在最上方，其余学校按已审阅顺序显示")
+                    Text("默认项固定在最上方，其余学校按首字母顺序显示")
                 }
             }
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索高中名称")

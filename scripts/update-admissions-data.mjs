@@ -10,6 +10,10 @@ const collegeScorecardSchoolURLPrefix = "https://collegescorecard.ed.gov/school/
 const ipedsDataFilesURLPrefix = "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx";
 const ipedsReportedDataURLPrefix = "https://nces.ed.gov/ipeds/reported-data/html/";
 const classYears = [2029, 2028, 2027, 2026, 2025, 2024];
+const highSchoolNameCollator = new Intl.Collator("zh-Hans-u-co-pinyin", {
+  sensitivity: "base",
+  numeric: true,
+});
 
 function parseArgs(argv) {
   return {
@@ -122,6 +126,11 @@ function swiftEnumArray(value, mapping, label) {
 
 function fail(message) {
   throw new Error(message);
+}
+
+function compareHighSchoolDirectoryRows(left, right) {
+  return highSchoolNameCollator.compare(left.name, right.name) ||
+    String(left.id).localeCompare(String(right.id), "en");
 }
 
 function optionalNumber(row, field, label = field) {
@@ -517,6 +526,10 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
 
   const highSchoolIds = new Set();
   let unknownHighSchool = null;
+  const highSchoolRows = highSchools.schools ?? [];
+  if (highSchoolRows[0]?.id !== "unknown") {
+    fail("High school data must keep unknown as the first directory row.");
+  }
   for (const school of highSchools.schools ?? []) {
     if (!school.id || !school.name || !school.city) {
       fail(`Every high school row must include id, name, and city: ${JSON.stringify(school)}`);
@@ -556,6 +569,14 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     unknownHighSchool.transparency > 3
   ) {
     fail("High school unknown fallback must remain conservative: band >= 3, resources/counseling/transparency <= 3, and top30_track_record <= 2.");
+  }
+  const namedHighSchools = highSchoolRows.filter((school) => school.id !== "unknown");
+  for (let index = 1; index < namedHighSchools.length; index += 1) {
+    const previous = namedHighSchools[index - 1];
+    const current = namedHighSchools[index];
+    if (compareHighSchoolDirectoryRows(previous, current) > 0) {
+      fail(`High school directory must be pre-sorted by school-name initial/pinyin order; ${current.name} appears after ${previous.name}.`);
+    }
   }
 
   const liberalArtsIDs = colleges
@@ -623,11 +644,7 @@ ${rateLines(college)}
 }
 
 function renderHighSchools(highSchools) {
-  const orderedSchools = [
-    ...highSchools.schools.filter((school) => school.id === "unknown"),
-    ...highSchools.schools.filter((school) => school.id !== "unknown"),
-  ];
-  return orderedSchools.map((school) => `        HighSchoolContext(
+  return highSchools.schools.map((school) => `        HighSchoolContext(
             id: ${swiftString(school.id)},
             name: ${swiftString(school.name)},
             city: ${swiftString(school.city)},
