@@ -56,7 +56,7 @@ enum MajorCategory: String, CaseIterable, Identifiable, Codable {
     case naturalScience = "Natural Science"
     case socialScience = "Social Science"
     case humanities = "Humanities"
-    case mediaDesign = "Film / Media / Design"
+    case film = "Film"
     case architecture = "Architecture"
     case aviation = "Aviation"
     case arts = "Arts"
@@ -67,7 +67,7 @@ enum MajorCategory: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .computerScience, .engineering, .naturalScience, .nursing, .aviation:
             return true
-        case .undecided, .business, .economics, .socialScience, .humanities, .mediaDesign, .architecture, .arts:
+        case .undecided, .business, .economics, .socialScience, .humanities, .film, .architecture, .arts:
             return false
         }
     }

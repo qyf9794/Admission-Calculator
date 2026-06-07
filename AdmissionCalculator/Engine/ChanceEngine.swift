@@ -1320,7 +1320,7 @@ struct ChanceEngine {
         case .naturalScience: return -0.06
         case .socialScience: return 0
         case .humanities: return 0.05
-        case .mediaDesign: return -0.08
+        case .film: return -0.08
         case .architecture: return -0.06
         case .aviation: return -0.10
         case .arts: return 0

@@ -15,7 +15,7 @@ Current model behavior:
 - Engineering receives one global competition adjustment: `-0.18`.
 - Business receives one global competition adjustment: `-0.12`.
 - Nursing receives one global competition adjustment: `-0.16`.
-- Film / Media / Design receives one global competition adjustment: `-0.08`.
+- Film receives one global competition adjustment: `-0.08`.
 - Architecture receives one global competition adjustment: `-0.06`.
 - Aviation receives one global competition adjustment: `-0.10`.
 - The model applies a separate bounded "学校强专业" correction only when a
@@ -58,7 +58,7 @@ separately:
 | UIUC | Computer Science | Official 2025 first-year admit rate page reports total admit rate 36.6%, first-choice admit rate 30.2%, Computer Science 7.4%, and Computer Science + X 17.4%. | High | Direct school-major adjustment candidate for pure CS and CS+X. This is the cleanest example found in this pass. |
 | UIUC | Engineering | Official 2025 first-year admit rate page reports Grainger College of Engineering 21.2%. | High | Direct college-level adjustment candidate for engineering. |
 | UIUC | Business | Official 2025 first-year admit rate page reports Gies College of Business 20.9%. | High | Direct college-level adjustment candidate for business. |
-| UCLA | Nursing, film, arts, engineering, CS | Official Fall 2025 first-year profile reports overall admit rate 9.4%; Nursing Prelicensure 0.5%; Film and Television 1.3%; Design Media Arts 3.1%; Mechanical Engineering 3.9%; Computer Engineering 4.7%; Computer Science 7.3%; Computer Science and Engineering 7.2%; Samueli Engineering overall 6.8%. | High | Direct school-major adjustment candidate. UCLA is a strong source because it publishes major-level applicants, admit rates, and GPA ranges. |
+| UCLA | Nursing, film, arts, engineering, CS | Official Fall 2025 first-year profile reports overall admit rate 9.4%; Nursing Prelicensure 0.5%; Film and Television 1.3%; Design Media Arts 3.1%; Mechanical Engineering 3.9%; Computer Engineering 4.7%; Computer Science 7.3%; Computer Science and Engineering 7.2%; Samueli Engineering overall 6.8%. | High | Direct school-major adjustment candidate. Film and Television is mapped to the Film category. Design Media Arts is not mapped to Film because design/art paths should remain separate from film. |
 | UC Berkeley | Engineering / EECS-adjacent | Berkeley Engineering official brochure reports College of Engineering first-year admit rate 6% for 2023-24; UC Admissions reports Berkeley campus overall admit rate 11.4%. The brochure lists EECS among engineering majors but does not provide an EECS-specific first-year admit rate. | Medium/high | Direct college-level engineering adjustment candidate; do not infer EECS-specific rate from the college-level 6%. |
 | University of Washington | CS/CE | UW official first-year numbers report overall 3-year average admit rates of 47% for Washington residents and 39% for non-Washington residents. For Direct to Major CS/CE, the 3-year average admit rate is 30% for Washington residents and 2% for non-Washington residents. | High | Direct school-major adjustment candidate, especially for nonresident/international CS/CE applicants. |
 | University of Michigan | Ross/business | Michigan Ross first-year applicant page reports Fall 2025 admitted profile: 13,019 applicants and 924 admitted students, about 7.1% implied admit rate. Ross is a first-year admitting unit. | High | Direct school-business adjustment candidate. Compute rate from same-page applicants/admitted counts and store the source note. |

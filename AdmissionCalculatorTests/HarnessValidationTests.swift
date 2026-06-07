@@ -307,7 +307,9 @@ final class HarnessValidationTests: XCTestCase {
             return classYear >= signal.entryYear && classYear <= signal.entryYear + 6
         })
         XCTAssertFalse(MajorCategory.allCases.contains { $0.rawValue == "Nursing / Health" })
+        XCTAssertFalse(MajorCategory.allCases.contains { $0.rawValue == "Film / Media / Design" })
         XCTAssertTrue(MajorCategory.allCases.contains(.nursing))
+        XCTAssertTrue(MajorCategory.allCases.contains(.film))
         XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.contains {
             $0.collegeID == "ucla" &&
                 $0.majorCategory == .nursing &&
@@ -315,6 +317,16 @@ final class HarnessValidationTests: XCTestCase {
                 $0.classYear == 2029 &&
                 $0.admitRate == 0.005 &&
                 $0.sourceTier == .official
+        })
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.contains {
+            $0.collegeID == "ucla" &&
+                $0.majorCategory == .film &&
+                $0.programLabel == "Film and Television" &&
+                $0.admitRate == 0.013
+        })
+        XCTAssertFalse(AdmissionsSeedData.majorSelectivitySignals.contains {
+            $0.programLabel == "Design Media Arts" &&
+                $0.majorCategory == .film
         })
         XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.contains {
             $0.collegeID == "uw_seattle" &&
