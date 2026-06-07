@@ -381,6 +381,75 @@ struct AdmissionProbabilityCard: View {
     }
 }
 
+struct AdmissionAnimatedCountText: View {
+    let value: Int
+    var unit: String? = nil
+    var font: Font = .system(size: 28, weight: .black, design: .rounded)
+    var foreground: Color = .white
+    var startDelayMilliseconds = 0
+    var onSettled: (() -> Void)? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var displayedValue = 0
+
+    private var targetValue: Int {
+        max(0, value)
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text("\(displayedValue)")
+                .contentTransition(.numericText(value: Double(displayedValue)))
+            if let unit {
+                Text(unit)
+                    .font(.system(.subheadline, design: .rounded).weight(.bold))
+            }
+        }
+        .font(font)
+        .monospacedDigit()
+        .foregroundStyle(foreground)
+        .lineLimit(1)
+        .minimumScaleFactor(0.70)
+        .accessibilityLabel("\(targetValue)\(unit ?? "")")
+        .task(id: targetValue) {
+            await animateToTarget()
+        }
+    }
+
+    @MainActor
+    private func animateToTarget() async {
+        displayedValue = 0
+
+        if reduceMotion {
+            displayedValue = targetValue
+            onSettled?()
+            return
+        }
+
+        if startDelayMilliseconds > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(startDelayMilliseconds) * 1_000_000)
+        }
+
+        guard targetValue > 0 else {
+            onSettled?()
+            return
+        }
+
+        for nextValue in 1...targetValue {
+            guard !Task.isCancelled else { return }
+            let progress = Double(nextValue) / Double(max(targetValue, 1))
+            let delay = 0.075 + progress * 0.055
+            withAnimation(.linear(duration: min(0.14, delay * 0.9))) {
+                displayedValue = nextValue
+            }
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        }
+
+        try? await Task.sleep(nanoseconds: 180_000_000)
+        onSettled?()
+    }
+}
+
 enum AdmissionCardSwipeDirection: Equatable {
     case back
     case forward
@@ -580,13 +649,8 @@ private extension View {
     func previewCardStyle(progress: CGFloat) -> some View {
         self
             .allowsHitTesting(false)
-            .scaleEffect(0.94 + progress * 0.025)
-            .offset(y: 8 - progress * 5)
-            .saturation(0.42)
-            .contrast(0.76)
-            .brightness(-0.08)
-            .opacity(0.18 + progress * 0.48)
-            .blur(radius: 0.2)
+            .scaleEffect(0.99 + progress * 0.01)
+            .opacity(0.34 + progress * 0.66)
             .zIndex(1)
     }
 }

@@ -3,6 +3,8 @@ import SwiftUI
 struct ResultsView: View {
     let result: PortfolioResult?
     let isStale: Bool
+    let hasCompletedInitialAnimation: Bool
+    let onInitialAnimationCompleted: () -> Void
     let onBackToSchools: () -> Void
     let onAnalyze: () -> Void
     @State private var revealedResultCount = 0
@@ -39,7 +41,7 @@ struct ResultsView: View {
                     resultContent(result)
                 }
                 .padding(16)
-                .task(id: result.generatedAt) {
+                .task(id: "\(result.generatedAt.timeIntervalSinceReferenceDate)-\(hasCompletedInitialAnimation)") {
                     await revealResultsInOrder()
                 }
             } else {
@@ -67,6 +69,7 @@ struct ResultsView: View {
                 colors: AdmissionStyle.blackGlass,
                 countText: "\(result.schoolResults.count) 所学校",
                 isRevealed: revealedResultCount >= 5,
+                animatesValue: !hasCompletedInitialAnimation,
                 fontSize: 64,
                 onSettled: { markResultSettled("total") }
             )
@@ -79,6 +82,7 @@ struct ResultsView: View {
                     colors: [Color.purple.opacity(0.94), Color.black.opacity(0.82)],
                     countText: "\(tierCount(in: result, maxRank: 10)) 所",
                     isRevealed: revealedResultCount >= 1,
+                    animatesValue: !hasCompletedInitialAnimation,
                     fontSize: 30,
                     onSettled: { markResultSettled("top10") }
                 )
@@ -89,6 +93,7 @@ struct ResultsView: View {
                     colors: [Color.indigo.opacity(0.94), Color.black.opacity(0.82)],
                     countText: "\(tierCount(in: result, minRankExclusive: 10, maxRank: 30)) 所",
                     isRevealed: revealedResultCount >= 2,
+                    animatesValue: !hasCompletedInitialAnimation,
                     fontSize: 30,
                     onSettled: { markResultSettled("top11to30") }
                 )
@@ -99,6 +104,7 @@ struct ResultsView: View {
                     colors: [Color.blue.opacity(0.94), Color.black.opacity(0.82)],
                     countText: "\(tierCount(in: result, maxRank: 30)) 所",
                     isRevealed: revealedResultCount >= 3,
+                    animatesValue: !hasCompletedInitialAnimation,
                     fontSize: 30,
                     onSettled: { markResultSettled("top30") }
                 )
@@ -109,6 +115,7 @@ struct ResultsView: View {
                     colors: [Color.teal.opacity(0.94), Color.black.opacity(0.82)],
                     countText: "\(tierCount(in: result, maxRank: 50)) 所",
                     isRevealed: revealedResultCount >= 4,
+                    animatesValue: !hasCompletedInitialAnimation,
                     fontSize: 30,
                     onSettled: { markResultSettled("top50") }
                 )
@@ -116,7 +123,7 @@ struct ResultsView: View {
 
             Spacer(minLength: 6)
 
-            if showAnalyzeButton {
+            if showAnalyzeButton && !isStale {
                 Button(action: { requestSwipe(.forward) }) {
                     Label("分析结果", systemImage: "doc.text.magnifyingglass")
                         .frame(maxWidth: .infinity)
@@ -124,6 +131,12 @@ struct ResultsView: View {
                 .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+
+            Button(action: {}) {
+                Label("分析结果", systemImage: "doc.text.magnifyingglass")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
 
             Text("估算结果用于申请规划，不代表录取承诺。逐校概率与具体建议会在付费报告中显示。")
                 .font(.caption)
@@ -134,6 +147,13 @@ struct ResultsView: View {
 
     @MainActor
     private func revealResultsInOrder() async {
+        if hasCompletedInitialAnimation {
+            revealedResultCount = 5
+            settledResultIDs = resultRevealIDs
+            showAnalyzeButton = true
+            return
+        }
+
         revealedResultCount = 0
         settledResultIDs = []
         showAnalyzeButton = false
@@ -164,6 +184,7 @@ struct ResultsView: View {
             withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
                 showAnalyzeButton = true
             }
+            onInitialAnimationCompleted()
         }
     }
 
@@ -182,14 +203,34 @@ struct SchoolListSnapshotCard: View {
     var body: some View {
         AdmissionGradientCard(
             title: "学校列表",
-            subtitle: "上一页最后一张卡片；当前组合 \(result.schoolResults.count) 所学校。",
+            subtitle: "列表按 U.S. News 排名排列；未选学校可点击加入，已选学校保持选中。",
             systemImage: "building.columns",
-            colors: AdmissionStyle.roseSlate
+            colors: AdmissionStyle.softGray,
+            foreground: AdmissionStyle.darkTextPrimary,
+            secondary: AdmissionStyle.darkTextSecondary
         ) {
+            HStack(spacing: 8) {
+                Label("已选学校", systemImage: "checkmark.seal")
+                    .font(.subheadline.weight(.semibold))
+                Text("\(result.schoolResults.count)")
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.22), in: Capsule())
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                LinearGradient(colors: [Color.green, .black.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: Capsule()
+            )
+            .overlay(Capsule().stroke(Color.white.opacity(0.20), lineWidth: 1))
+
             if result.schoolResults.isEmpty {
                 Text("尚未选择学校。")
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(AdmissionStyle.darkTextSecondary)
             } else {
                 ForEach(Array(result.schoolResults.prefix(5).enumerated()), id: \.element.college.id) { index, schoolResult in
                     SchoolListSnapshotRow(index: index + 1, result: schoolResult)
@@ -197,7 +238,7 @@ struct SchoolListSnapshotCard: View {
                 if result.schoolResults.count > 5 {
                     Text("另有 \(result.schoolResults.count - 5) 所学校。")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.72))
+                        .foregroundStyle(AdmissionStyle.darkTextSecondary)
                 }
             }
         }
@@ -222,6 +263,7 @@ private struct SchoolListSnapshotRow: View {
                 .font(.caption.weight(.black))
                 .frame(width: 24, height: 24)
                 .background(Color.white.opacity(0.14), in: Circle())
+                .foregroundStyle(.white)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.college.name)
@@ -238,18 +280,40 @@ private struct SchoolListSnapshotRow: View {
                 .font(.headline.monospacedDigit().weight(.black))
         }
         .padding(10)
-        .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(
+            LinearGradient(colors: [tierColor.opacity(0.98), Color.black.opacity(0.76)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .foregroundStyle(.white)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.34), lineWidth: 1)
+        )
+    }
+
+    private var tierColor: Color {
+        switch result.college.rank {
+        case ...10:
+            return .purple
+        case 11...30:
+            return .blue
+        case 31...50:
+            return .teal
+        default:
+            return .secondary
+        }
     }
 }
 
 struct ResultsSnapshotCard: View {
     let result: PortfolioResult
     var onStartOver: (() -> Void)? = nil
+    var showsSubtitle = true
 
     var body: some View {
         AdmissionGradientCard(
             title: "概率计算结果",
-            subtitle: "上一页组合概率快照；结果基于提交时的画像和选校。",
+            subtitle: showsSubtitle ? "上一页组合概率快照；结果基于提交时的画像和选校。" : nil,
             systemImage: "chart.bar.xaxis",
             colors: AdmissionStyle.blackGlass
         ) {
@@ -273,14 +337,94 @@ struct ResultsSnapshotCard: View {
                 SnapshotMetric(title: "Top50", value: result.t50AtLeastOne)
             }
 
+        }
+        .overlay(alignment: .topTrailing) {
             if let onStartOver {
                 Button(action: onStartOver) {
-                    Label("重新开始", systemImage: "arrow.counterclockwise")
-                        .frame(maxWidth: .infinity)
+                    Text("重新开始")
                 }
-                .buttonStyle(AdmissionQuietButtonStyle())
+                .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
+                .controlSize(.large)
+                .padding(.top, 14)
+                .padding(.trailing, 14)
             }
         }
+    }
+}
+
+struct ResultsFixedSnapshotContent: View {
+    let result: PortfolioResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ResultRevealCard(
+                title: "Total",
+                subtitle: "全部已选至少一所",
+                value: result.selectedAtLeastOne,
+                colors: AdmissionStyle.blackGlass,
+                countText: "\(result.schoolResults.count) 所学校",
+                isRevealed: true,
+                animatesValue: false,
+                fontSize: 64,
+                onSettled: {}
+            )
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ResultRevealCard(
+                    title: "Top10",
+                    subtitle: "综大 T10 至少一所",
+                    value: result.t10AtLeastOne,
+                    colors: [Color.purple.opacity(0.94), Color.black.opacity(0.82)],
+                    countText: "\(tierCount(in: result, maxRank: 10)) 所",
+                    isRevealed: true,
+                    animatesValue: false,
+                    fontSize: 30,
+                    onSettled: {}
+                )
+                ResultRevealCard(
+                    title: "T11-T30",
+                    subtitle: "综大 T11-T30 至少一所",
+                    value: result.t11T30AtLeastOne,
+                    colors: [Color.indigo.opacity(0.94), Color.black.opacity(0.82)],
+                    countText: "\(tierCount(in: result, minRankExclusive: 10, maxRank: 30)) 所",
+                    isRevealed: true,
+                    animatesValue: false,
+                    fontSize: 30,
+                    onSettled: {}
+                )
+                ResultRevealCard(
+                    title: "Top30",
+                    subtitle: "综大 T30 至少一所",
+                    value: result.t30AtLeastOne,
+                    colors: [Color.blue.opacity(0.94), Color.black.opacity(0.82)],
+                    countText: "\(tierCount(in: result, maxRank: 30)) 所",
+                    isRevealed: true,
+                    animatesValue: false,
+                    fontSize: 30,
+                    onSettled: {}
+                )
+                ResultRevealCard(
+                    title: "Top50",
+                    subtitle: "综大 T50 至少一所",
+                    value: result.t50AtLeastOne,
+                    colors: [Color.teal.opacity(0.94), Color.black.opacity(0.82)],
+                    countText: "\(tierCount(in: result, maxRank: 50)) 所",
+                    isRevealed: true,
+                    animatesValue: false,
+                    fontSize: 30,
+                    onSettled: {}
+                )
+            }
+
+            Text("估算结果用于申请规划，不代表录取承诺。逐校概率与具体建议会在付费报告中显示。")
+                .font(.caption)
+                .foregroundStyle(Color.black.opacity(0.52))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func tierCount(in result: PortfolioResult, minRankExclusive: Int = 0, maxRank: Int) -> Int {
+        result.schoolResults.filter { $0.college.category == .nationalUniversity && $0.college.rank > minRankExclusive && $0.college.rank <= maxRank }.count
     }
 }
 
@@ -309,6 +453,7 @@ private struct ResultRevealCard: View {
     let colors: [Color]
     let countText: String
     let isRevealed: Bool
+    let animatesValue: Bool
     let fontSize: CGFloat
     let onSettled: () -> Void
 
@@ -324,13 +469,21 @@ private struct ResultRevealCard: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(2)
-                AdmissionAnimatedPercentText(
-                    value: value,
-                    font: .system(size: fontSize, weight: .black, design: .rounded),
-                    foreground: .white,
-                    finalLabel: countText,
-                    onSettled: onSettled
-                )
+                if animatesValue {
+                    AdmissionAnimatedPercentText(
+                        value: value,
+                        font: .system(size: fontSize, weight: .black, design: .rounded),
+                        foreground: .white,
+                        finalLabel: countText,
+                        onSettled: onSettled
+                    )
+                } else {
+                    StaticResultPercentText(
+                        value: value,
+                        countText: countText,
+                        fontSize: fontSize
+                    )
+                }
             } else {
                 Spacer(minLength: fontSize > 40 ? 80 : 42)
             }
@@ -346,6 +499,30 @@ private struct ResultRevealCard: View {
                 .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
         .environment(\.colorScheme, .dark)
+    }
+}
+
+private struct StaticResultPercentText: View {
+    let value: Double
+    let countText: String
+    let fontSize: CGFloat
+
+    private var percentText: String {
+        value.formatted(.percent.precision(.fractionLength(0)))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(percentText)
+                .font(.system(size: fontSize, weight: .black, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+            Text(countText)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.70))
+        }
     }
 }
 

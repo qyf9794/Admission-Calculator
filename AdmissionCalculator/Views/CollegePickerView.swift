@@ -10,7 +10,7 @@ struct CollegePickerView: View {
     let includeLiberalArtsColleges: Bool
     let applicationRound: ApplicationRound
     @Binding var requestedSchoolCount: Int
-    let hasExistingResult: Bool
+    let currentResult: PortfolioResult?
     let onAutoRecommend: () -> Void
     let onBackToProfile: () -> Void
     let onShowExistingResults: () -> Void
@@ -86,13 +86,8 @@ struct CollegePickerView: View {
                                 nextPreview: {
                                     if cardIndex < cardCount - 1 {
                                         selectionCard(at: cardIndex + 1)
-                                    } else if canSwipeForwardToResults {
-                                        AdmissionPreviewCard(
-                                            title: "概率结果",
-                                            subtitle: "查看上一次计算结果；若资料已调整，结果页会提示重新计算。",
-                                            systemImage: "chart.bar.xaxis",
-                                            colors: AdmissionStyle.blackGlass
-                                        )
+                                    } else if let currentResult {
+                                        ResultsFixedSnapshotContent(result: currentResult)
                                     }
                                 }
                             ) {
@@ -129,7 +124,7 @@ struct CollegePickerView: View {
     }
 
     private var canSwipeForwardToResults: Bool {
-        hasExistingResult && !selectedCollegeIDs.isEmpty
+        currentResult != nil && !selectedCollegeIDs.isEmpty
     }
 
     @ViewBuilder
@@ -151,7 +146,7 @@ struct CollegePickerView: View {
         } else {
             AdmissionGradientCard(
                 title: "学校列表",
-                subtitle: "列表按 U.S. News 排名排列；未选学校可点击加入，已选学校保持选中。",
+                subtitle: "列表按 U.S. News 排名排列；未选学校可点击加入，其他标签页中的已选学校可取消。",
                 systemImage: "building.columns",
                 colors: AdmissionStyle.softGray,
                 foreground: AdmissionStyle.darkTextPrimary,
@@ -172,7 +167,9 @@ struct CollegePickerView: View {
                     CollegeSelectionCard(
                         college: college,
                         isSelected: selectedCollegeIDs.contains(college.id),
-                        select: { select(college.id) }
+                        allowsRemoval: filter != .selected,
+                        select: { select(college.id) },
+                        remove: { remove(college.id) }
                     )
                 }
             }
@@ -230,6 +227,14 @@ struct CollegePickerView: View {
         } else {
             selectedCollegeIDs.insert(id)
         }
+        selectionSource = selectedCollegeIDs.isEmpty ? .none : .manual
+    }
+
+    private func remove(_ id: String) {
+        guard selectedCollegeIDs.contains(id) else {
+            return
+        }
+        selectedCollegeIDs.remove(id)
         selectionSource = selectedCollegeIDs.isEmpty ? .none : .manual
     }
 }
@@ -318,13 +323,20 @@ private struct SchoolSelectionHeader: View {
     }
 }
 
-private struct SchoolSetupCard: View {
+struct SchoolSetupCard: View {
     let selectedCount: Int
     let selectedColleges: [College]
     @Binding var requestedSchoolCount: Int
     let includeLiberalArtsColleges: Bool
     let applicationRound: ApplicationRound
     let onAutoRecommend: () -> Void
+
+    @State private var showsSelectionNotes = false
+
+    private var selectionResetID: String {
+        let selectedIDs = selectedColleges.map(\.id).joined(separator: ",")
+        return "\(selectedCount)-\(includeLiberalArtsColleges)-\(applicationRound.rawValue)-\(selectedIDs)"
+    }
 
     var body: some View {
         AdmissionGradientCard(
@@ -334,12 +346,23 @@ private struct SchoolSetupCard: View {
             colors: AdmissionStyle.lilac
         ) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("\(selectedCount)")
-                    .font(.system(size: 58, weight: .black, design: .rounded))
-                    .monospacedDigit()
-                Text("已选学校数量")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.78))
+                AdmissionAnimatedCountText(
+                    value: selectedCount,
+                    font: .system(size: 58, weight: .black, design: .rounded),
+                    foreground: .white,
+                    onSettled: {
+                        withAnimation(.easeOut(duration: 0.28)) {
+                            showsSelectionNotes = true
+                        }
+                    }
+                )
+                .id(selectionResetID)
+                if showsSelectionNotes {
+                    Text("已选学校数量")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.78))
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
 
             UnboundedCountStepper(title: "拟选数量", value: $requestedSchoolCount)
@@ -351,24 +374,35 @@ private struct SchoolSetupCard: View {
             .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.mintNight))
             .disabled(requestedSchoolCount == 0)
 
-            if selectedColleges.isEmpty {
-                Text("下一张卡片默认显示已选学校；尚未选择时列表为空，可切换到全部学校。")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.72))
-            } else {
-                Text(selectedColleges.prefix(4).map(\.name).joined(separator: "、"))
-                    .font(.subheadline.weight(.bold))
-                    .fixedSize(horizontal: false, vertical: true)
-                if selectedColleges.count > 4 {
-                    Text("另有 \(selectedColleges.count - 4) 所已选学校。")
+            if showsSelectionNotes {
+                VStack(alignment: .leading, spacing: 6) {
+                    if selectedColleges.isEmpty {
+                        Text("下一张卡片默认显示已选学校；尚未选择时列表为空，可切换到全部学校。")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.72))
+                    } else {
+                        Text(selectedColleges.prefix(4).map(\.name).joined(separator: "、"))
+                            .font(.subheadline.weight(.bold))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if selectedColleges.count > 4 {
+                            Text("另有 \(selectedColleges.count - 4) 所已选学校。")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.72))
+                        }
+                    }
+
+                    Text(includeLiberalArtsColleges ? "当前选校范围包含综合大学与文理学院。" : "当前选校范围只包含综合大学。")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.72))
                 }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-
-            Text(includeLiberalArtsColleges ? "当前选校范围包含综合大学与文理学院。" : "当前选校范围只包含综合大学。")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.72))
+        }
+        .onAppear {
+            showsSelectionNotes = false
+        }
+        .onChange(of: selectionResetID) { _, _ in
+            showsSelectionNotes = false
         }
     }
 }
@@ -516,7 +550,9 @@ private struct SelectedPortfolioCard: View {
 private struct CollegeSelectionCard: View {
     let college: College
     let isSelected: Bool
+    let allowsRemoval: Bool
     let select: () -> Void
+    let remove: () -> Void
 
     var body: some View {
         Group {
@@ -555,7 +591,22 @@ private struct CollegeSelectionCard: View {
                 }
             }
             Spacer()
-            if !isSelected {
+            if isSelected, allowsRemoval {
+                Button(action: remove) {
+                    Text("取消")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("取消选择\(college.name)")
+            } else if !isSelected {
                 Image(systemName: "square")
                     .font(.title)
                     .foregroundStyle(.white.opacity(0.70))

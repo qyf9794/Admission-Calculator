@@ -13,6 +13,7 @@
 		4158E64763319B1C1EF90E28 /* CollegePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C954FA4C29D50F0CACC323 /* CollegePickerView.swift */; };
 		8DD2D630A90FFA54850FF4CF /* ChanceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */; };
 		9C9DFB4136B101E098DCEA1E /* CalculatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B808A591F6410893EDE1951C /* CalculatorView.swift */; };
+		A5C0A3F829D04B40A1C2D3E4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B6D1B4F93AE15C51B2D3E4F5 /* Assets.xcassets */; };
 		AA39C24F0EE21FEAAA21C517 /* HarnessValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF67FDE609FF91E042B9AEB /* HarnessValidationTests.swift */; };
 		B98EBB0D454635EA0062EBE3 /* ReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C014D23311F5D20F3E5C4CA6 /* ReportView.swift */; };
 		C22C12B76B3CD556E58DCCC0 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7013D2316F417D26B1E8B3F8 /* StoreKit.framework */; };
@@ -47,6 +48,7 @@
 		9B665FD180BB2A4231350DC4 /* AdmissionsNormalizedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdmissionsNormalizedData.swift; sourceTree = "<group>"; };
 		B721BFFBDF77AA480DA9A729 /* ChanceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChanceEngine.swift; sourceTree = "<group>"; };
 		B808A591F6410893EDE1951C /* CalculatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorView.swift; sourceTree = "<group>"; };
+		B6D1B4F93AE15C51B2D3E4F5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BF79748D7FCFE25211D3BF06 /* DataSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSourcesView.swift; sourceTree = "<group>"; };
 		C014D23311F5D20F3E5C4CA6 /* ReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportView.swift; sourceTree = "<group>"; };
 		D04B8A9A5179F237DB30FE5A /* ResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultsView.swift; sourceTree = "<group>"; };
@@ -115,6 +117,7 @@
 		788BBC545E0C39237C111B80 /* AdmissionCalculator */ = {
 			isa = PBXGroup;
 			children = (
+				B6D1B4F93AE15C51B2D3E4F5 /* Assets.xcassets */,
 				35BE15645FAE026F87C7C46A /* App */,
 				085FFDEDC69A349F7153EA8A /* Data */,
 				149CAD7C6EFCBD3B4D80E25E /* Engine */,
@@ -181,6 +184,7 @@
 			buildPhases = (
 				E6A2A5515660C9F47BBC1D5B /* Sources */,
 				0371FFC21FE2791B0030707C /* Frameworks */,
+				C7E2C5FA4BF26D62C3E4F506 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -238,6 +242,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C7E2C5FA4BF26D62C3E4F506 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5C0A3F829D04B40A1C2D3E4 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		58FE9355217EF921A18D8C7B /* Sources */ = {

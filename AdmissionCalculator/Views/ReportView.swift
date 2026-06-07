@@ -29,7 +29,7 @@ struct ReportView: View {
                     onSwipeBack: onBackToResults,
                     onSwipeForward: {},
                     previousPreview: {
-                        ResultsSnapshotCard(result: result, onStartOver: onStartOver)
+                        ResultsSnapshotCard(result: result, onStartOver: onStartOver, showsSubtitle: false)
                     },
                     nextPreview: {
                         EmptyView()
@@ -45,7 +45,7 @@ struct ReportView: View {
                                 .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
                         }
 
-                        ResultsSnapshotCard(result: result)
+                        ResultsSnapshotCard(result: result, onStartOver: onStartOver, showsSubtitle: false)
 
                         ReportActionCard(
                             result: result,

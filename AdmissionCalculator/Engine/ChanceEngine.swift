@@ -1017,10 +1017,10 @@ struct ChanceEngine {
 
     private func sameTierCorrelationDecay(for tierName: String) -> Double {
         if tierName.contains("T10") {
-            return 0.78
+            return 0.85
         }
         if tierName.contains("T30") {
-            return tierName.contains(CollegeCategory.liberalArtsCollege.rawValue) ? 0.90 : 0.93
+            return tierName.contains(CollegeCategory.liberalArtsCollege.rawValue) ? 0.85 : 0.88
         }
         if tierName.contains("T50") {
             return 0.90

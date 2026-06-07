@@ -9,7 +9,7 @@ struct CalculatorView: View {
     @Binding var completionState: ProfileFormCompletionState
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
-    let hasExistingResult: Bool
+    let canSwipeToCollegeSelection: Bool
     let onOpenCollegeSelection: () -> Void
     @State private var cardIndex = 0
     @State private var maxVisitedCardIndex = 0
@@ -58,11 +58,13 @@ struct CalculatorView: View {
                                     if cardIndex < profileCardCount - 1 {
                                         profileCard(at: cardIndex + 1)
                                     } else if canSwipeForwardToSelection {
-                                        AdmissionPreviewCard(
-                                            title: "选校设置",
-                                            subtitle: "继续查看或调整当前选校组合。",
-                                            systemImage: "building.columns.fill",
-                                            colors: AdmissionStyle.roseSlate
+                                        SchoolSetupCard(
+                                            selectedCount: selectedCollegeIDs.count,
+                                            selectedColleges: selectedColleges,
+                                            requestedSchoolCount: $profile.requestedSchoolCount,
+                                            includeLiberalArtsColleges: profile.includeLiberalArtsColleges,
+                                            applicationRound: profile.round,
+                                            onAutoRecommend: {}
                                         )
                                     }
                                 }
@@ -284,7 +286,7 @@ struct CalculatorView: View {
     }
 
     private var canSwipeForwardToSelection: Bool {
-        hasExistingResult && canOpenSelection
+        canSwipeToCollegeSelection && canOpenSelection
     }
 
     private var profileCompletionProgresses: [Double] {
@@ -393,6 +395,24 @@ struct CalculatorView: View {
             }
             return profile.round == .regularDecision
         }
+    }
+
+    private var selectedColleges: [College] {
+        AdmissionsSeedData.colleges
+            .filter { college in
+                selectedCollegeIDs.contains(college.id) &&
+                    (profile.includeLiberalArtsColleges || college.category != .liberalArtsCollege) &&
+                    allowsCurrentRound(college)
+            }
+            .sorted { lhs, rhs in
+                if lhs.rank != rhs.rank {
+                    return lhs.rank < rhs.rank
+                }
+                if lhs.category != rhs.category {
+                    return lhs.category == .nationalUniversity
+                }
+                return lhs.name < rhs.name
+            }
     }
 
     private var completionPrompts: [ProfileCompletionPrompt] {
@@ -966,15 +986,11 @@ struct ProfileSelectionSettingsCard: View {
             Toggle("纳入文理学院", isOn: $profile.includeLiberalArtsColleges)
                 .tint(AdmissionStyle.controlBlue)
             UnboundedCountStepper(title: "计划选择大学", value: $profile.requestedSchoolCount)
-            LabeledContent("自动生成数量", value: "\(automaticGeneratedCount) 所")
-            Text(profile.includeLiberalArtsColleges
-                 ? "自动推荐和手动目录会同时包含综合大学与文理学院。"
-                 : "关闭后，自动推荐、手动目录和至少一所概率都只考虑综合大学。")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.70))
-            Text(automaticGenerationNote)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.70))
+            AutomaticGeneratedSchoolSummary(
+                count: automaticGeneratedCount,
+                scopeNote: automaticGenerationScopeNote,
+                generationNote: automaticGenerationNote
+            )
         }
     }
 
@@ -997,6 +1013,64 @@ struct ProfileSelectionSettingsCard: View {
             return "ED/ED2 是绑定申请；自动推荐同一轮最多生成 1 所 ED 学校。EA 可以多所，手动选校没有数量上限但会提示无效 ED 组合。"
         }
         return "自动推荐会尽量生成与计划选择数量一致的学校组合；若当前画像下合格学校不足，会在结果中披露缺口。"
+    }
+
+    private var automaticGenerationScopeNote: String {
+        profile.includeLiberalArtsColleges
+            ? "自动推荐和手动目录会同时包含综合大学与文理学院。"
+            : "关闭后，自动推荐、手动目录和至少一所概率都只考虑综合大学。"
+    }
+}
+
+private struct AutomaticGeneratedSchoolSummary: View {
+    let count: Int
+    let scopeNote: String
+    let generationNote: String
+
+    @State private var showsNotes = false
+
+    private var resetID: String {
+        "\(count)-\(scopeNote)-\(generationNote)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text("自动生成数量")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+                Spacer(minLength: 10)
+                AdmissionAnimatedCountText(
+                    value: count,
+                    unit: "所",
+                    font: .system(size: 26, weight: .black, design: .rounded),
+                    foreground: .white,
+                    onSettled: {
+                        withAnimation(.easeOut(duration: 0.28)) {
+                            showsNotes = true
+                        }
+                    }
+                )
+                .id(resetID)
+            }
+
+            if showsNotes {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(scopeNote)
+                    Text(generationNote)
+                }
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.70))
+                .fixedSize(horizontal: false, vertical: true)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .onAppear {
+            showsNotes = false
+        }
+        .onChange(of: resetID) { _, _ in
+            showsNotes = false
+        }
     }
 }
 

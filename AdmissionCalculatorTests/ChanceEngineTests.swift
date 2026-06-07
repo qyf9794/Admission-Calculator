@@ -633,8 +633,8 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(result.schoolResults.count, 15)
         XCTAssertEqual(result.t10AtLeastOne, 0)
         XCTAssertEqual(result.t11T30AtLeastOne, result.t30AtLeastOne, accuracy: 0.0001)
-        XCTAssertGreaterThanOrEqual(result.t11T30AtLeastOne, 0.90)
-        XCTAssertGreaterThanOrEqual(result.t30AtLeastOne, 0.90)
+        XCTAssertGreaterThanOrEqual(result.t11T30AtLeastOne, 0.88)
+        XCTAssertGreaterThanOrEqual(result.t30AtLeastOne, 0.88)
         XCTAssertGreaterThanOrEqual(result.selectedAtLeastOne, result.t30AtLeastOne)
     }
 
@@ -703,7 +703,7 @@ final class ChanceEngineTests: XCTestCase {
         let independent = 1 - (1 - nationalUniversityT10.adjustedProbability) * (1 - liberalArtsT10.adjustedProbability)
         let correlated = engine.atLeastOneProbability([nationalUniversityT10, liberalArtsT10])
 
-        XCTAssertEqual(correlated, 1 - (1 - 0.50) * (1 - 0.50 * 0.78), accuracy: 0.0001)
+        XCTAssertEqual(correlated, 1 - (1 - 0.50) * (1 - 0.50 * 0.85), accuracy: 0.0001)
         XCTAssertLessThan(correlated, independent)
     }
 
@@ -721,7 +721,7 @@ final class ChanceEngineTests: XCTestCase {
 
         XCTAssertEqual(steps.map { $0.result.college.id }, [nationalUniversityT10.college.id, liberalArtsT10.college.id])
         XCTAssertEqual(steps[0].sameTierDiscount, 1, accuracy: 0.0001)
-        XCTAssertEqual(steps[1].sameTierDiscount, 0.78, accuracy: 0.0001)
+        XCTAssertEqual(steps[1].sameTierDiscount, 0.85, accuracy: 0.0001)
         XCTAssertLessThan(steps[1].marginalExpectedValue, steps[1].baseExpectedValue)
     }
 
@@ -1055,7 +1055,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(engine.recommendationBestOfferExpectedValue(for: steps), engine.recommendationBestOfferExpectedValue(for: greedySteps), accuracy: 0.0001)
     }
 
-    func testAutoRecommendationReplacesGreedySlotWhenExpectedBestOfferImproves() {
+    func testAutoRecommendationKeepsSecondT10WhenLighterCorrelationImprovesExpectedBestOffer() {
         let lowChanceTopRank = syntheticChanceResult(id: "low_chance_top_rank", name: "Low Chance Top Rank", rank: 1, probability: 0.03)
         let topRank = syntheticChanceResult(id: "top_rank", name: "Top Rank", rank: 1, probability: 0.40)
         let highProbabilityT10 = syntheticChanceResult(id: "high_probability_t10", name: "High Probability T10", rank: 8, probability: 0.45)
@@ -1065,15 +1065,15 @@ final class ChanceEngineTests: XCTestCase {
         let greedySteps = greedyExpectedBestOfferSteps(from: eligible, count: 2)
         let optimizedSteps = engine.recommendationSteps(for: eligible, count: 2)
 
-        XCTAssertEqual(greedySteps.map { $0.result.college.id }, [highProbabilityT10.college.id, t30Target.college.id])
-        XCTAssertEqual(optimizedSteps.map { $0.result.college.id }, [topRank.college.id, t30Target.college.id])
-        XCTAssertGreaterThan(
+        XCTAssertEqual(greedySteps.map { $0.result.college.id }, [highProbabilityT10.college.id, topRank.college.id])
+        XCTAssertEqual(optimizedSteps.map { $0.result.college.id }, [highProbabilityT10.college.id, topRank.college.id])
+        XCTAssertGreaterThanOrEqual(
             engine.recommendationBestOfferExpectedValue(for: optimizedSteps),
             engine.recommendationBestOfferExpectedValue(for: greedySteps)
         )
     }
 
-    func testFastAutoRecommendationReplacesGreedySlotAndNormalizesFinalOrder() {
+    func testFastAutoRecommendationKeepsSecondT10AndNormalizesFinalOrder() {
         let lowChanceTopRank = syntheticChanceResult(id: "fast_low_chance_top_rank", name: "Fast Low Chance Top Rank", rank: 1, probability: 0.03)
         let topRank = syntheticChanceResult(id: "fast_top_rank", name: "Fast Top Rank", rank: 1, probability: 0.40)
         let highProbabilityT10 = syntheticChanceResult(id: "fast_high_probability_t10", name: "Fast High Probability T10", rank: 8, probability: 0.45)
@@ -1093,10 +1093,10 @@ final class ChanceEngineTests: XCTestCase {
         let normalizedSteps = greedyExpectedBestOfferSteps(from: optimizedSteps.map(\.result), count: optimizedSteps.count)
 
         XCTAssertEqual(eligible.count, 13)
-        XCTAssertEqual(greedySteps.map { $0.result.college.id }, [highProbabilityT10.college.id, t30Target.college.id])
-        XCTAssertEqual(optimizedSteps.map { $0.result.college.id }, [topRank.college.id, t30Target.college.id])
+        XCTAssertEqual(greedySteps.map { $0.result.college.id }, [highProbabilityT10.college.id, topRank.college.id])
+        XCTAssertEqual(optimizedSteps.map { $0.result.college.id }, [highProbabilityT10.college.id, topRank.college.id])
         XCTAssertEqual(optimizedSteps.map { $0.result.college.id }, normalizedSteps.map { $0.result.college.id })
-        XCTAssertGreaterThan(
+        XCTAssertGreaterThanOrEqual(
             engine.recommendationBestOfferExpectedValue(for: optimizedSteps),
             engine.recommendationBestOfferExpectedValue(for: greedySteps)
         )
@@ -1484,7 +1484,7 @@ final class ChanceEngineTests: XCTestCase {
         let higherRankSecond = syntheticChanceResult(id: "higher_rank_second", name: "Higher Rank Second", rank: 20, probability: 0.01)
         let lowerRankScore = engine.recommendationRankScore(for: lowerRankFirst.college)
         let higherRankScore = engine.recommendationRankScore(for: higherRankSecond.college)
-        let t30Decay = 0.93
+        let t30Decay = 0.88
         let firstStep = RecommendationStep(
             order: 1,
             result: lowerRankFirst,
@@ -2604,10 +2604,10 @@ final class ChanceEngineTests: XCTestCase {
 
     private func testSameTierDecay(for tierName: String) -> Double {
         if tierName.contains("T10") {
-            return 0.78
+            return 0.85
         }
         if tierName.contains("T30") {
-            return tierName.contains(CollegeCategory.liberalArtsCollege.rawValue) ? 0.90 : 0.93
+            return tierName.contains(CollegeCategory.liberalArtsCollege.rawValue) ? 0.85 : 0.88
         }
         if tierName.contains("T50") {
             return 0.90

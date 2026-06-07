@@ -14,6 +14,8 @@ struct AppView: View {
     @State private var selectedCollegeIDs: Set<String> = []
     @State private var selectionSource: PortfolioSelectionSource = .none
     @State private var latestResult: PortfolioResult?
+    @State private var selectionProfileSnapshot: StudentProfile?
+    @State private var completedResultAnimationDates: Set<Date> = []
     @State private var stage: AdmissionFlowStage = .hero
     @State private var profileInitialCardIndex = 0
     @State private var schoolInitialCardIndex = 0
@@ -37,7 +39,7 @@ struct AppView: View {
                         completionState: $profileCompletionState,
                         selectedCollegeIDs: $selectedCollegeIDs,
                         selectionSource: $selectionSource,
-                        hasExistingResult: latestResult != nil,
+                        canSwipeToCollegeSelection: selectionIsCurrentForProfile,
                         onOpenCollegeSelection: openCollegeSelection
                     )
                 case .schools:
@@ -49,7 +51,7 @@ struct AppView: View {
                         includeLiberalArtsColleges: profile.includeLiberalArtsColleges,
                         applicationRound: profile.round,
                         requestedSchoolCount: $profile.requestedSchoolCount,
-                        hasExistingResult: latestResult != nil,
+                        currentResult: currentResultForNavigation,
                         onAutoRecommend: autoRecommendForSelection,
                         onBackToProfile: {
                             profileInitialCardIndex = CalculatorView.lastProfileCardIndex
@@ -64,6 +66,8 @@ struct AppView: View {
                     ResultsView(
                         result: latestResult,
                         isStale: resultIsStale,
+                        hasCompletedInitialAnimation: latestResult.map { completedResultAnimationDates.contains($0.generatedAt) } ?? false,
+                        onInitialAnimationCompleted: markCurrentResultAnimationCompleted,
                         onBackToSchools: {
                             schoolInitialCardIndex = CollegePickerView.lastCardIndex
                             stage = .schools
@@ -96,6 +100,7 @@ struct AppView: View {
 
     private func evaluateAndShowResults() {
         latestResult = engine.evaluate(profile: profile, selectedCollegeIDs: selectedCollegeIDs, selectionSource: selectionSource)
+        selectionProfileSnapshot = profile
         stage = .results
     }
 
@@ -104,10 +109,12 @@ struct AppView: View {
         selectedCollegeIDs = Set(result.recommendedSchools.map(\.id))
         selectionSource = .automatic
         latestResult = nil
+        selectionProfileSnapshot = profile
     }
 
     private func openCollegeSelection() {
         saveProfileLocally()
+        selectionProfileSnapshot = profile
         schoolInitialCardIndex = 0
         stage = .schools
     }
@@ -120,6 +127,8 @@ struct AppView: View {
         selectedCollegeIDs = []
         selectionSource = .none
         latestResult = nil
+        selectionProfileSnapshot = nil
+        completedResultAnimationDates = []
         profileInitialCardIndex = 0
         schoolInitialCardIndex = 0
         purchaseState.resetForNewCalculation()
@@ -137,9 +146,34 @@ struct AppView: View {
         guard let latestResult else {
             return false
         }
-        return latestResult.profileSnapshot != profile ||
-            latestResult.selectedCollegeIDs != selectedCollegeIDs ||
-            latestResult.selectionSource != selectionSource
+        return !resultMatchesCurrentState(latestResult)
+    }
+
+    private var selectionIsCurrentForProfile: Bool {
+        guard let selectionProfileSnapshot else {
+            return false
+        }
+        return selectionProfileSnapshot == profile
+    }
+
+    private var currentResultForNavigation: PortfolioResult? {
+        guard let latestResult, resultMatchesCurrentState(latestResult) else {
+            return nil
+        }
+        return latestResult
+    }
+
+    private func resultMatchesCurrentState(_ result: PortfolioResult) -> Bool {
+        result.profileSnapshot == profile &&
+            result.selectedCollegeIDs == selectedCollegeIDs &&
+            result.selectionSource == selectionSource
+    }
+
+    private func markCurrentResultAnimationCompleted() {
+        guard let latestResult else {
+            return
+        }
+        completedResultAnimationDates.insert(latestResult.generatedAt)
     }
 }
 
