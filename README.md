@@ -49,12 +49,15 @@ The v1 model is intentionally transparent:
 - AI reports omit confidence labels, system missing-data explanations, and source audit from the report body; those details remain in the data/model explanation sheet.
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.
 - AI reports focus on per-school probability, application-count impact, key probability drivers, student-vs-school gaps/advantages, improvement actions, and portfolio strategy.
-- Report generation is wired to the OpenAI Responses API; Debug builds need an `OPENAI_API_KEY` environment variable, while production should use a server-side proxy rather than embedding secrets in the app.
+- Paid AI report generation is wired through a server-side report proxy. Debug builds can point `REPORT_PROXY_URL` at an HTTPS endpoint, while production should set the `ReportProxyURL` Info.plist value. The app never embeds an LLM API key.
+- Complete reports are not generated or shown before payment. Local deterministic report material is used only to build the AI context/fact packet and required probability guardrails; it is not exposed as a free customer-facing report.
+- If Apple charges the per-report purchase but AI generation fails, the signed transaction is kept on device so the user can retry generation without another purchase.
 - Results and AI reports are tied to the submitted profile snapshot; if the live form changes afterward, the app flags the displayed result as stale.
 - Multi-school probability uses same-tier correlation discounting.
 - Same-tier correlation discounting is strongest for T10 and lighter for non-T10 T30 portfolios, reflecting that 15 well-chosen T11-T30 applications should not be treated as only a few effective attempts.
 - Comprehensive-university T10 and Liberal Arts College T10 schools share one extreme-selectivity correlation tier in combined portfolio probability and automatic recommendation value, so top-category outcomes are not treated as independent merely because the school type differs.
-- The paid-report surface is wired as a StoreKit-ready placeholder and cannot modify computed probabilities.
+- The paid-report surface uses StoreKit 2 for per-report purchases, sends the verified transaction JWS to the report proxy, and cannot modify computed probabilities.
+- The recommended China deployment path is iOS + StoreKit 2 + Aliyun Function Compute + Alibaba Cloud Model Studio/Qwen + TableStore/Redis/database transaction ledger. The backend should store only keys/configuration plus transaction-consumption metadata; student profile details and generated report text stay local by default.
 
 ## Build
 

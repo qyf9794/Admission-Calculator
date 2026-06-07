@@ -5,26 +5,168 @@ import StoreKit
 final class ReportPurchaseState: ObservableObject {
     @Published private(set) var isUnlocked = false
     @Published private(set) var statusText = "综合报告未付费生成"
+    @Published private(set) var priceText = "读取价格中"
+    @Published private(set) var hasPendingPaidReport = false
 
     let productID = "admission_calculator_ai_report"
+    private var product: Product?
+    private var pendingToken: ReportPurchaseToken? {
+        didSet {
+            hasPendingPaidReport = pendingToken != nil
+            persistPendingToken()
+        }
+    }
+
+    init() {
+        pendingToken = Self.restorePendingToken()
+        hasPendingPaidReport = pendingToken != nil
+        if hasPendingPaidReport {
+            statusText = "已有已支付但未完成的报告生成凭证，可继续生成"
+        }
+    }
 
     func canUnlockReport(isStale: Bool) -> Bool {
         !isUnlocked && !isStale
     }
 
-    func unlockForPrototype() {
+    func loadProduct() async {
+        guard product == nil else {
+            priceText = product?.displayPrice ?? priceText
+            return
+        }
+        do {
+            let products = try await Product.products(for: [productID])
+            product = products.first
+            priceText = product?.displayPrice ?? "未配置商品"
+        } catch {
+            priceText = "价格读取失败"
+        }
+    }
+
+    func purchaseOrUsePendingToken() async throws -> ReportPurchaseToken {
+        if let pendingToken {
+            statusText = "继续使用已支付凭证生成报告"
+            return pendingToken
+        }
+
+        let product = try await reportProduct()
+        let result = try await product.purchase()
+        switch result {
+        case .success(let verification):
+            let signedTransactionInfo = verification.jwsRepresentation
+            let transaction = try checkVerified(verification)
+            guard transaction.productID == productID else {
+                throw ReportPurchaseError.productMismatch
+            }
+            let token = ReportPurchaseToken(transaction: transaction, signedTransactionInfo: signedTransactionInfo)
+            pendingToken = token
+            statusText = "支付已验证，正在生成报告"
+            await transaction.finish()
+            return token
+        case .pending:
+            statusText = "支付待确认，请稍后重试"
+            throw ReportPurchaseError.pending
+        case .userCancelled:
+            statusText = "已取消支付"
+            throw ReportPurchaseError.userCancelled
+        @unknown default:
+            throw ReportPurchaseError.unknownPurchaseResult
+        }
+    }
+
+    func markReportGenerated() {
         isUnlocked = true
-        statusText = "已完成报告生成权限"
+        pendingToken = nil
+        statusText = "本次付费报告已生成"
     }
 
     func resetForNewCalculation() {
         isUnlocked = false
+        pendingToken = nil
         statusText = "综合报告未付费生成"
+    }
+
+    private func reportProduct() async throws -> Product {
+        if let product {
+            return product
+        }
+        await loadProduct()
+        guard let product else {
+            throw ReportPurchaseError.productUnavailable
+        }
+        return product
+    }
+
+    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+        switch result {
+        case .verified(let safe):
+            return safe
+        case .unverified:
+            throw ReportPurchaseError.unverifiedTransaction
+        }
+    }
+
+    private func persistPendingToken() {
+        let key = Self.pendingTokenStorageKey
+        guard let pendingToken, let data = try? JSONEncoder().encode(pendingToken) else {
+            UserDefaults.standard.removeObject(forKey: key)
+            return
+        }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+
+    private static func restorePendingToken() -> ReportPurchaseToken? {
+        guard let data = UserDefaults.standard.data(forKey: pendingTokenStorageKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(ReportPurchaseToken.self, from: data)
+    }
+
+    private static let pendingTokenStorageKey = "AdmissionCalculator.pendingReportPurchaseToken"
+}
+
+struct ReportPurchaseToken: Codable {
+    let productID: String
+    let transactionID: String
+    let originalTransactionID: String
+    let signedTransactionInfo: String
+
+    init(transaction: StoreKit.Transaction, signedTransactionInfo: String) {
+        productID = transaction.productID
+        transactionID = String(transaction.id)
+        originalTransactionID = String(transaction.originalID)
+        self.signedTransactionInfo = signedTransactionInfo
     }
 }
 
-enum OpenAIReportError: LocalizedError {
-    case missingAPIKey
+enum ReportPurchaseError: LocalizedError, Equatable {
+    case productUnavailable
+    case productMismatch
+    case pending
+    case userCancelled
+    case unverifiedTransaction
+    case unknownPurchaseResult
+
+    var errorDescription: String? {
+        switch self {
+        case .productUnavailable:
+            return "App Store 商品尚未配置或当前无法读取价格。"
+        case .productMismatch:
+            return "支付商品与报告商品不匹配。"
+        case .pending:
+            return "支付正在等待 Apple 确认。"
+        case .userCancelled:
+            return "已取消支付。"
+        case .unverifiedTransaction:
+            return "Apple 交易验证失败。"
+        case .unknownPurchaseResult:
+            return "未知支付结果。"
+        }
+    }
+}
+
+enum ReportProxyError: LocalizedError {
+    case missingEndpoint
     case invalidResponse
     case requestFailed(String)
     case timedOut
@@ -32,21 +174,21 @@ enum OpenAIReportError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .missingAPIKey:
-            return "未配置 OPENAI_API_KEY。Debug 环境可通过 Scheme 环境变量配置；正式上架应改由服务端代理调用 OpenAI。"
+        case .missingEndpoint:
+            return "未配置报告生成服务地址。Debug 环境可通过 REPORT_PROXY_URL 配置；正式上架应在 Info.plist 写入 ReportProxyURL。"
         case .invalidResponse:
-            return "OpenAI 返回格式无法解析。"
+            return "报告生成服务返回格式无法解析。"
         case .requestFailed(let detail):
             return detail
         case .timedOut:
-            return "OpenAI 请求超时。通常是当前网络无法稳定访问 api.openai.com，或长报告生成超过等待时间；请切换网络/VPN 后重试。"
+            return "报告生成服务请求超时，请稍后重试。"
         case .transportFailed(let detail):
-            return "OpenAI 网络请求失败：\(detail)"
+            return "报告生成服务网络请求失败：\(detail)"
         }
     }
 }
 
-struct OpenAIReportClient {
+struct ReportProxyClient {
     static let defaultTimeout: TimeInterval = 180
     static let defaultSession: URLSession = {
         let configuration = URLSessionConfiguration.default
@@ -56,27 +198,28 @@ struct OpenAIReportClient {
         return URLSession(configuration: configuration)
     }()
 
-    var model = "gpt-5.2"
-    var apiKey: String? = ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
-    var session: URLSession = OpenAIReportClient.defaultSession
-    var requestTimeout: TimeInterval = OpenAIReportClient.defaultTimeout
+    var endpointURL: URL? = ReportProxyClient.defaultEndpointURL
+    var session: URLSession = ReportProxyClient.defaultSession
+    var requestTimeout: TimeInterval = ReportProxyClient.defaultTimeout
 
-    func generateReport(prompt: String) async throws -> String {
-        guard let apiKey, !apiKey.isEmpty else {
-            throw OpenAIReportError.missingAPIKey
+    var isConfigured: Bool {
+        endpointURL != nil
+    }
+
+    func generateReport(prompt: String, transaction: ReportPurchaseToken) async throws -> String {
+        guard let endpointURL else {
+            throw ReportProxyError.missingEndpoint
         }
 
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/responses")!)
+        var request = URLRequest(url: endpointURL)
         request.httpMethod = "POST"
         request.timeoutInterval = requestTimeout
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(OpenAIResponseRequest(
-            model: model,
+        request.httpBody = try JSONEncoder().encode(ReportProxyRequest(
+            clientRequestID: UUID().uuidString,
             instructions: ReportService.openAIInstructions,
             input: prompt,
-            reasoning: OpenAIReasoning(effort: "low"),
-            text: OpenAITextOptions(verbosity: "high")
+            transaction: transaction
         ))
 
         let data: Data
@@ -85,78 +228,61 @@ struct OpenAIReportClient {
             (data, response) = try await session.data(for: request)
         } catch let error as URLError {
             if error.code == .timedOut {
-                throw OpenAIReportError.timedOut
+                throw ReportProxyError.timedOut
             }
-            throw OpenAIReportError.transportFailed(error.localizedDescription)
+            throw ReportProxyError.transportFailed(error.localizedDescription)
         }
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw OpenAIReportError.invalidResponse
+            throw ReportProxyError.invalidResponse
         }
         guard (200..<300).contains(httpResponse.statusCode) else {
             let detail = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
-            throw OpenAIReportError.requestFailed(detail)
+            throw ReportProxyError.requestFailed(detail)
         }
-        let decoded = try JSONDecoder().decode(OpenAIResponseBody.self, from: data)
-        if let outputText = decoded.outputText, !outputText.isEmpty {
-            return outputText
+        let decoded = try JSONDecoder().decode(ReportProxyResponse.self, from: data)
+        guard !decoded.reportText.isEmpty else {
+            throw ReportProxyError.invalidResponse
         }
-        let nestedText = decoded.output
-            .flatMap { $0.content ?? [] }
-            .compactMap(\.text)
-            .joined(separator: "\n")
-        guard !nestedText.isEmpty else {
-            throw OpenAIReportError.invalidResponse
+        return decoded.reportText
+    }
+
+    private static var defaultEndpointURL: URL? {
+        if let value = Bundle.main.object(forInfoDictionaryKey: "ReportProxyURL") as? String,
+           let url = URL(string: value),
+           !value.isEmpty {
+            return url
         }
-        return nestedText
+        if let value = ProcessInfo.processInfo.environment["REPORT_PROXY_URL"],
+           let url = URL(string: value),
+           !value.isEmpty {
+            return url
+        }
+        return nil
     }
 }
 
-private struct OpenAIResponseRequest: Encodable {
-    let model: String
+private struct ReportProxyRequest: Encodable {
+    let clientRequestID: String
     let instructions: String
     let input: String
-    let reasoning: OpenAIReasoning
-    let text: OpenAITextOptions
+    let transaction: ReportPurchaseToken
 
     enum CodingKeys: String, CodingKey {
-        case model
+        case clientRequestID = "clientRequestId"
         case instructions
         case input
-        case reasoning
-        case text
+        case transaction
     }
 }
 
-private struct OpenAIReasoning: Encodable {
-    let effort: String
-}
-
-private struct OpenAITextOptions: Encodable {
-    let verbosity: String
-}
-
-private struct OpenAIResponseBody: Decodable {
-    let outputText: String?
-    let output: [OpenAIOutputItem]
+private struct ReportProxyResponse: Decodable {
+    let reportText: String
+    let requestID: String?
 
     enum CodingKeys: String, CodingKey {
-        case outputText = "output_text"
-        case output
+        case reportText
+        case requestID = "requestId"
     }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        outputText = try container.decodeIfPresent(String.self, forKey: .outputText)
-        output = try container.decodeIfPresent([OpenAIOutputItem].self, forKey: .output) ?? []
-    }
-}
-
-private struct OpenAIOutputItem: Decodable {
-    let content: [OpenAIOutputContent]?
-}
-
-private struct OpenAIOutputContent: Decodable {
-    let text: String?
 }
 
 enum GateRuleDisplay {
@@ -373,7 +499,7 @@ enum ReportService {
         return """
         ## 事实包总原则
         - 所有学校、概率、分档和硬门槛均来自本地离线概率引擎。
-        - OpenAI 只能解释和组织这些事实，不能重新计算概率。
+        - AI 服务只能解释和组织这些事实，不能重新计算概率。
         - 报告应更像专业顾问写给家庭的分析，而不是逐项模板填空。
 
         ## 学生画像快照

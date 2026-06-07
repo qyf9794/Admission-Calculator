@@ -12,6 +12,7 @@
     "data:lac:official-urls:check": "node scripts/write-lac-official-url-manifest.mjs --check",
     "data:scorecard:lac:apply": "node scripts/apply-scorecard-lac-rates.mjs",
     "data:official:lac:apply": "node scripts/apply-scorecard-lac-rates.mjs",
-    "data:official:lac:check": "node scripts/check-lac-official-workflow.mjs"
+    "data:official:lac:check": "node scripts/check-lac-official-workflow.mjs",
+    "report:proxy:smoke": "node scripts/report-proxy-smoke.mjs"
   }
 }

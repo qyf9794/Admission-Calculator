@@ -1,0 +1,16 @@
+{
+  "name": "admission-report-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Aliyun Function Compute report proxy for StoreKit-gated domestic LLM report generation.",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node index.mjs",
+    "check": "node --check index.mjs"
+  },
+  "dependencies": {
+    "@apple/app-store-server-library": "*",
+    "tablestore": "*"
+  }
+}

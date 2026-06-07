@@ -7,7 +7,7 @@ struct ReportView: View {
     let isStale: Bool
     let onBackToResults: () -> Void
     let onStartOver: () -> Void
-    var client = OpenAIReportClient()
+    var client = ReportProxyClient()
 
     @State private var reportText: String?
     @State private var pdfURL: URL?
@@ -83,6 +83,8 @@ struct ReportView: View {
         .sheet(isPresented: $showingPaymentSheet) {
             if let result {
                 ReportPaymentSheet(
+                    priceText: purchaseState.priceText,
+                    hasPendingPaidReport: purchaseState.hasPendingPaidReport,
                     isGenerating: isGenerating,
                     errorMessage: errorMessage,
                     onCancel: { showingPaymentSheet = false },
@@ -113,6 +115,9 @@ struct ReportView: View {
                 }
             }
         }
+        .task {
+            await purchaseState.loadProduct()
+        }
     }
 
     private func completePaymentAndGenerate(for result: PortfolioResult) {
@@ -123,11 +128,10 @@ struct ReportView: View {
             errorMessage = "综合报告仅支持 RD 轮次；EA/ED 结果只显示本轮概率，不生成综合报告。"
             return
         }
-        purchaseState.unlockForPrototype()
-        generateReport(for: result)
-    }
-
-    private func generateReport(for result: PortfolioResult) {
+        guard client.isConfigured else {
+            errorMessage = "报告生成服务尚未配置。请先配置 REPORT_PROXY_URL 或 Info.plist 的 ReportProxyURL。"
+            return
+        }
         isGenerating = true
         errorMessage = nil
         pdfURL = nil
@@ -135,23 +139,27 @@ struct ReportView: View {
 
         Task {
             do {
+                let transaction = try await purchaseState.purchaseOrUsePendingToken()
                 let prompt = ReportService.makeOpenAIReportPrompt(result: result)
-                let generated = try await client.generateReport(prompt: prompt)
+                let generated = try await client.generateReport(prompt: prompt, transaction: transaction)
                 await MainActor.run {
                     reportText = ReportService.mergeGeneratedReport(generated, result: result)
                     pdfURL = nil
+                    purchaseState.markReportGenerated()
                     isGenerating = false
                     showingPaymentSheet = false
                     showingReportSheet = true
                 }
+            } catch let error as ReportPurchaseError where error == .userCancelled {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isGenerating = false
+                }
             } catch {
                 await MainActor.run {
-                    reportText = ReportService.makeReport(result: result)
                     pdfURL = nil
-                    errorMessage = "OpenAI 生成失败，已显示本地模板报告：\(error.localizedDescription)"
+                    errorMessage = "报告生成失败。如已完成支付，本次支付凭证会保留在本机，可稍后重试：\(error.localizedDescription)"
                     isGenerating = false
-                    showingPaymentSheet = false
-                    showingReportSheet = true
                 }
             }
         }
@@ -210,6 +218,8 @@ private struct ReportFrameworkPreview: View {
 }
 
 private struct ReportPaymentSheet: View {
+    let priceText: String
+    let hasPendingPaidReport: Bool
     let isGenerating: Bool
     let errorMessage: String?
     let onCancel: () -> Void
@@ -222,9 +232,12 @@ private struct ReportPaymentSheet: View {
                 Text("报告支付")
                     .font(AdmissionStyle.titleFont(30))
                     .foregroundStyle(Color.black.opacity(0.88))
-                Text("支付后生成完整录取分析报告。当前为 StoreKit-ready 原型流程，不会改变任何已计算概率。")
+                Text(hasPendingPaidReport ? "检测到本机已有已支付但未完成的报告生成凭证，本次会直接继续生成，不会再次扣费。" : "通过 Apple 内购按次购买完整录取分析报告。报告生成服务只接收本次计算事实包和 Apple 交易凭证，不会改变任何已计算概率。")
                     .font(.subheadline)
                     .foregroundStyle(Color.black.opacity(0.62))
+                Label(hasPendingPaidReport ? "待生成报告" : priceText, systemImage: hasPendingPaidReport ? "checkmark.seal.fill" : "creditcard.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.black.opacity(0.68))
                 if let errorMessage {
                     Label(errorMessage, systemImage: "info.circle")
                         .font(.footnote)
@@ -242,7 +255,7 @@ private struct ReportPaymentSheet: View {
                             } else {
                                 Image(systemName: "lock.open.fill")
                             }
-                            Text(isGenerating ? "正在生成" : "支付并生成")
+                            Text(isGenerating ? "正在生成" : (hasPendingPaidReport ? "继续生成" : "支付并生成"))
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -286,9 +299,9 @@ private struct ReportActionCard: View {
                                 .controlSize(.small)
                                 .tint(.white)
                         } else {
-                            Image(systemName: purchaseState.isUnlocked ? "creditcard.fill" : "lock.open")
+                            Image(systemName: purchaseState.hasPendingPaidReport ? "checkmark.seal.fill" : (purchaseState.isUnlocked ? "creditcard.fill" : "lock.open"))
                         }
-                        Text(isGenerating ? "正在生成" : (purchaseState.isUnlocked ? "再次付费生成报告" : "付费生成报告"))
+                        Text(isGenerating ? "正在生成" : (purchaseState.hasPendingPaidReport ? "继续生成报告" : (purchaseState.isUnlocked ? "再次付费生成报告" : "付费生成报告")))
                     }
                         .frame(maxWidth: .infinity)
                 }
@@ -378,25 +391,6 @@ private struct ReportSchoolProbabilityList: View {
             return "checkmark.seal"
         case .blocked:
             return "xmark.octagon"
-        }
-    }
-}
-
-private struct ReportTemplatePreview: View {
-    let result: PortfolioResult
-
-    var body: some View {
-        AdmissionGradientCard(
-            title: "报告模板",
-            subtitle: "生成后报告会覆盖测算结果、当前不足、申请数量影响、学校简表、提升动作、选校策略和家庭沟通版结论。",
-            systemImage: "doc.plaintext",
-            colors: AdmissionStyle.mintNight
-        ) {
-            Text(ReportService.makeReport(result: result))
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.72))
-                .lineLimit(12)
-                .textSelection(.enabled)
         }
     }
 }

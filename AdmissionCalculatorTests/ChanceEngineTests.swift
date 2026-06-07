@@ -829,7 +829,7 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertTrue(purchaseState.canUnlockReport(isStale: false))
         XCTAssertFalse(purchaseState.canUnlockReport(isStale: true))
 
-        purchaseState.unlockForPrototype()
+        purchaseState.markReportGenerated()
 
         XCTAssertFalse(purchaseState.canUnlockReport(isStale: false))
     }
