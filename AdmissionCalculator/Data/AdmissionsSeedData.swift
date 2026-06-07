@@ -9,6 +9,7 @@ enum AdmissionsSeedData {
     static let internationalSignals = AdmissionsNormalizedData.internationalSignals
     static let chinaAdmissionSignals = AdmissionsNormalizedData.chinaAdmissionSignals
     static let academicBenchmarks = AdmissionsNormalizedData.academicBenchmarks
+    static let majorSelectivitySignals = AdmissionsNormalizedData.majorSelectivitySignals
     static let highSchools = AdmissionsNormalizedData.highSchools
     static let gateRules = AdmissionsNormalizedData.gateRules
 }

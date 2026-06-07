@@ -6,7 +6,7 @@ struct ReportView: View {
     @ObservedObject var purchaseState: ReportPurchaseState
     let isStale: Bool
     let onBackToResults: () -> Void
-    let onRecalculate: () -> Void
+    let onStartOver: () -> Void
     var client = OpenAIReportClient()
 
     @State private var reportText: String?
@@ -29,7 +29,7 @@ struct ReportView: View {
                     onSwipeBack: onBackToResults,
                     onSwipeForward: {},
                     previousPreview: {
-                        ResultsSnapshotCard(result: result)
+                        ResultsSnapshotCard(result: result, onStartOver: onStartOver)
                     },
                     nextPreview: {
                         EmptyView()
@@ -54,7 +54,6 @@ struct ReportView: View {
                             isGenerating: isGenerating,
                             errorMessage: errorMessage,
                             onGenerate: { showingPaymentSheet = true },
-                            onRegenerateFromStart: onRecalculate,
                             onShowDataSources: { showingDataSources = true }
                         )
 
@@ -182,7 +181,7 @@ private struct ReportFrameworkPreview: View {
     private let sections = [
         ("测算摘要", "组合概率、风险层级、是否存在硬门槛阻断。"),
         ("逐校解释", "每所已选学校的概率、主要加分项和主要扣分项。"),
-        ("学术画像对比", "GPA、排名、课程难度、标化和目标校基准差距。"),
+        ("学术画像对比", "用通俗语言解释成绩、排名、课程难度和标化相对目标校可比水平的位置。"),
         ("选校组合策略", "申请数量、排名价值、自动推荐逻辑和组合风险。"),
         ("提升行动计划", "短期补强事项、材料重点、家庭沟通版结论。")
     ]
@@ -263,7 +262,6 @@ private struct ReportActionCard: View {
     let isGenerating: Bool
     let errorMessage: String?
     let onGenerate: () -> Void
-    let onRegenerateFromStart: () -> Void
     let onShowDataSources: () -> Void
 
     var body: some View {
@@ -280,11 +278,7 @@ private struct ReportActionCard: View {
             }
             HStack(spacing: 10) {
                 Button {
-                    if purchaseState.isUnlocked {
-                        onRegenerateFromStart()
-                    } else {
-                        onGenerate()
-                    }
+                    onGenerate()
                 } label: {
                     HStack(spacing: 8) {
                         if isGenerating {
@@ -292,14 +286,14 @@ private struct ReportActionCard: View {
                                 .controlSize(.small)
                                 .tint(.white)
                         } else {
-                            Image(systemName: purchaseState.isUnlocked ? "arrow.clockwise" : "lock.open")
+                            Image(systemName: purchaseState.isUnlocked ? "creditcard.fill" : "lock.open")
                         }
-                        Text(isGenerating ? "正在生成" : (purchaseState.isUnlocked ? "重新生成报告" : "付费生成报告"))
+                        Text(isGenerating ? "正在生成" : (purchaseState.isUnlocked ? "再次付费生成报告" : "付费生成报告"))
                     }
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
-                .disabled(isGenerating || (!purchaseState.isUnlocked && (isStale || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)))
+                .disabled(isGenerating || isStale || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)
 
                 Button {
                     onShowDataSources()

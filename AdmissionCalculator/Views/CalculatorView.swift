@@ -555,17 +555,7 @@ private struct HighSchoolSearchSheet: View {
 
     init(selectedHighSchoolID: Binding<String>, highSchools: [HighSchoolContext]) {
         _selectedHighSchoolID = selectedHighSchoolID
-        rows = highSchools
-            .map(HighSchoolSearchItem.init)
-            .sorted { lhs, rhs in
-                if lhs.id == "unknown" {
-                    return true
-                }
-                if rhs.id == "unknown" {
-                    return false
-                }
-                return lhs.sortKey.localizedStandardCompare(rhs.sortKey) == .orderedAscending
-            }
+        rows = highSchools.map(HighSchoolSearchItem.init)
     }
 
     private var filteredRows: [HighSchoolSearchItem] {
@@ -594,7 +584,7 @@ private struct HighSchoolSearchSheet: View {
                         .buttonStyle(.plain)
                     }
                 } header: {
-                    Text("默认项固定在最上方，其余学校按拼音排序")
+                    Text("默认项固定在最上方，其余学校按已审阅顺序显示")
                 }
             }
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索高中名称")
@@ -613,19 +603,16 @@ private struct HighSchoolSearchSheet: View {
 
 private struct HighSchoolSearchItem: Identifiable {
     let school: HighSchoolContext
-    let sortKey: String
     let searchableText: String
 
     var id: String { school.id }
 
     init(_ school: HighSchoolContext) {
         self.school = school
-        sortKey = Self.pinyinKey(for: school.name)
         searchableText = [
             school.name,
             school.city,
-            school.id,
-            sortKey
+            school.id
         ]
         .map(Self.normalized)
         .joined(separator: " ")
@@ -642,10 +629,6 @@ private struct HighSchoolSearchItem: Identifiable {
             .lowercased()
     }
 
-    private static func pinyinKey(for name: String) -> String {
-        let latinName = name.applyingTransform(.toLatin, reverse: false) ?? name
-        return normalized(latinName)
-    }
 }
 
 private struct HighSchoolSearchRow: View {

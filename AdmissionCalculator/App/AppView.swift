@@ -80,7 +80,7 @@ struct AppView: View {
                         onBackToResults: {
                             stage = .results
                         },
-                        onRecalculate: resetAndGoBackToHero
+                        onStartOver: resetAndGoBackToHero
                     )
                 }
             }
@@ -117,8 +117,6 @@ struct AppView: View {
     }
 
     private func resetAndGoBackToHero() {
-        profile = StudentProfile.formDefault
-        profileCompletionState = ProfileFormCompletionState()
         selectedCollegeIDs = []
         selectionSource = .none
         latestResult = nil

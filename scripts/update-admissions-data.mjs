@@ -290,7 +290,7 @@ function validateLiberalArtsSource(college, liberalArtsUnitIDs) {
   fail(`Liberal arts college ${college.id} must use reviewed LAC source_url, exact College Scorecard school URL, NCES/IPEDS DataFiles URL, or NCES Reported Data Admissions URL.`);
 }
 
-function validate(colleges, gates, highSchools, registry, internationalSignals, chinaAdmissionSignals, academicBenchmarks, liberalArtsUnitIDs) {
+function validate(colleges, gates, highSchools, registry, internationalSignals, chinaAdmissionSignals, academicBenchmarks, majorSelectivitySignals, liberalArtsUnitIDs) {
   if (!registry.data_version || !registry.generated_at) {
     fail("source_registry.json must include data_version and generated_at.");
   }
@@ -398,6 +398,93 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     if (!benchmarkIDs.has(id)) {
       fail(`Missing academic benchmark row for ${id}`);
     }
+  }
+
+  const majorSignalKeys = new Set();
+  const supportedMajorCategories = new Set([
+    "Computer Science",
+    "Engineering",
+    "Business",
+    "Economics",
+    "Nursing",
+    "Natural Science",
+    "Social Science",
+    "Humanities",
+    "Film / Media / Design",
+    "Architecture",
+    "Aviation",
+    "Arts",
+  ]);
+  const supportedSourceTiers = new Set([
+    "official",
+    "institution_adjacent",
+    "reputable_secondary",
+    "consultant_estimate",
+  ]);
+  const supportedApplicantScopes = new Set([
+    "all_applicants",
+    "international_or_nonresident",
+  ]);
+  for (const signal of majorSelectivitySignals) {
+    if (!ids.has(signal.college_id)) {
+      fail(`Major selectivity signal targets a school outside approved dataset: ${signal.college_id}`);
+    }
+    if (!supportedMajorCategories.has(signal.major_category)) {
+      fail(`Major selectivity signal ${signal.college_id} has unsupported major_category: ${signal.major_category}`);
+    }
+    if (!signal.program_label || !signal.source_url || !signal.source_note) {
+      fail(`Major selectivity signal ${signal.college_id}/${signal.major_category} must include program_label, source_url, and source_note.`);
+    }
+    if (!supportedSourceTiers.has(signal.source_tier)) {
+      fail(`Major selectivity signal ${signal.college_id}/${signal.major_category} has unsupported source_tier: ${signal.source_tier}`);
+    }
+    if (!supportedApplicantScopes.has(signal.applicant_scope)) {
+      fail(`Major selectivity signal ${signal.college_id}/${signal.major_category} has unsupported applicant_scope: ${signal.applicant_scope}`);
+    }
+    if (signal.is_undergrad_first_year !== "true") {
+      fail(`Major selectivity signal ${signal.college_id}/${signal.major_category} must be undergraduate first-year scope.`);
+    }
+    if (signal.is_direct_admit_rate === "true" && !String(signal.admit_rate ?? "").trim()) {
+      fail(`Direct major selectivity signal ${signal.college_id}/${signal.major_category} requires admit_rate.`);
+    }
+    const key = [
+      signal.college_id,
+      signal.major_category,
+      signal.program_label,
+      signal.applicant_scope,
+    ].join("|");
+    if (majorSignalKeys.has(key)) {
+      fail(`Duplicate major selectivity signal row: ${key}`);
+    }
+    majorSignalKeys.add(key);
+    try {
+      new URL(signal.source_url);
+    } catch {
+      fail(`Major selectivity signal ${signal.college_id}/${signal.major_category} must use a valid source_url.`);
+    }
+    const applicants = optionalInteger(signal, "applicants", `Major selectivity signal ${signal.college_id}/${signal.major_category} applicants`);
+    const admits = optionalInteger(signal, "admits", `Major selectivity signal ${signal.college_id}/${signal.major_category} admits`);
+    const enrolledOrSpots = optionalInteger(signal, "enrolled_or_spots", `Major selectivity signal ${signal.college_id}/${signal.major_category} enrolled_or_spots`);
+    requireRange(applicants, 0, Number.MAX_SAFE_INTEGER, `Major selectivity signal ${signal.college_id}/${signal.major_category} applicants`);
+    requireRange(admits, 0, Number.MAX_SAFE_INTEGER, `Major selectivity signal ${signal.college_id}/${signal.major_category} admits`);
+    requireRange(enrolledOrSpots, 0, Number.MAX_SAFE_INTEGER, `Major selectivity signal ${signal.college_id}/${signal.major_category} enrolled_or_spots`);
+    if (applicants !== null && admits !== null && admits > applicants) {
+      fail(`Major selectivity signal ${signal.college_id}/${signal.major_category} admits cannot exceed applicants.`);
+    }
+    const entryYear = optionalInteger(signal, "entry_year", `Major selectivity signal ${signal.college_id}/${signal.major_category} entry_year`);
+    const classYear = optionalInteger(signal, "class_year", `Major selectivity signal ${signal.college_id}/${signal.major_category} class_year`);
+    if (entryYear === null) {
+      fail(`Major selectivity signal ${signal.college_id}/${signal.major_category} requires entry_year.`);
+    }
+    requireRange(entryYear, 2000, 2100, `Major selectivity signal ${signal.college_id}/${signal.major_category} entry_year`);
+    requireRange(classYear, 2000, 2100, `Major selectivity signal ${signal.college_id}/${signal.major_category} class_year`);
+    if (classYear !== null && (classYear < entryYear || classYear > entryYear + 6)) {
+      fail(`Major selectivity signal ${signal.college_id}/${signal.major_category} class_year must be consistent with entry_year; got entry_year=${entryYear}, class_year=${classYear}.`);
+    }
+    requireRange(optionalNumber(signal, "admit_rate", `Major selectivity signal ${signal.college_id}/${signal.major_category} admit_rate`), 0, 1, `Major selectivity signal ${signal.college_id}/${signal.major_category} admit_rate`);
+    requireRange(optionalNumber(signal, "overall_admit_rate", `Major selectivity signal ${signal.college_id}/${signal.major_category} overall_admit_rate`), 0, 1, `Major selectivity signal ${signal.college_id}/${signal.major_category} overall_admit_rate`);
+    requireRange(optionalNumber(signal, "selectivity_ratio", `Major selectivity signal ${signal.college_id}/${signal.major_category} selectivity_ratio`), 0, 5, `Major selectivity signal ${signal.college_id}/${signal.major_category} selectivity_ratio`);
+    requireRange(optionalNumber(signal, "data_quality", `Major selectivity signal ${signal.college_id}/${signal.major_category} data_quality`), 0, 1, `Major selectivity signal ${signal.college_id}/${signal.major_category} data_quality`);
   }
 
   const chinaSignalIDs = new Set();
@@ -536,7 +623,11 @@ ${rateLines(college)}
 }
 
 function renderHighSchools(highSchools) {
-  return highSchools.schools.map((school) => `        HighSchoolContext(
+  const orderedSchools = [
+    ...highSchools.schools.filter((school) => school.id === "unknown"),
+    ...highSchools.schools.filter((school) => school.id !== "unknown"),
+  ];
+  return orderedSchools.map((school) => `        HighSchoolContext(
             id: ${swiftString(school.id)},
             name: ${swiftString(school.name)},
             city: ${swiftString(school.city)},
@@ -623,6 +714,55 @@ function renderAcademicBenchmarks(benchmarks) {
   }).join(",\n");
 }
 
+function renderMajorSelectivitySignals(signals) {
+  const majorMap = {
+    "Computer Science": ".computerScience",
+    Engineering: ".engineering",
+    Business: ".business",
+    Economics: ".economics",
+    Nursing: ".nursing",
+    "Natural Science": ".naturalScience",
+    "Social Science": ".socialScience",
+    Humanities: ".humanities",
+    "Film / Media / Design": ".mediaDesign",
+    Architecture: ".architecture",
+    Aviation: ".aviation",
+    Arts: ".arts",
+  };
+  const sourceTierMap = {
+    official: ".official",
+    institution_adjacent: ".institutionAdjacent",
+    reputable_secondary: ".reputableSecondary",
+    consultant_estimate: ".consultantEstimate",
+  };
+  const applicantScopeMap = {
+    all_applicants: ".allApplicants",
+    international_or_nonresident: ".internationalOrNonresident",
+  };
+
+  return signals.map((signal) => `        MajorSelectivitySignal(
+            collegeID: ${swiftString(signal.college_id)},
+            majorCategory: ${majorMap[signal.major_category] ?? fail(`Unsupported major category: ${signal.major_category}`)},
+            programLabel: ${swiftString(signal.program_label)},
+            entryYear: ${Number(signal.entry_year)},
+            classYear: ${swiftOptionalInt(signal.class_year)},
+            metricScope: ${swiftString(signal.metric_scope)},
+            applicantScope: ${applicantScopeMap[signal.applicant_scope] ?? fail(`Unsupported applicant scope: ${signal.applicant_scope}`)},
+            applicants: ${swiftOptionalInt(signal.applicants)},
+            admits: ${swiftOptionalInt(signal.admits)},
+            admitRate: ${swiftOptionalDouble(signal.admit_rate)},
+            enrolledOrSpots: ${swiftOptionalInt(signal.enrolled_or_spots)},
+            overallAdmitRate: ${swiftOptionalDouble(signal.overall_admit_rate)},
+            selectivityRatio: ${swiftOptionalDouble(signal.selectivity_ratio)},
+            isDirectAdmitRate: ${signal.is_direct_admit_rate === "true" ? "true" : "false"},
+            isUndergradFirstYear: ${signal.is_undergrad_first_year === "true" ? "true" : "false"},
+            sourceTier: ${sourceTierMap[signal.source_tier] ?? fail(`Unsupported source tier: ${signal.source_tier}`)},
+            sourceURL: URL(string: ${swiftString(signal.source_url)})!,
+            sourceNote: ${swiftString(signal.source_note)},
+            dataQuality: ${swiftOptionalDouble(signal.data_quality) === "nil" ? "0.40" : swiftOptionalDouble(signal.data_quality)}
+        )`).join(",\n");
+}
+
 function renderGateRules(gates) {
   const typeMap = {
     standardizedTest: ".standardizedTest",
@@ -641,9 +781,13 @@ function renderGateRules(gates) {
     Engineering: ".engineering",
     Business: ".business",
     Economics: ".economics",
+    Nursing: ".nursing",
     "Natural Science": ".naturalScience",
     "Social Science": ".socialScience",
     Humanities: ".humanities",
+    "Film / Media / Design": ".mediaDesign",
+    Architecture: ".architecture",
+    Aviation: ".aviation",
     Arts: ".arts",
   };
 
@@ -669,7 +813,7 @@ function renderGateRules(gates) {
   }).join(",\n");
 }
 
-function renderSwift({ registry, colleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks }) {
+function renderSwift({ registry, colleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks, majorSelectivitySignals }) {
   return `import Foundation
 
 // Generated by scripts/update-admissions-data.mjs from files in data/.
@@ -700,6 +844,10 @@ ${renderChinaAdmissionSignals(chinaAdmissionSignals)}
 ${renderAcademicBenchmarks(academicBenchmarks)}
     ]
 
+    static let majorSelectivitySignals: [MajorSelectivitySignal] = [
+${renderMajorSelectivitySignals(majorSelectivitySignals)}
+    ]
+
     static let highSchools: [HighSchoolContext] = [
 ${renderHighSchools(highSchools)}
     ]
@@ -713,7 +861,7 @@ ${renderGateRules(gates)}
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const [registry, nationalUniversities, liberalArtsColleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks, liberalArtsUnitIDs] = await Promise.all([
+  const [registry, nationalUniversities, liberalArtsColleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks, majorSelectivitySignals, liberalArtsUnitIDs] = await Promise.all([
     readJson("source_registry.json"),
     readCsv("admissionsight_colleges.csv"),
     readCsv("liberal_arts_colleges.csv"),
@@ -722,6 +870,7 @@ async function main() {
     readCsv("international_student_signals.csv"),
     readCsv("china_undergrad_admissions.csv"),
     readCsv("academic_benchmarks.csv"),
+    readCsv("major_selectivity_signals.csv"),
     readJson("liberal_arts_unitids.json"),
   ]);
   const colleges = [
@@ -729,8 +878,8 @@ async function main() {
     ...liberalArtsColleges.map((college) => ({ ...college, category: "liberal_arts_college" })),
   ];
 
-  validate(colleges, gates, highSchools, registry, internationalSignals, chinaAdmissionSignals, academicBenchmarks, liberalArtsUnitIDs);
-  const swift = renderSwift({ registry, colleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks });
+  validate(colleges, gates, highSchools, registry, internationalSignals, chinaAdmissionSignals, academicBenchmarks, majorSelectivitySignals, liberalArtsUnitIDs);
+  const swift = renderSwift({ registry, colleges, highSchools, gates, internationalSignals, chinaAdmissionSignals, academicBenchmarks, majorSelectivitySignals });
 
   if (options.check) {
     const existing = await fs.readFile(outputPath, "utf8");
@@ -743,7 +892,7 @@ async function main() {
 
   await fs.writeFile(outputPath, swift, "utf8");
   console.log(`Wrote ${outputPath}`);
-  console.log(`Schools=${colleges.length}, national_universities=${nationalUniversities.length}, liberal_arts_colleges=${liberalArtsColleges.length}, gates=${gates.length}, international_signals=${internationalSignals.length}, china_admission_signals=${chinaAdmissionSignals.length}, academic_benchmarks=${academicBenchmarks.length}, high_schools=${highSchools.schools.length}`);
+  console.log(`Schools=${colleges.length}, national_universities=${nationalUniversities.length}, liberal_arts_colleges=${liberalArtsColleges.length}, gates=${gates.length}, international_signals=${internationalSignals.length}, china_admission_signals=${chinaAdmissionSignals.length}, academic_benchmarks=${academicBenchmarks.length}, major_selectivity_signals=${majorSelectivitySignals.length}, high_schools=${highSchools.schools.length}`);
 }
 
 main().catch((error) => {

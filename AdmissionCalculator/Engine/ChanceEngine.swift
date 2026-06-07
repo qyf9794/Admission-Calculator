@@ -26,6 +26,7 @@ struct ChanceEngine {
     let internationalSignals: [InternationalSignal]
     let chinaAdmissionSignals: [ChinaUndergradAdmissionSignal]
     let academicBenchmarks: [AcademicBenchmark]
+    let majorSelectivitySignals: [MajorSelectivitySignal]
 
     init(
         colleges: [College] = AdmissionsSeedData.colleges,
@@ -33,7 +34,8 @@ struct ChanceEngine {
         highSchools: [HighSchoolContext] = AdmissionsSeedData.highSchools,
         internationalSignals: [InternationalSignal] = AdmissionsSeedData.internationalSignals,
         chinaAdmissionSignals: [ChinaUndergradAdmissionSignal] = AdmissionsSeedData.chinaAdmissionSignals,
-        academicBenchmarks: [AcademicBenchmark] = AdmissionsSeedData.academicBenchmarks
+        academicBenchmarks: [AcademicBenchmark] = AdmissionsSeedData.academicBenchmarks,
+        majorSelectivitySignals: [MajorSelectivitySignal] = AdmissionsSeedData.majorSelectivitySignals
     ) {
         self.colleges = colleges
         self.gateRules = gateRules
@@ -41,6 +43,7 @@ struct ChanceEngine {
         self.internationalSignals = internationalSignals
         self.chinaAdmissionSignals = chinaAdmissionSignals
         self.academicBenchmarks = academicBenchmarks
+        self.majorSelectivitySignals = majorSelectivitySignals
     }
 
     func evaluate(
@@ -271,21 +274,23 @@ struct ChanceEngine {
         let internationalSignal = internationalSignal(for: college)
         let chinaSignal = chinaAdmissionSignal(for: college)
         let benchmark = academicBenchmark(for: college)
+        let majorSelectivitySignal = majorSelectivitySignal(for: college, profile: profile)
         let ordinaryPrior = ordinaryApplicantPrior(for: college, profile: profile, internationalSignal: internationalSignal, chinaSignal: chinaSignal)
         let readinessDelta = (score - 72) * 0.047
         let academicBenchmarkDelta = academicBenchmarkAdjustment(profile: profile, college: college, benchmark: benchmark)
         let highSchoolDelta = schoolContext.calibration
         let topCohortDelta = topCohortAdjustment(profile: profile, schoolContext: schoolContext, college: college)
         let majorDelta = majorAdjustment(profile.major)
+        let majorSelectivityDelta = majorSelectivityAdjustment(majorSelectivitySignal)
         let roundDelta = roundAdjustment(profile.round, college: college)
         let aidDelta = aidAdjustment(profile: profile, signal: internationalSignal)
         let internationalDelta = internationalAdjustment(profile: profile, signal: internationalSignal)
         let chinaAdmissionDelta = chinaAdmissionAdjustment(profile: profile, signal: chinaSignal)
         let logitPrior = logit(clamp(ordinaryPrior, min: 0.001, max: 0.72))
-        let adjustedLogit = logitPrior + readinessDelta + academicBenchmarkDelta + highSchoolDelta + topCohortDelta + majorDelta + roundDelta + aidDelta + internationalDelta + chinaAdmissionDelta
+        let adjustedLogit = logitPrior + readinessDelta + academicBenchmarkDelta + highSchoolDelta + topCohortDelta + majorDelta + majorSelectivityDelta + roundDelta + aidDelta + internationalDelta + chinaAdmissionDelta
         let probability = clamp(logistic(adjustedLogit), min: 0.001, max: probabilityCap(for: college, profile: profile, chinaSignal: chinaSignal))
 
-        let factors = [
+        var factors = [
             baseFactor,
             ChanceFactor(label: "普通申请池先验", value: ordinaryPrior, detail: ordinaryPriorDetail(for: college, profile: profile, internationalSignal: internationalSignal, chinaSignal: chinaSignal)),
             ChanceFactor(label: "学生画像", value: readinessDelta, detail: readinessDetail(score: score, college: college)),
@@ -298,13 +303,19 @@ struct ChanceEngine {
             ChanceFactor(label: "申请轮次", value: roundDelta, detail: roundDetail(profile.round, college: college)),
             ChanceFactor(label: "资助需求", value: aidDelta, detail: aidDetail(profile: profile, signal: internationalSignal))
         ]
+        if majorSelectivitySignal != nil {
+            factors.insert(
+                ChanceFactor(label: "学校强专业", value: majorSelectivityDelta, detail: majorSelectivityDetail(majorSelectivitySignal)),
+                at: 7
+            )
+        }
 
-        let warnings = warnings(for: college, profile: profile, gate: gate, internationalSignal: internationalSignal, chinaSignal: chinaSignal, benchmark: benchmark)
+        let warnings = warnings(for: college, profile: profile, gate: gate, internationalSignal: internationalSignal, chinaSignal: chinaSignal, benchmark: benchmark, majorSelectivitySignal: majorSelectivitySignal)
         return ChanceResult(
             college: college,
             baseRate: baseRate,
             adjustedProbability: probability,
-            confidence: confidence(college: college, profile: profile, gate: gate, internationalSignal: internationalSignal, chinaSignal: chinaSignal, benchmark: benchmark),
+            confidence: confidence(college: college, profile: profile, gate: gate, internationalSignal: internationalSignal, chinaSignal: chinaSignal, benchmark: benchmark, majorSelectivitySignal: majorSelectivitySignal),
             bucket: bucket(probability),
             factors: factors,
             warnings: warnings,
@@ -1060,7 +1071,7 @@ struct ChanceEngine {
             Self.conservativeHighSchoolFallback
     }
 
-    private func warnings(for college: College, profile: StudentProfile, gate: GateResult, internationalSignal: InternationalSignal, chinaSignal: ChinaUndergradAdmissionSignal, benchmark: AcademicBenchmark) -> [String] {
+    private func warnings(for college: College, profile: StudentProfile, gate: GateResult, internationalSignal: InternationalSignal, chinaSignal: ChinaUndergradAdmissionSignal, benchmark: AcademicBenchmark, majorSelectivitySignal: MajorSelectivitySignal?) -> [String] {
         var items: [String] = []
         if college.acceptanceRates.contains(where: { $0.rate == nil }) {
             items.append("该校最新年份存在 N/A，已使用最近非空录取率。")
@@ -1078,6 +1089,9 @@ struct ChanceEngine {
         }
         if profile.highSchoolID == "unknown" {
             items.append("高中背景为其他/手动评估学校，当前使用保守代理校准；如有真实学校资源和升学记录，应单独复核。")
+        }
+        if let majorSelectivitySignal, majorSelectivitySignal.sourceTier != .official {
+            items.append("该校强专业数据来自\(majorSelectivitySourceTierText(majorSelectivitySignal.sourceTier))，已按低置信度封顶处理；不得视作学校官方专业录取率。")
         }
         if profile.needsAid && profile.applicantStatus.isInternational {
             switch internationalSignal.internationalAidPolicy {
@@ -1132,10 +1146,23 @@ struct ChanceEngine {
         }
     }
 
-    private func confidence(college: College, profile: StudentProfile, gate: GateResult, internationalSignal: InternationalSignal, chinaSignal: ChinaUndergradAdmissionSignal, benchmark: AcademicBenchmark) -> ConfidenceLabel {
+    private func confidence(college: College, profile: StudentProfile, gate: GateResult, internationalSignal: InternationalSignal, chinaSignal: ChinaUndergradAdmissionSignal, benchmark: AcademicBenchmark, majorSelectivitySignal: MajorSelectivitySignal?) -> ConfidenceLabel {
         var score = 100.0
         score -= (1 - college.dataQuality) * 35
         score -= (1 - benchmark.dataQuality) * 14
+        if let majorSelectivitySignal {
+            score -= (1 - majorSelectivitySignal.dataQuality) * 8
+            switch majorSelectivitySignal.sourceTier {
+            case .official:
+                break
+            case .institutionAdjacent:
+                score -= 2
+            case .reputableSecondary:
+                score -= 4
+            case .consultantEstimate:
+                score -= 7
+            }
+        }
         if profile.applicantStatus.isInternational {
             score -= (1 - internationalSignal.dataQuality) * 20
         }
@@ -1289,10 +1316,105 @@ struct ChanceEngine {
         case .engineering: return -0.18
         case .business: return -0.12
         case .economics: return -0.08
+        case .nursing: return -0.16
         case .naturalScience: return -0.06
         case .socialScience: return 0
         case .humanities: return 0.05
+        case .mediaDesign: return -0.08
+        case .architecture: return -0.06
+        case .aviation: return -0.10
         case .arts: return 0
+        }
+    }
+
+    private func majorSelectivitySignal(for college: College, profile: StudentProfile) -> MajorSelectivitySignal? {
+        guard profile.major != .undecided else {
+            return nil
+        }
+        let candidates = majorSelectivitySignals.filter { signal in
+            signal.collegeID == college.id &&
+                signal.majorCategory == profile.major &&
+                majorApplicantScopeApplies(signal.applicantScope, profile: profile)
+        }
+        return candidates.min { lhs, rhs in
+            let lhsAdjustment = majorSelectivityAdjustment(lhs)
+            let rhsAdjustment = majorSelectivityAdjustment(rhs)
+            if approximatelyEqual(lhsAdjustment, rhsAdjustment) {
+                return lhs.dataQuality > rhs.dataQuality
+            }
+            return lhsAdjustment < rhsAdjustment
+        }
+    }
+
+    private func majorApplicantScopeApplies(_ scope: MajorSelectivityApplicantScope, profile: StudentProfile) -> Bool {
+        switch scope {
+        case .allApplicants:
+            return true
+        case .internationalOrNonresident:
+            return profile.applicantStatus.isInternational
+        }
+    }
+
+    private func majorSelectivityAdjustment(_ signal: MajorSelectivitySignal?) -> Double {
+        guard let signal else {
+            return 0
+        }
+
+        let ratio = signal.selectivityRatio ??
+            signal.admitRate.flatMap { admitRate in
+                signal.overallAdmitRate.map { overall in
+                    overall > 0 ? admitRate / overall : 1
+                }
+            } ?? 1
+        guard ratio > 0 else {
+            return 0
+        }
+
+        let sourceCap: Double
+        switch signal.sourceTier {
+        case .official:
+            sourceCap = 0.32
+        case .institutionAdjacent:
+            sourceCap = 0.24
+        case .reputableSecondary:
+            sourceCap = 0.18
+        case .consultantEstimate:
+            sourceCap = 0.12
+        }
+        let directRateCap = signal.isDirectAdmitRate ? sourceCap : min(sourceCap, 0.14)
+        let qualityScale = 0.65 + 0.35 * clamp(signal.dataQuality, min: 0, max: 1)
+        let raw = log(ratio) * 0.18 * qualityScale
+        return clamp(raw, min: -directRateCap, max: min(0.06, directRateCap * 0.25))
+    }
+
+    private func majorSelectivityDetail(_ signal: MajorSelectivitySignal?) -> String {
+        guard let signal else {
+            return "该校缺少学校级专业录取口径；仅使用专业大类通用竞争修正。"
+        }
+        let admitRate = signal.admitRate.map { "\(formatPercent($0))" } ?? "缺失"
+        let overall = signal.overallAdmitRate.map { "\(formatPercent($0))" } ?? "缺失"
+        let ratio = signal.selectivityRatio.map { String(format: "%.2f", $0) } ?? "缺失"
+        let rateScope = signal.isDirectAdmitRate ? "直接录取率口径" : "容量/上限代理口径"
+        return "\(signal.programLabel)（\(majorSelectivityYearText(signal))）\(rateScope)：专业/学院录取率 \(admitRate)，学校整体或可比整体 \(overall)，相对比例 \(ratio)。来源层级：\(majorSelectivitySourceTierText(signal.sourceTier))；\(signal.sourceNote)"
+    }
+
+    private func majorSelectivityYearText(_ signal: MajorSelectivitySignal) -> String {
+        if let classYear = signal.classYear {
+            return "Fall \(signal.entryYear) 入学 / Class of \(classYear)"
+        }
+        return "Fall \(signal.entryYear) 入学口径，毕业届未标明"
+    }
+
+    private func majorSelectivitySourceTierText(_ tier: MajorSelectivitySourceTier) -> String {
+        switch tier {
+        case .official:
+            return "官方"
+        case .institutionAdjacent:
+            return "学校邻近/校园媒体"
+        case .reputableSecondary:
+            return "正规二级来源"
+        case .consultantEstimate:
+            return "咨询机构估算"
         }
     }
 
@@ -1868,6 +1990,10 @@ struct ChanceEngine {
 
     private func clamp(_ value: Double, min minValue: Double, max maxValue: Double) -> Double {
         Swift.min(maxValue, Swift.max(minValue, value))
+    }
+
+    private func formatPercent(_ value: Double) -> String {
+        value.formatted(.percent.precision(.fractionLength(1)))
     }
 
     private func isUCCampus(_ college: College) -> Bool {

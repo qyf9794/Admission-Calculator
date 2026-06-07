@@ -13,6 +13,7 @@ data_sources:
       - "data/international_student_signals.csv"
       - "data/china_undergrad_admissions.csv"
       - "data/academic_benchmarks.csv"
+      - "data/major_selectivity_signals.csv"
       - "data/china_high_schools.json"
       - "data/liberal_arts_unitids.json"
       - "data/source_registry.json"
@@ -62,6 +63,16 @@ data_sources:
     rule: "Use official CDS/class-profile values when available; otherwise mark benchmark rows as inferred in the data/model explanation sheet without changing probability through confidence."
     prohibited: "Do not describe inferred benchmarks as official admitted-student averages."
     mixed_source_rule: "If a benchmark row combines official fields with inferred fields, disclose the mixed scope instead of labeling the whole row as official or wholly inferred."
+  major_selectivity_signals:
+    scope: "School-by-major or school-by-college first-year undergraduate selectivity signals for programs whose admit rate or capacity differs materially from the university overall rate."
+    allowed_sources:
+      - "Official admissions or institutional research pages"
+      - "Official school/college fact sheets"
+      - "Institution-adjacent publications that cite school data"
+      - "Reputable secondary admissions/data publications with stated methodology"
+      - "Consultant estimates only as low-confidence proxies"
+    rule: "Use official direct admit-rate rows first. Institution-adjacent, reputable secondary, and consultant-estimate rows must carry source_tier, lower data_quality, bounded model impact, and user-facing disclosure that they are not official school admit probabilities. Rows must use entry_year for Fall matriculation year and class_year only for the graduating class year; do not mix the two."
+    prohibited: "Do not use forum anecdotes, unsourced rates, graduate-program data, all-level enrollment, or capacity-only data as exact undergraduate first-year admit rates."
   curriculum_performance:
     rule: "Curriculum-specific achievement inputs may affect readiness only when the related course/exam evidence exists; AP average score is ignored when AP course count is 0."
     alevel_subject_cap_rule: "A-Level A*/A/B subject counts share one total cap of 5 subjects; the UI must not allow each grade band to add 5 independently, and the model must cap malformed overflow data before scoring."
@@ -111,6 +122,9 @@ model_constraints:
     test_free_rule: "If a school is officially test-free or test-blind for admissions, SAT/ACT must be excluded from both readiness scoring and academic benchmark adjustment for that school."
     best_testing_rule: "When both SAT and ACT are present, standardized-test gates, readiness scoring, and academic benchmark fit use the strongest SAT-equivalent submitted score."
     test_optional_rule: "When the applicant chooses test optional / not submitting scores, stored SAT/ACT values must be ignored for readiness scoring and academic benchmark fit unless an official test-required gate blocks the school."
+  major_selectivity_adjustment:
+    rule: "School-specific major selectivity may adjust probability only after hard gates pass, using reviewed rows from data/major_selectivity_signals.csv. The correction must be bounded by source_tier and must be disclosed separately from the global major competition factor."
+    source_tier_rule: "Official direct admit-rate rows receive the largest cap; institution-adjacent, reputable secondary, and consultant-estimate rows receive progressively smaller caps and lower confidence."
   required_outputs:
     - individual_school_probability
     - selected_school_at_least_one_probability

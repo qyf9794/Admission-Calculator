@@ -66,6 +66,9 @@ The result is an explainable estimate, not a promise of admission.
 - Arts applicants use a separate profile-weighting path with lower academic/standardized-test weight and higher portfolio-adjacent soft-signal weight; missing portfolio remains a blocking gate.
 - School-specific academic benchmarks may adjust probability only after hard gates pass. Inferred GPA/rank/test/rigor benchmarks must be labeled and cannot be presented as official admitted-student averages.
 - If an academic benchmark row mixes official class-profile fields with inferred fields, UI and reports must disclose that mixed scope rather than labeling the whole row as fully official or fully inferred.
+- School-specific major selectivity rows may adjust probability only after hard gates pass and must come from `data/major_selectivity_signals.csv`. Official direct admit-rate rows are preferred; institution-adjacent, reputable secondary, and consultant-estimate rows must be capped, lower confidence, and disclosed separately from the global major competition factor.
+- Major selectivity rows must keep `entry_year` and `class_year` separate: `entry_year` is the Fall matriculation year, while `class_year` is the graduating class year and may be blank for multi-year averages.
+- Nursing must remain a standalone major category; do not merge it into broader health/pre-med categories with different admission rates.
 - Curriculum selection must expose curriculum-specific achievement inputs (AP, IB, A-Level, or Chinese curriculum scores) and those inputs must affect academic readiness and school-specific fit.
 - Curriculum-specific achievement inputs must not award performance credit without evidence: for example, AP average score is ignored when AP course count is 0.
 - A-Level A*/A/B 科目数必须共享最多 5 门的总上限；UI 不得允许三个成绩档各自独立填 5 门，模型也必须对异常溢出数据截断并披露。
@@ -92,9 +95,10 @@ The result is an explainable estimate, not a promise of admission.
 3. Review `data/international_student_signals.csv`; rows must be undergraduate-only, and missing admit coefficients must be explicit.
 4. Review `data/china_undergrad_admissions.csv`; China admitted counts require source notes and cannot imply all-admit share without a denominator.
 5. Review `data/academic_benchmarks.csv`; replace inferred proxy rows with official CDS/class profile values whenever available.
-6. Update `data/china_high_schools.json` only as a disclosed proxy.
-7. Run `node scripts/update-admissions-data.mjs` to regenerate `AdmissionCalculator/Data/AdmissionsNormalizedData.swift`.
-8. Run `npm run data:verify` and the unit tests before shipping.
+6. Review `data/major_selectivity_signals.csv`; official rows may use school/college/major admit rates, while secondary rows must retain source_tier and proxy disclosure.
+7. Update `data/china_high_schools.json` only as a disclosed proxy. The generated high-school list order should keep `unknown` first and otherwise use the reviewed source order so the UI does not sort or pinyin-transform the list at runtime.
+8. Run `node scripts/update-admissions-data.mjs` to regenerate `AdmissionCalculator/Data/AdmissionsNormalizedData.swift`.
+9. Run `npm run data:verify` and the unit tests before shipping.
 
 ## Validation Standard
 

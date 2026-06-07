@@ -244,6 +244,7 @@ private struct SchoolListSnapshotRow: View {
 
 struct ResultsSnapshotCard: View {
     let result: PortfolioResult
+    var onStartOver: (() -> Void)? = nil
 
     var body: some View {
         AdmissionGradientCard(
@@ -270,6 +271,14 @@ struct ResultsSnapshotCard: View {
                 SnapshotMetric(title: "T11-T30", value: result.t11T30AtLeastOne)
                 SnapshotMetric(title: "Top30", value: result.t30AtLeastOne)
                 SnapshotMetric(title: "Top50", value: result.t50AtLeastOne)
+            }
+
+            if let onStartOver {
+                Button(action: onStartOver) {
+                    Label("重新开始", systemImage: "arrow.counterclockwise")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(AdmissionQuietButtonStyle())
             }
         }
     }

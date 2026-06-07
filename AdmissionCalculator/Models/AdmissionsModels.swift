@@ -52,18 +52,22 @@ enum MajorCategory: String, CaseIterable, Identifiable, Codable {
     case engineering = "Engineering"
     case business = "Business"
     case economics = "Economics"
+    case nursing = "Nursing"
     case naturalScience = "Natural Science"
     case socialScience = "Social Science"
     case humanities = "Humanities"
+    case mediaDesign = "Film / Media / Design"
+    case architecture = "Architecture"
+    case aviation = "Aviation"
     case arts = "Arts"
 
     var id: String { rawValue }
 
     var isSTEM: Bool {
         switch self {
-        case .computerScience, .engineering, .naturalScience:
+        case .computerScience, .engineering, .naturalScience, .nursing, .aviation:
             return true
-        case .undecided, .business, .economics, .socialScience, .humanities, .arts:
+        case .undecided, .business, .economics, .socialScience, .humanities, .mediaDesign, .architecture, .arts:
             return false
         }
     }
@@ -230,7 +234,8 @@ struct College: Identifiable, Hashable, Codable {
         internationalSignal: InternationalSignal?,
         chinaSignal: ChinaUndergradAdmissionSignal?,
         academicBenchmark: AcademicBenchmark?,
-        gateRules: [CollegeGateRule]
+        gateRules: [CollegeGateRule],
+        majorSelectivitySignals: [MajorSelectivitySignal] = []
     ) -> Bool {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -246,7 +251,8 @@ struct College: Identifiable, Hashable, Codable {
             internationalSignal: internationalSignal,
             chinaSignal: chinaSignal,
             academicBenchmark: academicBenchmark,
-            gateRules: gateRules
+            gateRules: gateRules,
+            majorSelectivitySignals: majorSelectivitySignals
         )
         return fields.contains { $0.localizedCaseInsensitiveContains(trimmed) }
     }
@@ -255,7 +261,8 @@ struct College: Identifiable, Hashable, Codable {
         internationalSignal: InternationalSignal?,
         chinaSignal: ChinaUndergradAdmissionSignal?,
         academicBenchmark: AcademicBenchmark?,
-        gateRules: [CollegeGateRule]
+        gateRules: [CollegeGateRule],
+        majorSelectivitySignals: [MajorSelectivitySignal]
     ) -> [String] {
         var fields: [String] = []
         fields.append(sourceNote)
@@ -278,6 +285,15 @@ struct College: Identifiable, Hashable, Codable {
             if let sourceURL = academicBenchmark.sourceURL {
                 fields.append(sourceURL.absoluteString)
             }
+        }
+        for signal in majorSelectivitySignals {
+            fields.append(signal.majorCategory.rawValue)
+            fields.append(signal.programLabel)
+            fields.append(signal.metricScope)
+            fields.append(signal.applicantScope.rawValue)
+            fields.append(signal.sourceTier.rawValue)
+            fields.append(signal.sourceNote)
+            fields.append(signal.sourceURL.absoluteString)
         }
         for rule in gateRules {
             fields.append(rule.title)
@@ -351,6 +367,44 @@ struct AcademicBenchmark: Identifiable, Hashable, Codable {
     let dataQuality: Double
 
     var id: String { collegeID }
+}
+
+enum MajorSelectivitySourceTier: String, Codable {
+    case official = "official"
+    case institutionAdjacent = "institution_adjacent"
+    case reputableSecondary = "reputable_secondary"
+    case consultantEstimate = "consultant_estimate"
+}
+
+enum MajorSelectivityApplicantScope: String, Codable {
+    case allApplicants = "all_applicants"
+    case internationalOrNonresident = "international_or_nonresident"
+}
+
+struct MajorSelectivitySignal: Identifiable, Hashable, Codable {
+    let collegeID: String
+    let majorCategory: MajorCategory
+    let programLabel: String
+    let entryYear: Int
+    let classYear: Int?
+    let metricScope: String
+    let applicantScope: MajorSelectivityApplicantScope
+    let applicants: Int?
+    let admits: Int?
+    let admitRate: Double?
+    let enrolledOrSpots: Int?
+    let overallAdmitRate: Double?
+    let selectivityRatio: Double?
+    let isDirectAdmitRate: Bool
+    let isUndergradFirstYear: Bool
+    let sourceTier: MajorSelectivitySourceTier
+    let sourceURL: URL
+    let sourceNote: String
+    let dataQuality: Double
+
+    var id: String {
+        "\(collegeID)-\(majorCategory.rawValue)-\(programLabel)-\(applicantScope.rawValue)"
+    }
 }
 
 struct CollegeGateRule: Identifiable, Hashable, Codable {

@@ -18,6 +18,8 @@ The v1 model is intentionally transparent:
 - AP average score is counted only when AP course count is greater than 0.
 - A-Level A*/A/B subject counts share a total cap of 5 subjects; overflow data is capped before scoring and disclosed as a warning.
 - Academic benchmark rows may mix official class-profile fields with inferred fields; the app labels mixed rows explicitly.
+- School-specific major selectivity rows can add a bounded strong-major correction after hard gates pass. Official direct admit-rate rows are preferred; secondary or consultant-estimate rows are lower confidence and disclosed separately from the global major competition factor.
+- Nursing is a standalone major category rather than part of a broad health/pre-med bucket, because nursing admit rates can be far lower than other health-related pathways.
 - Transcript and Chinese-curriculum grades can be entered as percent scores, 4.0 GPA, 5.0 GPA, or letter grades; non-percent inputs are converted only to an internal academic index.
 - School-specific test-free/test-blind policies, such as UC's SAT/ACT policy, are applied to both readiness scoring and target-school academic fit.
 - SAT/ACT comparisons use the strongest submitted SAT-equivalent score through the official ACT/SAT concordance.
@@ -87,6 +89,7 @@ Edit the reviewed source files in `data/`, then regenerate:
 - `data/official_gate_rules.csv`: official and inferred hard gates.
 - `data/international_student_signals.csv`: undergraduate-only international data; admit coefficient is used only when undergraduate international admitted count and total admitted count are both available.
 - `data/china_undergrad_admissions.csv`: China student undergraduate admit-count signal from reviewed table data.
+- `data/major_selectivity_signals.csv`: school-specific major/program selectivity signals, with `entry_year` for Fall matriculation year, optional `class_year` for graduating class year, and `source_tier` separating official, institution-adjacent, reputable secondary, and consultant-estimate rows.
 - `data/china_high_schools.json`: China high school context proxy.
 - `data/liberal_arts_unitids.json`: reviewed IPEDS/Scorecard UnitID map for official Liberal Arts College rate import.
 - `data/source_registry.json`: source roles, confidence, and refresh notes.

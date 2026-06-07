@@ -43,6 +43,7 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(AdmissionsSeedData.sourceRecords.contains { $0.id == "international_student_signals" })
         XCTAssertTrue(AdmissionsSeedData.sourceRecords.contains { $0.id == "china_undergrad_admissions" })
         XCTAssertTrue(AdmissionsSeedData.sourceRecords.contains { $0.id == "academic_benchmark_proxy" })
+        XCTAssertTrue(AdmissionsSeedData.sourceRecords.contains { $0.id == "major_selectivity_signals" })
     }
 
     func testCurrentLiberalArtsBaseRatesUseReviewedOfficialScorecardRows() {
@@ -227,6 +228,7 @@ final class HarnessValidationTests: XCTestCase {
         let schoolIDs = Set(AdmissionsSeedData.highSchools.map(\.id))
 
         XCTAssertGreaterThanOrEqual(AdmissionsSeedData.highSchools.count, 90)
+        XCTAssertEqual(AdmissionsSeedData.highSchools.first?.id, "unknown")
         XCTAssertTrue(schoolIDs.isSuperset(of: [
             "bnu_experimental",
             "rdfz_icc",
@@ -288,6 +290,64 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertEqual(benchmarkIDs, collegeIDs)
         XCTAssertTrue(AdmissionsSeedData.academicBenchmarks.allSatisfy { !$0.sourceNote.isEmpty })
         XCTAssertTrue(AdmissionsSeedData.academicBenchmarks.filter(\.isInferred).allSatisfy { $0.dataQuality < 0.6 })
+    }
+
+    func testMajorSelectivitySignalsAreScopedAndDisclosed() {
+        let collegeIDs = Set(AdmissionsSeedData.colleges.map(\.id))
+
+        XCTAssertGreaterThanOrEqual(AdmissionsSeedData.majorSelectivitySignals.count, 20)
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.allSatisfy { collegeIDs.contains($0.collegeID) })
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.allSatisfy(\.isUndergradFirstYear))
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.allSatisfy { !$0.sourceNote.isEmpty })
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.allSatisfy { $0.sourceURL.scheme?.hasPrefix("http") == true })
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.allSatisfy { signal in
+            guard let classYear = signal.classYear else {
+                return true
+            }
+            return classYear >= signal.entryYear && classYear <= signal.entryYear + 6
+        })
+        XCTAssertFalse(MajorCategory.allCases.contains { $0.rawValue == "Nursing / Health" })
+        XCTAssertTrue(MajorCategory.allCases.contains(.nursing))
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.contains {
+            $0.collegeID == "ucla" &&
+                $0.majorCategory == .nursing &&
+                $0.entryYear == 2025 &&
+                $0.classYear == 2029 &&
+                $0.admitRate == 0.005 &&
+                $0.sourceTier == .official
+        })
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.contains {
+            $0.collegeID == "uw_seattle" &&
+                $0.majorCategory == .computerScience &&
+                $0.entryYear == 2025 &&
+                $0.classYear == nil
+        })
+        XCTAssertTrue(AdmissionsSeedData.majorSelectivitySignals.contains {
+            $0.collegeID == "cmu" &&
+                $0.majorCategory == .computerScience &&
+                $0.entryYear == 2025 &&
+                $0.classYear == 2029 &&
+                $0.sourceTier == .consultantEstimate &&
+                !$0.isDirectAdmitRate
+        })
+    }
+
+    func testMajorSelectivitySignalSearchesInSourceAudit() {
+        let ucla = AdmissionsSeedData.colleges.first { $0.id == "ucla" }!
+        let internationalSignal = AdmissionsSeedData.internationalSignals.first { $0.collegeID == ucla.id }
+        let chinaSignal = AdmissionsSeedData.chinaAdmissionSignals.first { $0.collegeID == ucla.id }
+        let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == ucla.id }
+        let gateRules = AdmissionsSeedData.gateRules.filter { $0.collegeID == ucla.id || $0.collegeID == "*" }
+        let majorSignals = AdmissionsSeedData.majorSelectivitySignals.filter { $0.collegeID == ucla.id }
+
+        XCTAssertTrue(ucla.matchesSourceAuditQuery(
+            "Nursing Prelicensure",
+            internationalSignal: internationalSignal,
+            chinaSignal: chinaSignal,
+            academicBenchmark: benchmark,
+            gateRules: gateRules,
+            majorSelectivitySignals: majorSignals
+        ))
     }
 
     func testMITAcademicBenchmarkDisclosesMixedOfficialAndInferredFields() {
@@ -374,6 +434,13 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("不改变概率"))
         XCTAssertTrue(report.contains("不承诺录取"))
         XCTAssertTrue(report.contains("保底是相对规划标签，不代表录取保证"))
+        XCTAssertTrue(report.contains("历史数据与外部环境说明"))
+        XCTAssertTrue(report.contains("历史公开数据和本地模型校准的参考"))
+        XCTAssertTrue(report.contains("经济兴衰"))
+        XCTAssertTrue(report.contains("行业景气度"))
+        XCTAssertTrue(report.contains("就业市场"))
+        XCTAssertTrue(report.contains("AI 对计算机、商科、传媒、设计等方向"))
+        XCTAssertTrue(report.contains("可能出现较大波动"))
     }
 
     func testReportFocusesOnUsefulInputsInsteadOfSystemDataLimitations() {
@@ -403,14 +470,22 @@ final class HarnessValidationTests: XCTestCase {
         let report = ReportService.makeReport(result: result)
 
         for school in result.schoolResults {
-            XCTAssertTrue(report.contains("\(school.college.name)：\(school.adjustedProbability.formatted(.percent.precision(.fractionLength(0))))"))
+            XCTAssertTrue(report.contains("| \(school.college.name) |"))
+            XCTAssertTrue(report.contains(school.adjustedProbability.formatted(.percent.precision(.fractionLength(0)))))
             XCTAssertFalse(report.contains("置信度 \(school.confidence.rawValue)"))
             XCTAssertTrue(report.contains("\(school.college.name)："))
         }
-        XCTAssertTrue(report.contains("逐校精简判断"))
+        XCTAssertTrue(report.contains("逐校录取概率表"))
+        XCTAssertTrue(report.contains("逐校学术匹配解读"))
+        XCTAssertTrue(report.contains("这里的“可比水平”是本地模型可用的学校平均/内部参考线"))
+        XCTAssertTrue(report.contains("逐校策略摘要"))
+        XCTAssertFalse(report.contains("学校简表"))
+        XCTAssertFalse(report.contains("逐校精简判断"))
         XCTAssertTrue(report.contains("学术匹配"))
-        XCTAssertTrue(report.contains("比较说明：高于本校基准"))
-        XCTAssertTrue(report.contains("接近本校基准") || report.contains("低于本校基准") || report.contains("高于本校基准"))
+        XCTAssertTrue(report.contains("成绩位置"))
+        XCTAssertTrue(report.contains("班级位置"))
+        XCTAssertTrue(report.contains("课程挑战度"))
+        XCTAssertTrue(report.contains("该校可比水平"))
         XCTAssertFalse(report.contains("图标说明"))
         XCTAssertFalse(report.contains("▲"))
         XCTAssertFalse(report.contains("●"))
@@ -437,7 +512,7 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(report.contains("官方 Required standardized testing"))
         XCTAssertTrue(report.contains("MIT requires SAT/ACT"))
         XCTAssertFalse(report.contains("https://mitadmissions.org/apply/firstyear/tests-scores/"))
-        XCTAssertTrue(report.contains("Massachusetts Institute of Technology：硬门槛未通过，优先补齐阻断项后再比较学术匹配。"))
+        XCTAssertTrue(report.contains("Massachusetts Institute of Technology：硬门槛未通过，先补齐Required standardized testing；阻断解除前不讨论材料加分。"))
         XCTAssertFalse(report.contains("Massachusetts Institute of Technology：缺失"))
     }
 
@@ -493,12 +568,14 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(prompt.contains("逐校计算事实"))
         XCTAssertTrue(prompt.contains("学校平均/内部基准比较"))
         XCTAssertTrue(prompt.contains("提高申请概率的影响因子"))
-        XCTAssertTrue(prompt.contains("本地基础报告"))
+        XCTAssertTrue(prompt.contains("客户端固定插入内容"))
+        XCTAssertFalse(prompt.contains("## 本地基础报告"))
         XCTAssertTrue(prompt.contains("你不是在做模板填空"))
         XCTAssertTrue(prompt.contains("在大体框架下自由组织语言和段落"))
+        XCTAssertTrue(prompt.contains("正文不要重建这些表格"))
         XCTAssertTrue(prompt.contains("当前不足优先级"))
-        XCTAssertTrue(prompt.contains("学校简表"))
-        XCTAssertTrue(prompt.contains("基准比较文字"))
+        XCTAssertTrue(prompt.contains("逐校策略"))
+        XCTAssertTrue(prompt.contains("不要重新输出逐校录取概率表或逐校学术匹配解读"))
         XCTAssertTrue(prompt.contains("提升方案"))
         XCTAssertTrue(prompt.contains("硬门槛、学术匹配、画像分"))
         XCTAssertTrue(prompt.contains("证据链"))
@@ -507,15 +584,46 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(prompt.contains("为什么精力有限时不是越多越好"))
         XCTAssertTrue(prompt.contains("极强、强、中、弱、极弱"))
         XCTAssertTrue(prompt.contains("不得修改、重算、覆盖或美化"))
+        XCTAssertTrue(prompt.contains("历史录取率、专业录取率、学校内部基准和中国录取信号只作为校准参考"))
+        XCTAssertTrue(prompt.contains("经济兴衰、行业景气度、就业市场、AI 冲击"))
+        XCTAssertTrue(prompt.contains("不得把历史数据表述为未来结果"))
         XCTAssertTrue(prompt.contains("Massachusetts Institute of Technology"))
         XCTAssertTrue(prompt.contains("Boston University"))
-        XCTAssertTrue(prompt.contains("当前选择学校中至少被一所录取的估算概率"))
+        XCTAssertTrue(prompt.contains("全部已选至少一所"))
         XCTAssertTrue(prompt.contains("与学校平均/内部基准比较：学术"))
-        XCTAssertTrue(prompt.contains("比较说明：高于本校基准"))
+        XCTAssertTrue(prompt.contains("比较说明：高于可比水平"))
         XCTAssertFalse(prompt.contains("图标说明"))
         XCTAssertFalse(prompt.contains("▲"))
         XCTAssertFalse(prompt.contains("●"))
         XCTAssertFalse(prompt.contains("▼"))
+    }
+
+    func testMergedOpenAIReportRemovesDuplicatedDeterministicTables() {
+        let result = ChanceEngine().evaluate(profile: .sample, selectedCollegeIDs: Set(["bu", "mit"]), selectionSource: .manual)
+        let generated = """
+        ## 执行摘要
+        当前组合需要先看硬门槛和目标校匹配。
+
+        ## 逐校录取概率表
+        | 学校 | 排名/类型 | 单校概率 | 分档 | 硬门槛 | 主要差距 | 优先动作 |
+        | --- | --- | ---: | --- | --- | --- | --- |
+        | 重复学校 | #1 综合大学 | 1% | 争取 | 通过 | 重复 | 重复 |
+
+        ## 逐校学术匹配解读
+        | 学校 | 成绩位置 | 班级位置 | 标化判断 | 课程挑战度 |
+        | --- | --- | --- | --- | --- |
+        | 重复学校 | 重复 | 重复 | 重复 | 重复 |
+
+        ## 逐校策略
+        Boston University：保留非重复策略。
+        """
+
+        let merged = ReportService.mergeGeneratedReport(generated, result: result)
+
+        XCTAssertTrue(merged.contains("逐校录取概率表"))
+        XCTAssertTrue(merged.contains("逐校学术匹配解读"))
+        XCTAssertFalse(merged.contains("重复学校"))
+        XCTAssertTrue(merged.contains("Boston University：保留非重复策略。"))
     }
 
     func testOpenAIReportPromptCarriesAutomaticRecommendationExpectedValueSteps() {

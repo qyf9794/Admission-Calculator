@@ -17,7 +17,8 @@ struct DataSourcesView: View {
                 internationalSignal: AdmissionsSeedData.internationalSignals.first { $0.collegeID == college.id },
                 chinaSignal: AdmissionsSeedData.chinaAdmissionSignals.first { $0.collegeID == college.id },
                 academicBenchmark: AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == college.id },
-                gateRules: AdmissionsSeedData.gateRules.filter { $0.collegeID == college.id || $0.collegeID == "*" }
+                gateRules: AdmissionsSeedData.gateRules.filter { $0.collegeID == college.id || $0.collegeID == "*" },
+                majorSelectivitySignals: AdmissionsSeedData.majorSelectivitySignals.filter { $0.collegeID == college.id }
             )
         }
     }
@@ -329,6 +330,10 @@ private struct CollegeSourceAudit: View {
         AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == college.id }
     }
 
+    private var majorSelectivitySignals: [MajorSelectivitySignal] {
+        AdmissionsSeedData.majorSelectivitySignals.filter { $0.collegeID == college.id }
+    }
+
     private var schoolRules: [CollegeGateRule] {
         AdmissionsSeedData.gateRules.filter { $0.collegeID == college.id }
     }
@@ -397,6 +402,25 @@ private struct CollegeSourceAudit: View {
                     tint: .orange
                 )
             }
+            if majorSelectivitySignals.isEmpty {
+                SourceAuditRow(
+                    title: "强专业录取口径",
+                    value: "未配置学校级专业差异数据",
+                    note: "该校仅使用专业大类通用竞争修正；不会臆造学校强专业录取率。",
+                    url: nil,
+                    tint: .orange
+                )
+            } else {
+                ForEach(majorSelectivitySignals) { signal in
+                    SourceAuditRow(
+                        title: "强专业录取口径",
+                        value: majorSelectivityValue(signal),
+                        note: "\(majorSelectivityTierLabel(signal.sourceTier))：\(publicDisplaySourceNote(note: signal.sourceNote, url: signal.sourceURL))",
+                        url: signal.sourceURL.publicAuthorityURL,
+                        tint: signal.sourceTier == .official ? .green : .orange
+                    )
+                }
+            }
             if schoolRules.isEmpty {
                 SourceAuditRow(
                     title: "该校硬门槛",
@@ -464,6 +488,27 @@ private struct CollegeSourceAudit: View {
         let sat = benchmark.satBenchmark.map(String.init) ?? "不使用/缺失"
         let rigor = benchmark.rigorBenchmark.map { "\($0)/5" } ?? "缺失"
         return "GPA \(gpa)，排名 \(rank)，SAT \(sat)，课程难度 \(rigor)"
+    }
+
+    private func majorSelectivityValue(_ signal: MajorSelectivitySignal) -> String {
+        let admitRate = signal.admitRate?.formatted(.percent.precision(.fractionLength(1))) ?? "缺失"
+        let overall = signal.overallAdmitRate?.formatted(.percent.precision(.fractionLength(1))) ?? "缺失"
+        let ratio = signal.selectivityRatio?.formatted(.number.precision(.fractionLength(2))) ?? "缺失"
+        let classYear = signal.classYear.map { " / Class of \($0)" } ?? ""
+        return "\(signal.majorCategory.rawValue) · \(signal.programLabel)：Fall \(signal.entryYear)\(classYear)，专业/学院 \(admitRate)，整体 \(overall)，比例 \(ratio)"
+    }
+
+    private func majorSelectivityTierLabel(_ tier: MajorSelectivitySourceTier) -> String {
+        switch tier {
+        case .official:
+            return "官方来源"
+        case .institutionAdjacent:
+            return "学校邻近来源"
+        case .reputableSecondary:
+            return "正规二级来源"
+        case .consultantEstimate:
+            return "咨询机构估算"
+        }
     }
 
     private func gateRuleValue(_ rule: CollegeGateRule) -> String {
@@ -548,7 +593,8 @@ private extension DataSourceRecord {
             name.localizedCaseInsensitiveContains("NCES") ||
             name.localizedCaseInsensitiveContains("IPEDS") ||
             name.localizedCaseInsensitiveContains("Common Data Set") ||
-            name.localizedCaseInsensitiveContains("Official admissions")
+            name.localizedCaseInsensitiveContains("Official admissions") ||
+            id == "major_selectivity_signals"
     }
 }
 

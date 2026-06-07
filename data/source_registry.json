@@ -136,6 +136,15 @@
       "refresh_mode": "Reviewed CSV; replace inferred rows with official CDS/class profile values when available",
       "confidence": "proxy",
       "note": "Uses CollegeVine-style public chancing concepts only. Rows may mix official class-profile fields with inferred fields when complete official benchmarks are unavailable."
+    },
+    {
+      "id": "major_selectivity_signals",
+      "name": "School-specific major selectivity signals",
+      "url": "https://github.com/qyf9794/Admission-Calculator/blob/main/data/major_selectivity_signals.csv",
+      "role": "Reviewed school-by-major or school-by-college selectivity layer for programs whose first-year admit rate or capacity is materially different from the university overall rate.",
+      "refresh_mode": "Reviewed CSV using official sources first, institution-adjacent and reputable secondary sources second, and consultant estimates only as low-confidence proxies.",
+      "confidence": "mixed",
+      "note": "Rows must disclose source_tier. Official rows may use bounded school-major corrections; institution-adjacent, reputable secondary, and consultant-estimate rows remain capped and must not be presented as official admit probabilities."
     }
   ]
 }

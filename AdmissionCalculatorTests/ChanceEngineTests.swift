@@ -2615,6 +2615,40 @@ final class ChanceEngineTests: XCTestCase {
         return 0.94
     }
 
+    func testSchoolSpecificMajorSelectivityLowersMatchedProgramProbability() {
+        var profile = StudentProfile.sample
+        profile.major = .computerScience
+        profile.round = .regularDecision
+        profile.toefl = 110
+        profile.testOptional = false
+        profile.sat = 1540
+        let uiuc = AdmissionsSeedData.colleges.first { $0.id == "uiuc" }!
+
+        let resultWithSignals = ChanceEngine().chance(for: uiuc, profile: profile)
+        let resultWithoutSignals = ChanceEngine(majorSelectivitySignals: []).chance(for: uiuc, profile: profile)
+
+        XCTAssertLessThan(resultWithSignals.adjustedProbability, resultWithoutSignals.adjustedProbability)
+        XCTAssertTrue(resultWithSignals.factors.contains { $0.label == "学校强专业" && $0.detail.contains("Computer Science") })
+    }
+
+    func testSecondaryMajorSelectivitySignalsAreDisclosedAndCapped() {
+        var profile = StudentProfile.sample
+        profile.major = .computerScience
+        profile.round = .regularDecision
+        profile.toefl = 110
+        profile.testOptional = false
+        profile.sat = 1540
+        let cmu = AdmissionsSeedData.colleges.first { $0.id == "cmu" }!
+
+        let result = ChanceEngine().chance(for: cmu, profile: profile)
+        let strongMajorFactor = result.factors.first { $0.label == "学校强专业" }
+
+        XCTAssertNotNil(strongMajorFactor)
+        XCTAssertLessThanOrEqual(abs(strongMajorFactor?.value ?? 1), 0.12)
+        XCTAssertTrue(strongMajorFactor?.detail.contains("咨询机构估算") == true)
+        XCTAssertTrue(result.warnings.contains { $0.contains("咨询机构估算") && $0.contains("不得视作学校官方专业录取率") })
+    }
+
     private func syntheticCollege(id: String) -> College {
         College(
             id: id,
