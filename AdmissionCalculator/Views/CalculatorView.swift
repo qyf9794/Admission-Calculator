@@ -10,6 +10,10 @@ struct CalculatorView: View {
     @Binding var selectedCollegeIDs: Set<String>
     @Binding var selectionSource: PortfolioSelectionSource
     let canSwipeToCollegeSelection: Bool
+    let completedSchoolSetupAnimationIDs: Set<String>
+    let completedAutomaticSummaryAnimationIDs: Set<String>
+    let onSchoolSetupAnimationCompleted: (String) -> Void
+    let onAutomaticSummaryAnimationCompleted: (String) -> Void
     let onOpenCollegeSelection: () -> Void
     @State private var cardIndex = 0
     @State private var maxVisitedCardIndex = 0
@@ -64,6 +68,15 @@ struct CalculatorView: View {
                                             requestedSchoolCount: $profile.requestedSchoolCount,
                                             includeLiberalArtsColleges: profile.includeLiberalArtsColleges,
                                             applicationRound: profile.round,
+                                            hasCompletedCountAnimation: completedSchoolSetupAnimationIDs.contains(
+                                                SchoolSetupCard.animationID(
+                                                    selectedCount: selectedCollegeIDs.count,
+                                                    selectedColleges: selectedColleges,
+                                                    includeLiberalArtsColleges: profile.includeLiberalArtsColleges,
+                                                    applicationRound: profile.round
+                                                )
+                                            ),
+                                            onCountAnimationCompleted: onSchoolSetupAnimationCompleted,
                                             onAutoRecommend: {}
                                         )
                                     }
@@ -213,7 +226,12 @@ struct CalculatorView: View {
                     .foregroundStyle(.white.opacity(0.70))
             }
         default:
-            ProfileSelectionSettingsCard(profile: $profile, fixedHeight: Self.profileCardHeight)
+            ProfileSelectionSettingsCard(
+                profile: $profile,
+                fixedHeight: Self.profileCardHeight,
+                completedAutomaticSummaryAnimationIDs: completedAutomaticSummaryAnimationIDs,
+                onAutomaticSummaryAnimationCompleted: onAutomaticSummaryAnimationCompleted
+            )
         }
     }
 
@@ -965,6 +983,8 @@ private struct CardSection<Content: View>: View {
 struct ProfileSelectionSettingsCard: View {
     @Binding var profile: StudentProfile
     var fixedHeight: CGFloat? = nil
+    let completedAutomaticSummaryAnimationIDs: Set<String>
+    let onAutomaticSummaryAnimationCompleted: (String) -> Void
 
     var body: some View {
         CardSection(
@@ -989,7 +1009,15 @@ struct ProfileSelectionSettingsCard: View {
             AutomaticGeneratedSchoolSummary(
                 count: automaticGeneratedCount,
                 scopeNote: automaticGenerationScopeNote,
-                generationNote: automaticGenerationNote
+                generationNote: automaticGenerationNote,
+                hasCompletedAnimation: completedAutomaticSummaryAnimationIDs.contains(
+                    AutomaticGeneratedSchoolSummary.animationID(
+                        count: automaticGeneratedCount,
+                        scopeNote: automaticGenerationScopeNote,
+                        generationNote: automaticGenerationNote
+                    )
+                ),
+                onAnimationCompleted: onAutomaticSummaryAnimationCompleted
             )
         }
     }
@@ -1026,11 +1054,17 @@ private struct AutomaticGeneratedSchoolSummary: View {
     let count: Int
     let scopeNote: String
     let generationNote: String
+    let hasCompletedAnimation: Bool
+    let onAnimationCompleted: (String) -> Void
 
     @State private var showsNotes = false
 
-    private var resetID: String {
+    static func animationID(count: Int, scopeNote: String, generationNote: String) -> String {
         "\(count)-\(scopeNote)-\(generationNote)"
+    }
+
+    private var resetID: String {
+        Self.animationID(count: count, scopeNote: scopeNote, generationNote: generationNote)
     }
 
     var body: some View {
@@ -1045,10 +1079,12 @@ private struct AutomaticGeneratedSchoolSummary: View {
                     unit: "所",
                     font: .system(size: 26, weight: .black, design: .rounded),
                     foreground: .white,
+                    animates: !hasCompletedAnimation,
                     onSettled: {
                         withAnimation(.easeOut(duration: 0.28)) {
                             showsNotes = true
                         }
+                        onAnimationCompleted(resetID)
                     }
                 )
                 .id(resetID)
@@ -1066,10 +1102,15 @@ private struct AutomaticGeneratedSchoolSummary: View {
             }
         }
         .onAppear {
-            showsNotes = false
+            showsNotes = hasCompletedAnimation
         }
         .onChange(of: resetID) { _, _ in
-            showsNotes = false
+            showsNotes = hasCompletedAnimation
+        }
+        .onChange(of: hasCompletedAnimation) { _, completed in
+            if completed {
+                showsNotes = true
+            }
         }
     }
 }

@@ -11,6 +11,10 @@ struct CollegePickerView: View {
     let applicationRound: ApplicationRound
     @Binding var requestedSchoolCount: Int
     let currentResult: PortfolioResult?
+    let completedSchoolSetupAnimationIDs: Set<String>
+    let completedAutomaticSummaryAnimationIDs: Set<String>
+    let onSchoolSetupAnimationCompleted: (String) -> Void
+    let onAutomaticSummaryAnimationCompleted: (String) -> Void
     let onAutoRecommend: () -> Void
     let onBackToProfile: () -> Void
     let onShowExistingResults: () -> Void
@@ -79,7 +83,9 @@ struct CollegePickerView: View {
                                     } else {
                                         ProfileSelectionSettingsCard(
                                             profile: $profile,
-                                            fixedHeight: CalculatorView.profileCardHeight
+                                            fixedHeight: CalculatorView.profileCardHeight,
+                                            completedAutomaticSummaryAnimationIDs: completedAutomaticSummaryAnimationIDs,
+                                            onAutomaticSummaryAnimationCompleted: onAutomaticSummaryAnimationCompleted
                                         )
                                     }
                                 },
@@ -136,6 +142,15 @@ struct CollegePickerView: View {
                 requestedSchoolCount: $requestedSchoolCount,
                 includeLiberalArtsColleges: includeLiberalArtsColleges,
                 applicationRound: applicationRound,
+                hasCompletedCountAnimation: completedSchoolSetupAnimationIDs.contains(
+                    SchoolSetupCard.animationID(
+                        selectedCount: selectedCollegeIDs.count,
+                        selectedColleges: selectedColleges,
+                        includeLiberalArtsColleges: includeLiberalArtsColleges,
+                        applicationRound: applicationRound
+                    )
+                ),
+                onCountAnimationCompleted: onSchoolSetupAnimationCompleted,
                 onAutoRecommend: {
                     onAutoRecommend()
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
@@ -329,13 +344,29 @@ struct SchoolSetupCard: View {
     @Binding var requestedSchoolCount: Int
     let includeLiberalArtsColleges: Bool
     let applicationRound: ApplicationRound
+    let hasCompletedCountAnimation: Bool
+    let onCountAnimationCompleted: (String) -> Void
     let onAutoRecommend: () -> Void
 
     @State private var showsSelectionNotes = false
 
-    private var selectionResetID: String {
+    static func animationID(
+        selectedCount: Int,
+        selectedColleges: [College],
+        includeLiberalArtsColleges: Bool,
+        applicationRound: ApplicationRound
+    ) -> String {
         let selectedIDs = selectedColleges.map(\.id).joined(separator: ",")
         return "\(selectedCount)-\(includeLiberalArtsColleges)-\(applicationRound.rawValue)-\(selectedIDs)"
+    }
+
+    private var selectionResetID: String {
+        Self.animationID(
+            selectedCount: selectedCount,
+            selectedColleges: selectedColleges,
+            includeLiberalArtsColleges: includeLiberalArtsColleges,
+            applicationRound: applicationRound
+        )
     }
 
     var body: some View {
@@ -350,10 +381,12 @@ struct SchoolSetupCard: View {
                     value: selectedCount,
                     font: .system(size: 58, weight: .black, design: .rounded),
                     foreground: .white,
+                    animates: !hasCompletedCountAnimation,
                     onSettled: {
                         withAnimation(.easeOut(duration: 0.28)) {
                             showsSelectionNotes = true
                         }
+                        onCountAnimationCompleted(selectionResetID)
                     }
                 )
                 .id(selectionResetID)
@@ -399,10 +432,15 @@ struct SchoolSetupCard: View {
             }
         }
         .onAppear {
-            showsSelectionNotes = false
+            showsSelectionNotes = hasCompletedCountAnimation
         }
         .onChange(of: selectionResetID) { _, _ in
-            showsSelectionNotes = false
+            showsSelectionNotes = hasCompletedCountAnimation
+        }
+        .onChange(of: hasCompletedCountAnimation) { _, completed in
+            if completed {
+                showsSelectionNotes = true
+            }
         }
     }
 }

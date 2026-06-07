@@ -387,6 +387,7 @@ struct AdmissionAnimatedCountText: View {
     var font: Font = .system(size: 28, weight: .black, design: .rounded)
     var foreground: Color = .white
     var startDelayMilliseconds = 0
+    var animates = true
     var onSettled: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -411,13 +412,19 @@ struct AdmissionAnimatedCountText: View {
         .lineLimit(1)
         .minimumScaleFactor(0.70)
         .accessibilityLabel("\(targetValue)\(unit ?? "")")
-        .task(id: targetValue) {
+        .task(id: "\(targetValue)-\(animates)") {
             await animateToTarget()
         }
     }
 
     @MainActor
     private func animateToTarget() async {
+        if !animates {
+            displayedValue = targetValue
+            onSettled?()
+            return
+        }
+
         displayedValue = 0
 
         if reduceMotion {

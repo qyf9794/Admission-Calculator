@@ -132,12 +132,6 @@ struct ResultsView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            Button(action: {}) {
-                Label("分析结果", systemImage: "doc.text.magnifyingglass")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.pinkMist))
-
             Text("估算结果用于申请规划，不代表录取承诺。逐校概率与具体建议会在付费报告中显示。")
                 .font(.caption)
                 .foregroundStyle(Color.black.opacity(0.52))

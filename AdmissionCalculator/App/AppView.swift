@@ -16,6 +16,8 @@ struct AppView: View {
     @State private var latestResult: PortfolioResult?
     @State private var selectionProfileSnapshot: StudentProfile?
     @State private var completedResultAnimationDates: Set<Date> = []
+    @State private var completedSchoolSetupAnimationIDs: Set<String> = []
+    @State private var completedAutomaticSummaryAnimationIDs: Set<String> = []
     @State private var stage: AdmissionFlowStage = .hero
     @State private var profileInitialCardIndex = 0
     @State private var schoolInitialCardIndex = 0
@@ -40,6 +42,10 @@ struct AppView: View {
                         selectedCollegeIDs: $selectedCollegeIDs,
                         selectionSource: $selectionSource,
                         canSwipeToCollegeSelection: selectionIsCurrentForProfile,
+                        completedSchoolSetupAnimationIDs: completedSchoolSetupAnimationIDs,
+                        completedAutomaticSummaryAnimationIDs: completedAutomaticSummaryAnimationIDs,
+                        onSchoolSetupAnimationCompleted: markSchoolSetupAnimationCompleted,
+                        onAutomaticSummaryAnimationCompleted: markAutomaticSummaryAnimationCompleted,
                         onOpenCollegeSelection: openCollegeSelection
                     )
                 case .schools:
@@ -52,6 +58,10 @@ struct AppView: View {
                         applicationRound: profile.round,
                         requestedSchoolCount: $profile.requestedSchoolCount,
                         currentResult: currentResultForNavigation,
+                        completedSchoolSetupAnimationIDs: completedSchoolSetupAnimationIDs,
+                        completedAutomaticSummaryAnimationIDs: completedAutomaticSummaryAnimationIDs,
+                        onSchoolSetupAnimationCompleted: markSchoolSetupAnimationCompleted,
+                        onAutomaticSummaryAnimationCompleted: markAutomaticSummaryAnimationCompleted,
                         onAutoRecommend: autoRecommendForSelection,
                         onBackToProfile: {
                             profileInitialCardIndex = CalculatorView.lastProfileCardIndex
@@ -129,6 +139,8 @@ struct AppView: View {
         latestResult = nil
         selectionProfileSnapshot = nil
         completedResultAnimationDates = []
+        completedSchoolSetupAnimationIDs = []
+        completedAutomaticSummaryAnimationIDs = []
         profileInitialCardIndex = 0
         schoolInitialCardIndex = 0
         purchaseState.resetForNewCalculation()
@@ -174,6 +186,14 @@ struct AppView: View {
             return
         }
         completedResultAnimationDates.insert(latestResult.generatedAt)
+    }
+
+    private func markSchoolSetupAnimationCompleted(_ id: String) {
+        completedSchoolSetupAnimationIDs.insert(id)
+    }
+
+    private func markAutomaticSummaryAnimationCompleted(_ id: String) {
+        completedAutomaticSummaryAnimationIDs.insert(id)
     }
 }
 
