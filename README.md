@@ -93,7 +93,7 @@ Edit the reviewed source files in `data/`, then regenerate:
 - `data/international_student_signals.csv`: undergraduate-only international data; admit coefficient is used only when undergraduate international admitted count and total admitted count are both available.
 - `data/china_undergrad_admissions.csv`: China student undergraduate admit-count signal from reviewed table data.
 - `data/major_selectivity_signals.csv`: school-specific major/program selectivity signals, with `entry_year` for Fall matriculation year, optional `class_year` for graduating class year, and `source_tier` separating official, institution-adjacent, reputable secondary, and consultant-estimate rows.
-- `data/china_high_schools.json`: China high school context proxy.
+- `data/china_high_schools.json`: China high school context proxy; keep `unknown` first and the named-school directory pre-sorted by school-name initial/pinyin order before regenerating.
 - `data/liberal_arts_unitids.json`: reviewed IPEDS/Scorecard UnitID map for official Liberal Arts College rate import.
 - `data/source_registry.json`: source roles, confidence, and refresh notes.
 

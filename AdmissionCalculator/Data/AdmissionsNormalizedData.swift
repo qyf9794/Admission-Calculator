@@ -4672,6 +4672,36 @@ enum AdmissionsNormalizedData {
             transparency: 2
         ),
         HighSchoolContext(
+            id: "ar_288",
+            name: "北京大学附属中学道尔顿学院",
+            city: "北京",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_161",
+            name: "北京德威英国国际学校",
+            city: "北京",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_13479",
+            name: "北京海淀凯文学校",
+            city: "北京",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 4
+        ),
+        HighSchoolContext(
             id: "bnu_experimental",
             name: "北京师范大学附属实验中学国际部",
             city: "北京",
@@ -4682,139 +4712,29 @@ enum AdmissionsNormalizedData {
             transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_32",
-            name: "深圳国际交流书院",
-            city: "深圳",
-            admitRankingBand: 1,
+            id: "ar_274",
+            name: "北京市第八十中学国际部",
+            city: "北京",
+            admitRankingBand: 2,
             resources: 5,
             counseling: 5,
             top30TrackRecord: 5,
             transparency: 5
         ),
         HighSchoolContext(
-            id: "shsid",
-            name: "上海中学国际部",
-            city: "上海",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "shenzhen_middle",
-            name: "深圳中学国际部",
-            city: "深圳",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "world_foreign",
-            name: "上海市世外中学",
-            city: "上海",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "rdfz_icc",
-            name: "中国人民大学附属中学国际课程中心",
+            id: "ar_54",
+            name: "北京市第二中学国际部",
             city: "北京",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "beijing_11",
-            name: "北京市十一学校国际部",
-            city: "北京",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
             transparency: 3
         ),
         HighSchoolContext(
             id: "ar_529",
             name: "北京市第一零一中学国际部",
             city: "北京",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_26",
-            name: "上海民办包玉刚实验学校",
-            city: "上海",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "pinghe",
-            name: "上海市民办平和学校",
-            city: "上海",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "uwc_changshu",
-            name: "UWC 常熟",
-            city: "苏州",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_89",
-            name: "广东碧桂园学校",
-            city: "佛山",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_518",
-            name: "WLSA上海学校",
-            city: "上海",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "starriver",
-            name: "上海星河湾双语学校",
-            city: "上海",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_86",
-            name: "华南师范大学附属中学国际部（HFI）",
-            city: "广州",
             admitRankingBand: 1,
             resources: 5,
             counseling: 5,
@@ -4832,314 +4752,44 @@ enum AdmissionsNormalizedData {
             transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_20",
-            name: "上海美国学校浦西校区",
-            city: "上海",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_507",
-            name: "上海德威外籍人员子女学校（浦东）",
-            city: "上海",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_1189",
-            name: "华润小径湾贝赛思国际学校",
-            city: "惠州",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_98",
-            name: "北京顺义国际学校",
+            id: "ar_12510",
+            name: "北京市海淀区稻香湖学校",
             city: "北京",
-            admitRankingBand: 1,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_12320",
-            name: "上海协和国际外籍人员子女学校",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_184",
-            name: "华东师范大学第二附属中学国际课程班",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_11444",
-            name: "东莞松山湖清澜山学校",
-            city: "东莞",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_73",
-            name: "广州外国语学校青藤AP&AL课程",
-            city: "广州",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_77",
-            name: "上海七宝德怀特高级中学",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_701",
-            name: "重庆市育才中学校",
-            city: "重庆",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_206",
-            name: "山东省实验中学国际部",
-            city: "济南",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_274",
-            name: "北京市第八十中学国际部",
-            city: "北京",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_11336",
-            name: "西安高新第一中学国际课程班",
-            city: "西安",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_76",
-            name: "北京四中国际校区",
-            city: "北京",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_530",
-            name: "南京市金陵中学国际部中美班",
-            city: "南京",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_1097",
-            name: "西安铁一中国际课程中心",
-            city: "西安",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_153",
-            name: "上海光华学院剑桥国际中心",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_419",
-            name: "深圳贝赛思国际学校（蛇口）",
-            city: "深圳",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_161",
-            name: "北京德威英国国际学校",
-            city: "北京",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_1085",
-            name: "广州贝赛思国际学校",
-            city: "广州",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_233",
-            name: "成都外国语学校AP、A-Level课程中心",
-            city: "成都",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_404",
-            name: "广东实验中学中美课程（省实中美课程/省实AP）",
-            city: "广州",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_10236",
-            name: "苏州外国语学校国际部",
-            city: "苏州",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_505",
-            name: "成都树德中学国际部",
-            city: "成都",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_95",
-            name: "上海交通大学附属中学IB课程中心",
-            city: "上海",
-            admitRankingBand: 2,
+            admitRankingBand: 3,
             resources: 4,
             counseling: 4,
-            top30TrackRecord: 5,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_396",
-            name: "上海协和双语学校古北校区",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_39",
-            name: "武汉英中学校",
-            city: "武汉",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_156",
-            name: "领科教育上海校区",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_11302",
-            name: "上海浦东新区民办惠立学校",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 5,
-            top30TrackRecord: 5,
+            top30TrackRecord: 4,
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_97",
-            name: "重庆南开中学国际课程中心",
-            city: "重庆",
-            admitRankingBand: 2,
-            resources: 5,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_557",
-            name: "清华大学附属中学国际部",
+            id: "ar_551",
+            name: "北京市海淀外国语实验学校国际部",
             city: "北京",
-            admitRankingBand: 2,
+            admitRankingBand: 3,
             resources: 4,
             counseling: 4,
             top30TrackRecord: 4,
             transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_1225",
+            name: "北京市海嘉学校",
+            city: "北京",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "beijing_11",
+            name: "北京市十一学校国际部",
+            city: "北京",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 3
         ),
         HighSchoolContext(
             id: "ar_437",
@@ -5152,23 +4802,63 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_11275",
-            name: "南京贝赛思国际学校",
-            city: "南京",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
+            id: "ar_98",
+            name: "北京顺义国际学校",
+            city: "北京",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
             top30TrackRecord: 5,
             transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_12321",
-            name: "上海浦东新区民办万科学校",
-            city: "上海",
+            id: "ar_76",
+            name: "北京四中国际校区",
+            city: "北京",
             admitRankingBand: 2,
             resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_164",
+            name: "北京王府学校",
+            city: "北京",
+            admitRankingBand: 2,
+            resources: 4,
             counseling: 4,
             top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_87",
+            name: "成都七中国际部",
+            city: "成都",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_505",
+            name: "成都树德中学国际部",
+            city: "成都",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_233",
+            name: "成都外国语学校AP、A-Level课程中心",
+            city: "成都",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
             transparency: 5
         ),
         HighSchoolContext(
@@ -5182,164 +4872,24 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_716",
-            name: "济南外国语学校国际课程中心",
-            city: "济南",
+            id: "ar_97",
+            name: "重庆南开中学国际课程中心",
+            city: "重庆",
             admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_383",
-            name: "上海协和双语学校万源校区",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_164",
-            name: "北京王府学校",
-            city: "北京",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_475",
-            name: "南京外国语学校IB课程中心",
-            city: "南京",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_10095",
-            name: "杭州贝赛思国际学校",
-            city: "杭州",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 5,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_13722",
-            name: "青岛中学国际部",
-            city: "青岛",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_430",
-            name: "苏州德威外籍人员子女学校",
-            city: "苏州",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_674",
-            name: "上海宋庆龄学校",
-            city: "上海",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_105",
-            name: "天津法拉古特学校",
-            city: "天津",
-            admitRankingBand: 2,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_267",
-            name: "深圳市高级中学国际部",
-            city: "深圳",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_409",
-            name: "南京市第一中学国际部",
-            city: "南京",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 5,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_288",
-            name: "北京大学附属中学道尔顿学院",
-            city: "北京",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_169",
-            name: "长沙市雅礼中学国际部",
-            city: "长沙",
-            admitRankingBand: 3,
             resources: 5,
             counseling: 4,
             top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_12523",
-            name: "深圳外国语学校高中部国际书院(盐田)",
-            city: "深圳",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_10040",
-            name: "上海市民办文绮中学国际部·汇点美高",
-            city: "上海",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_266",
-            name: "深圳外国语学校国际部(南山)",
-            city: "深圳",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
             transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_701",
+            name: "重庆市育才中学校",
+            city: "重庆",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
         ),
         HighSchoolContext(
             id: "ar_199",
@@ -5352,9 +4902,19 @@ enum AdmissionsNormalizedData {
             transparency: 3
         ),
         HighSchoolContext(
-            id: "ar_211",
-            name: "江苏省天一中学国际部",
-            city: "无锡",
+            id: "ar_11444",
+            name: "东莞松山湖清澜山学校",
+            city: "东莞",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_700",
+            name: "光华启迪·个人学校",
+            city: "上海",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5362,8 +4922,98 @@ enum AdmissionsNormalizedData {
             transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_376",
-            name: "杭州外国语学校剑桥国际高中",
+            id: "ar_89",
+            name: "广东碧桂园学校",
+            city: "佛山",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_10152",
+            name: "广东广雅中学国际部",
+            city: "广州",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_404",
+            name: "广东实验中学中美课程（省实中美课程/省实AP）",
+            city: "广州",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_12899",
+            name: "广州（荔湾）爱莎文华高中",
+            city: "广州",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_1085",
+            name: "广州贝赛思国际学校",
+            city: "广州",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_12693",
+            name: "广州科学城爱莎外籍人员子女学校",
+            city: "广州",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_73",
+            name: "广州外国语学校青藤AP&AL课程",
+            city: "广州",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_10095",
+            name: "杭州贝赛思国际学校",
+            city: "杭州",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_1218",
+            name: "杭州橄榄树学校",
+            city: "杭州",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_814",
+            name: "杭州市第十四中学国际部",
             city: "杭州",
             admitRankingBand: 3,
             resources: 4,
@@ -5372,49 +5022,9 @@ enum AdmissionsNormalizedData {
             transparency: 3
         ),
         HighSchoolContext(
-            id: "ar_285",
-            name: "深大师院国际高中（AISSU）",
-            city: "深圳",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_828",
-            name: "上海新纪元双语学校",
-            city: "上海",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_298",
-            name: "上海民办位育中学国际部",
-            city: "上海",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 3
-        ),
-        HighSchoolContext(
-            id: "ar_141",
-            name: "上海市民办中芯学校国际部",
-            city: "上海",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_54",
-            name: "北京市第二中学国际部",
-            city: "北京",
+            id: "ar_376",
+            name: "杭州外国语学校剑桥国际高中",
+            city: "杭州",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5432,6 +5042,126 @@ enum AdmissionsNormalizedData {
             transparency: 4
         ),
         HighSchoolContext(
+            id: "ar_184",
+            name: "华东师范大学第二附属中学国际课程班",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_86",
+            name: "华南师范大学附属中学国际部（HFI）",
+            city: "广州",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_1189",
+            name: "华润小径湾贝赛思国际学校",
+            city: "惠州",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_716",
+            name: "济南外国语学校国际课程中心",
+            city: "济南",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_211",
+            name: "江苏省天一中学国际部",
+            city: "无锡",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_156",
+            name: "领科教育上海校区",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_11275",
+            name: "南京贝赛思国际学校",
+            city: "南京",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_409",
+            name: "南京市第一中学国际部",
+            city: "南京",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_530",
+            name: "南京市金陵中学国际部中美班",
+            city: "南京",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_475",
+            name: "南京外国语学校IB课程中心",
+            city: "南京",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_260",
+            name: "宁波市镇海赫威斯肯特学校",
+            city: "宁波",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_410",
+            name: "宁波外国语学校国际部",
+            city: "宁波",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 4
+        ),
+        HighSchoolContext(
             id: "ar_79",
             name: "宁波效实中学国际部",
             city: "宁波",
@@ -5442,19 +5172,59 @@ enum AdmissionsNormalizedData {
             transparency: 3
         ),
         HighSchoolContext(
-            id: "ar_551",
-            name: "北京市海淀外国语实验学校国际部",
+            id: "ar_13722",
+            name: "青岛中学国际部",
+            city: "青岛",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_557",
+            name: "清华大学附属中学国际部",
             city: "北京",
-            admitRankingBand: 3,
+            admitRankingBand: 2,
             resources: 4,
             counseling: 4,
             top30TrackRecord: 4,
             transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_12510",
-            name: "北京市海淀区稻香湖学校",
-            city: "北京",
+            id: "ar_206",
+            name: "山东省实验中学国际部",
+            city: "济南",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_507",
+            name: "上海德威外籍人员子女学校（浦东）",
+            city: "上海",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_153",
+            name: "上海光华学院剑桥国际中心",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_11562",
+            name: "上海赫贤学校",
+            city: "上海",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5462,9 +5232,59 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_12693",
-            name: "广州科学城爱莎外籍人员子女学校",
-            city: "广州",
+            id: "ar_144",
+            name: "上海建平中学国际课程班",
+            city: "上海",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_95",
+            name: "上海交通大学附属中学IB课程中心",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 5,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_20",
+            name: "上海美国学校浦西校区",
+            city: "上海",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_26",
+            name: "上海民办包玉刚实验学校",
+            city: "上海",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_298",
+            name: "上海民办位育中学国际部",
+            city: "上海",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_1234",
+            name: "上海闵行区万科双语高中",
+            city: "上海",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5482,19 +5302,59 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_1225",
-            name: "北京市海嘉学校",
-            city: "北京",
+            id: "ar_11302",
+            name: "上海浦东新区民办惠立学校",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_12321",
+            name: "上海浦东新区民办万科学校",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_77",
+            name: "上海七宝德怀特高级中学",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "pinghe",
+            name: "上海市民办平和学校",
+            city: "上海",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "ar_99",
+            name: "上海市民办尚德实验学校",
+            city: "上海",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
             top30TrackRecord: 4,
-            transparency: 3
+            transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_260",
-            name: "宁波市镇海赫威斯肯特学校",
-            city: "宁波",
+            id: "ar_10040",
+            name: "上海市民办文绮中学国际部·汇点美高",
+            city: "上海",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5502,9 +5362,129 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_10152",
-            name: "广东广雅中学国际部",
-            city: "广州",
+            id: "ar_141",
+            name: "上海市民办中芯学校国际部",
+            city: "上海",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "world_foreign",
+            name: "上海市世外中学",
+            city: "上海",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_674",
+            name: "上海宋庆龄学校",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_12320",
+            name: "上海协和国际外籍人员子女学校",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_396",
+            name: "上海协和双语学校古北校区",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_383",
+            name: "上海协和双语学校万源校区",
+            city: "上海",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_828",
+            name: "上海新纪元双语学校",
+            city: "上海",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "starriver",
+            name: "上海星河湾双语学校",
+            city: "上海",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 3
+        ),
+        HighSchoolContext(
+            id: "shsid",
+            name: "上海中学国际部",
+            city: "上海",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_285",
+            name: "深大师院国际高中（AISSU）",
+            city: "深圳",
+            admitRankingBand: 3,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_419",
+            name: "深圳贝赛思国际学校（蛇口）",
+            city: "深圳",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_32",
+            name: "深圳国际交流书院",
+            city: "深圳",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_1383",
+            name: "深圳国际预科书院",
+            city: "深圳",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5522,9 +5502,9 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_1234",
-            name: "上海闵行区万科双语高中",
-            city: "上海",
+            id: "ar_267",
+            name: "深圳市高级中学国际部",
+            city: "深圳",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5532,9 +5512,9 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_1218",
-            name: "杭州橄榄树学校",
-            city: "杭州",
+            id: "ar_12523",
+            name: "深圳外国语学校高中部国际书院(盐田)",
+            city: "深圳",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5542,19 +5522,9 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_13479",
-            name: "北京海淀凯文学校",
-            city: "北京",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 4
-        ),
-        HighSchoolContext(
-            id: "ar_814",
-            name: "杭州市第十四中学国际部",
-            city: "杭州",
+            id: "ar_266",
+            name: "深圳外国语学校国际部(南山)",
+            city: "深圳",
             admitRankingBand: 3,
             resources: 4,
             counseling: 4,
@@ -5572,24 +5542,44 @@ enum AdmissionsNormalizedData {
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_12899",
-            name: "广州（荔湾）爱莎文华高中",
-            city: "广州",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 5
+            id: "shenzhen_middle",
+            name: "深圳中学国际部",
+            city: "深圳",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 3
         ),
         HighSchoolContext(
-            id: "ar_700",
-            name: "光华启迪·个人学校",
-            city: "上海",
-            admitRankingBand: 3,
+            id: "ar_430",
+            name: "苏州德威外籍人员子女学校",
+            city: "苏州",
+            admitRankingBand: 2,
             resources: 4,
             counseling: 4,
             top30TrackRecord: 4,
             transparency: 4
+        ),
+        HighSchoolContext(
+            id: "ar_10236",
+            name: "苏州外国语学校国际部",
+            city: "苏州",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_105",
+            name: "天津法拉古特学校",
+            city: "天津",
+            admitRankingBand: 2,
+            resources: 4,
+            counseling: 4,
+            top30TrackRecord: 4,
+            transparency: 5
         ),
         HighSchoolContext(
             id: "ar_578",
@@ -5602,64 +5592,74 @@ enum AdmissionsNormalizedData {
             transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_410",
-            name: "宁波外国语学校国际部",
-            city: "宁波",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
+            id: "ar_39",
+            name: "武汉英中学校",
+            city: "武汉",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
             transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_1383",
-            name: "深圳国际预科书院",
-            city: "深圳",
+            id: "ar_11336",
+            name: "西安高新第一中学国际课程班",
+            city: "西安",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_1097",
+            name: "西安铁一中国际课程中心",
+            city: "西安",
+            admitRankingBand: 2,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 5
+        ),
+        HighSchoolContext(
+            id: "ar_169",
+            name: "长沙市雅礼中学国际部",
+            city: "长沙",
             admitRankingBand: 3,
-            resources: 4,
+            resources: 5,
             counseling: 4,
             top30TrackRecord: 4,
             transparency: 5
         ),
         HighSchoolContext(
-            id: "ar_87",
-            name: "成都七中国际部",
-            city: "成都",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
+            id: "rdfz_icc",
+            name: "中国人民大学附属中学国际课程中心",
+            city: "北京",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
             transparency: 4
         ),
         HighSchoolContext(
-            id: "ar_144",
-            name: "上海建平中学国际课程班",
-            city: "上海",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 4
+            id: "uwc_changshu",
+            name: "UWC 常熟",
+            city: "苏州",
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
+            transparency: 3
         ),
         HighSchoolContext(
-            id: "ar_11562",
-            name: "上海赫贤学校",
+            id: "ar_518",
+            name: "WLSA上海学校",
             city: "上海",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
+            admitRankingBand: 1,
+            resources: 5,
+            counseling: 5,
+            top30TrackRecord: 5,
             transparency: 5
-        ),
-        HighSchoolContext(
-            id: "ar_99",
-            name: "上海市民办尚德实验学校",
-            city: "上海",
-            admitRankingBand: 3,
-            resources: 4,
-            counseling: 4,
-            top30TrackRecord: 4,
-            transparency: 4
         )
     ]
 

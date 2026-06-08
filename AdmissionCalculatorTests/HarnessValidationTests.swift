@@ -243,6 +243,17 @@ final class HarnessValidationTests: XCTestCase {
         )
     }
 
+    func testHighSchoolDirectoryKeepsStaticInitialOrder() {
+        let highSchools = AdmissionsSeedData.highSchools
+
+        XCTAssertEqual(highSchools.first?.id, "unknown")
+        XCTAssertEqual(
+            Array(highSchools.dropFirst().prefix(4).map(\.id)),
+            ["ar_288", "ar_161", "ar_13479", "bnu_experimental"]
+        )
+        XCTAssertEqual(Array(highSchools.suffix(2).map(\.id)), ["uwc_changshu", "ar_518"])
+    }
+
     func testInternationalAdmitCoefficientRequiresAdmittedCounts() {
         for signal in AdmissionsSeedData.internationalSignals where signal.internationalAdmitCoefficient != nil {
             XCTAssertNotNil(signal.internationalAdmittedCount, signal.collegeID)

@@ -96,7 +96,7 @@ The result is an explainable estimate, not a promise of admission.
 4. Review `data/china_undergrad_admissions.csv`; China admitted counts require source notes and cannot imply all-admit share without a denominator.
 5. Review `data/academic_benchmarks.csv`; replace inferred proxy rows with official CDS/class profile values whenever available.
 6. Review `data/major_selectivity_signals.csv`; official rows may use school/college/major admit rates, while secondary rows must retain source_tier and proxy disclosure.
-7. Update `data/china_high_schools.json` only as a disclosed proxy. The generated high-school list order should keep `unknown` first and otherwise use the reviewed source order so the UI does not sort or pinyin-transform the list at runtime.
+7. Update `data/china_high_schools.json` only as a disclosed proxy. The high-school directory should keep `unknown` first and otherwise keep the reviewed source data pre-sorted by school-name initial/pinyin order, so the UI does not sort or pinyin-transform the list at runtime.
 8. Run `node scripts/update-admissions-data.mjs` to regenerate `AdmissionCalculator/Data/AdmissionsNormalizedData.swift`.
 9. Run `npm run data:verify` and the unit tests before shipping.
 
