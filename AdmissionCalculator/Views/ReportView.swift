@@ -4,14 +4,13 @@ import QuickLook
 
 struct ReportView: View {
     let result: PortfolioResult?
+    @Binding var generatedReports: [GeneratedReportPDF]
     @ObservedObject var purchaseState: ReportPurchaseState
     let isStale: Bool
     let onBackToResults: () -> Void
     let onStartOver: () -> Void
     var client = ReportProxyClient()
 
-    @State private var reportText: String?
-    @State private var generatedReports: [GeneratedReportPDF] = []
     @State private var pdfPreviewDocument: ReportPDFDocument?
     @State private var pdfErrorMessage: String?
     @State private var isPaymentInProgress = false
@@ -58,10 +57,8 @@ struct ReportView: View {
                             isGenerating: isGenerating,
                             generationStartedAt: generationStartedAt,
                             errorMessage: errorMessage,
-                            primaryPreviewsPDF: hasCurrentResultPDF(for: result),
                             pdfErrorMessage: pdfErrorMessage,
                             onGenerate: { showingPaymentSheet = true },
-                            onPreviewReport: { previewCurrentResultReport(for: result) },
                             onShowDataSources: { showingDataSources = true }
                         )
 
@@ -150,7 +147,6 @@ struct ReportView: View {
                 let generated = try await client.generateReport(prompt: prompt, transaction: transaction)
                 let merged = ReportService.mergeGeneratedReport(generated, result: result)
                 await MainActor.run {
-                    reportText = merged
                     do {
                         let url = try writePDF(text: merged, result: result)
                         let report = GeneratedReportPDF(
@@ -161,7 +157,6 @@ struct ReportView: View {
                             selectedAtLeastOne: result.selectedAtLeastOne
                         )
                         generatedReports.insert(report, at: 0)
-                        pdfPreviewDocument = ReportPDFDocument(url: url)
                         pdfErrorMessage = nil
                     } catch {
                         pdfErrorMessage = "PDF 预览生成失败：\(error.localizedDescription)"
@@ -188,49 +183,12 @@ struct ReportView: View {
         }
     }
 
-    private func hasCurrentResultPDF(for result: PortfolioResult) -> Bool {
-        currentResultReport(for: result) != nil
-    }
-
-    private func exportPDF(text: String, result: PortfolioResult) {
-        do {
-            let url = try writePDF(text: text, result: result)
-            let report = GeneratedReportPDF(
-                url: url,
-                resultGeneratedAt: result.generatedAt,
-                createdAt: Date(),
-                schoolCount: result.schoolResults.count,
-                selectedAtLeastOne: result.selectedAtLeastOne
-            )
-            generatedReports.insert(report, at: 0)
-            pdfPreviewDocument = ReportPDFDocument(url: url)
-            pdfErrorMessage = nil
-        } catch {
-            pdfErrorMessage = "PDF 生成失败：\(error.localizedDescription)"
-        }
-    }
-
     private func writePDF(text: String, result: PortfolioResult) throws -> URL {
         try ReportPDFRenderer.write(
             text: text,
             result: result,
             fileName: "Admission-Report-\(Self.pdfDateFormatter.string(from: result.generatedAt)).pdf"
         )
-    }
-
-    private func currentResultReport(for result: PortfolioResult) -> GeneratedReportPDF? {
-        guard !isStale else {
-            return nil
-        }
-        return generatedReports.first { $0.resultGeneratedAt == result.generatedAt }
-    }
-
-    private func previewCurrentResultReport(for result: PortfolioResult) {
-        guard let report = currentResultReport(for: result) else {
-            showingPaymentSheet = true
-            return
-        }
-        previewGeneratedReport(report)
     }
 
     private func previewGeneratedReport(_ report: GeneratedReportPDF) {
@@ -423,10 +381,8 @@ private struct ReportActionCard: View {
     let isGenerating: Bool
     let generationStartedAt: Date?
     let errorMessage: String?
-    let primaryPreviewsPDF: Bool
     let pdfErrorMessage: String?
     let onGenerate: () -> Void
-    let onPreviewReport: () -> Void
     let onShowDataSources: () -> Void
 
     var body: some View {
@@ -443,11 +399,7 @@ private struct ReportActionCard: View {
             }
             HStack(spacing: 10) {
                 Button {
-                    if primaryPreviewsPDF {
-                        onPreviewReport()
-                    } else {
-                        onGenerate()
-                    }
+                    onGenerate()
                 } label: {
                     HStack(spacing: 8) {
                         if isGenerating {
@@ -625,7 +577,7 @@ private struct ReportGenerationStage {
     let symbolName: String
 }
 
-private struct GeneratedReportPDF: Identifiable, Hashable {
+struct GeneratedReportPDF: Identifiable, Hashable {
     let id = UUID()
     let url: URL
     let resultGeneratedAt: Date
@@ -938,7 +890,25 @@ enum ReportPDFRenderer {
             var y = drawHeader(result: result, in: pageRect, margin: margin)
             y = drawProbabilityCards(result: result, in: pageRect, margin: margin, y: y) + 18
 
-            for rawLine in text.components(separatedBy: .newlines) {
+            let lines = text.components(separatedBy: .newlines)
+            var lineIndex = 0
+            while lineIndex < lines.count {
+                if let table = markdownTable(startingAt: lineIndex, in: lines) {
+                    y = drawMarkdownTable(
+                        table,
+                        context: context,
+                        result: result,
+                        pageRect: pageRect,
+                        margin: margin,
+                        startY: y,
+                        contentWidth: contentWidth,
+                        bottomLimit: bottomLimit
+                    )
+                    lineIndex = table.nextLineIndex
+                    continue
+                }
+
+                let rawLine = lines[lineIndex]
                 let displayLine = normalizeMarkdown(rawLine)
                 let attributes = attributesForLine(rawLine)
                 let lineHeight = height(for: displayLine, width: contentWidth, attributes: attributes)
@@ -952,10 +922,17 @@ enum ReportPDFRenderer {
                 let drawRect = CGRect(x: margin, y: y, width: contentWidth, height: lineHeight)
                 (displayLine as NSString).draw(with: drawRect, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes, context: nil)
                 y += lineHeight + spacing
+                lineIndex += 1
             }
         }
 
         return url
+    }
+
+    private struct MarkdownTable {
+        let headers: [String]
+        let rows: [[String]]
+        let nextLineIndex: Int
     }
 
     private static func beginPage(context: UIGraphicsPDFRendererContext, pageRect: CGRect) {
@@ -1118,6 +1095,200 @@ enum ReportPDFRenderer {
 
     private static func tierCount(category: CollegeCategory, minRankExclusive: Int = 0, maxRank: Int, result: PortfolioResult) -> Int {
         result.schoolResults.filter { $0.college.category == category && $0.college.rank > minRankExclusive && $0.college.rank <= maxRank }.count
+    }
+
+    private static func markdownTable(startingAt index: Int, in lines: [String]) -> MarkdownTable? {
+        guard index + 1 < lines.count,
+              let headers = parseMarkdownTableRow(lines[index]),
+              headers.count >= 2,
+              isMarkdownSeparatorLine(lines[index + 1])
+        else {
+            return nil
+        }
+
+        var rows: [[String]] = []
+        var nextIndex = index + 2
+        while nextIndex < lines.count,
+              let row = parseMarkdownTableRow(lines[nextIndex]),
+              !isMarkdownSeparatorLine(lines[nextIndex]) {
+            rows.append(normalizedTableCells(row, count: headers.count))
+            nextIndex += 1
+        }
+
+        return MarkdownTable(
+            headers: normalizedTableCells(headers, count: headers.count),
+            rows: rows,
+            nextLineIndex: nextIndex
+        )
+    }
+
+    private static func parseMarkdownTableRow(_ line: String) -> [String]? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.contains("|") else {
+            return nil
+        }
+
+        var content = trimmed
+        if content.hasPrefix("|") {
+            content.removeFirst()
+        }
+        if content.hasSuffix("|") {
+            content.removeLast()
+        }
+
+        let cells = content
+            .split(separator: "|", omittingEmptySubsequences: false)
+            .map { normalizeMarkdown(String($0)) }
+        return cells.count >= 2 ? cells : nil
+    }
+
+    private static func isMarkdownSeparatorLine(_ line: String) -> Bool {
+        guard let cells = parseMarkdownTableRow(line) else {
+            return false
+        }
+        return cells.allSatisfy { cell in
+            let compact = cell.replacingOccurrences(of: " ", with: "")
+            guard compact.contains("-") else {
+                return false
+            }
+            return compact.allSatisfy { character in
+                character == "-" || character == ":"
+            }
+        }
+    }
+
+    private static func normalizedTableCells(_ cells: [String], count: Int) -> [String] {
+        if cells.count == count {
+            return cells
+        }
+        if cells.count > count {
+            return Array(cells.prefix(count))
+        }
+        return cells + Array(repeating: "", count: count - cells.count)
+    }
+
+    private static func drawMarkdownTable(
+        _ table: MarkdownTable,
+        context: UIGraphicsPDFRendererContext,
+        result: PortfolioResult,
+        pageRect: CGRect,
+        margin: CGFloat,
+        startY: CGFloat,
+        contentWidth: CGFloat,
+        bottomLimit: CGFloat
+    ) -> CGFloat {
+        let columnWidths = tableColumnWidths(columnCount: table.headers.count, contentWidth: contentWidth)
+        let headerAttributes = tableCellAttributes(isHeader: true)
+        let bodyAttributes = tableCellAttributes(isHeader: false)
+        var y = startY + 3
+
+        func drawHeaderIfNeeded() {
+            let headerHeight = tableRowHeight(cells: table.headers, columnWidths: columnWidths, attributes: headerAttributes)
+            if y + headerHeight > bottomLimit {
+                beginPage(context: context, pageRect: pageRect)
+                y = drawHeader(result: result, in: pageRect, margin: margin)
+            }
+            drawTableRow(
+                cells: table.headers,
+                x: margin,
+                y: y,
+                columnWidths: columnWidths,
+                height: headerHeight,
+                attributes: headerAttributes,
+                isHeader: true
+            )
+            y += headerHeight
+        }
+
+        drawHeaderIfNeeded()
+
+        for row in table.rows {
+            let rowHeight = tableRowHeight(cells: row, columnWidths: columnWidths, attributes: bodyAttributes)
+            if y + rowHeight > bottomLimit {
+                beginPage(context: context, pageRect: pageRect)
+                y = drawHeader(result: result, in: pageRect, margin: margin)
+                drawHeaderIfNeeded()
+            }
+            drawTableRow(
+                cells: row,
+                x: margin,
+                y: y,
+                columnWidths: columnWidths,
+                height: rowHeight,
+                attributes: bodyAttributes,
+                isHeader: false
+            )
+            y += rowHeight
+        }
+
+        return y + 12
+    }
+
+    private static func tableColumnWidths(columnCount: Int, contentWidth: CGFloat) -> [CGFloat] {
+        guard columnCount > 0 else {
+            return []
+        }
+        let firstColumnWeight: CGFloat = columnCount >= 3 ? 1.35 : 1.0
+        let otherColumnWeight: CGFloat = 1.0
+        let totalWeight = firstColumnWeight + CGFloat(columnCount - 1) * otherColumnWeight
+        return (0..<columnCount).map { index in
+            let weight = index == 0 ? firstColumnWeight : otherColumnWeight
+            return floor(contentWidth * weight / totalWeight)
+        }
+    }
+
+    private static func tableCellAttributes(isHeader: Bool) -> [NSAttributedString.Key: Any] {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 2
+        paragraph.paragraphSpacing = 0
+        return [
+            .font: UIFont.systemFont(ofSize: isHeader ? 8.2 : 7.8, weight: isHeader ? .semibold : .regular),
+            .foregroundColor: UIColor.black,
+            .paragraphStyle: paragraph
+        ]
+    }
+
+    private static func tableRowHeight(cells: [String], columnWidths: [CGFloat], attributes: [NSAttributedString.Key: Any]) -> CGFloat {
+        let padding: CGFloat = 8
+        let heights = cells.enumerated().map { index, cell in
+            let width = max(16, columnWidths[min(index, columnWidths.count - 1)] - padding * 2)
+            return height(for: cell, width: width, attributes: attributes) + padding * 2
+        }
+        return max(24, ceil(heights.max() ?? 24))
+    }
+
+    private static func drawTableRow(
+        cells: [String],
+        x: CGFloat,
+        y: CGFloat,
+        columnWidths: [CGFloat],
+        height: CGFloat,
+        attributes: [NSAttributedString.Key: Any],
+        isHeader: Bool
+    ) {
+        let fillColor = isHeader ? UIColor(red: 0.95, green: 0.96, blue: 0.98, alpha: 1) : UIColor.white
+        let borderColor = UIColor(white: 0.84, alpha: 1)
+        var currentX = x
+
+        for (index, cell) in cells.enumerated() {
+            let width = columnWidths[min(index, columnWidths.count - 1)]
+            let cellRect = CGRect(x: currentX, y: y, width: width, height: height)
+            fillColor.setFill()
+            UIRectFill(cellRect)
+            borderColor.setStroke()
+            let borderPath = UIBezierPath(rect: cellRect)
+            borderPath.lineWidth = 0.5
+            borderPath.stroke()
+
+            let textRect = cellRect.insetBy(dx: 8, dy: 6)
+            (cell as NSString).draw(
+                with: textRect,
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: attributes,
+                context: nil
+            )
+            currentX += width
+        }
     }
 
     private static func normalizeMarkdown(_ line: String) -> String {

@@ -181,6 +181,7 @@ struct CollegePickerView: View {
                 ForEach(filteredColleges) { college in
                     CollegeSelectionCard(
                         college: college,
+                        chanceResult: currentResult?.schoolResults.first { $0.college.id == college.id },
                         isSelected: selectedCollegeIDs.contains(college.id),
                         allowsRemoval: filter != .selected,
                         select: { select(college.id) },
@@ -587,6 +588,7 @@ private struct SelectedPortfolioCard: View {
 
 private struct CollegeSelectionCard: View {
     let college: College
+    let chanceResult: ChanceResult?
     let isSelected: Bool
     let allowsRemoval: Bool
     let select: () -> Void
@@ -624,8 +626,8 @@ private struct CollegeSelectionCard: View {
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.leading)
                 HStack(spacing: 12) {
-                    MetricPill(title: "基础录取率", value: college.latestAvailableRate.formatted(.percent.precision(.fractionLength(1))), color: .blue)
-                    MetricPill(title: "目标分类", value: baseRateBucket.rawValue, color: .purple)
+                    MetricPill(title: "学生概率", value: studentProbabilityText, color: .blue)
+                    MetricPill(title: "目标分类", value: planningBucketText, color: .purple)
                 }
             }
             Spacer()
@@ -683,14 +685,22 @@ private struct CollegeSelectionCard: View {
         return [Color.white.opacity(0.11), tierColor.opacity(0.30), Color.black.opacity(0.72)]
     }
 
-    private var baseRateBucket: RecommendationBucket {
-        switch college.latestAvailableRate {
-        case ..<0.20:
-            return .reach
-        case ..<0.60:
-            return .target
-        default:
-            return .likely
+    private var studentProbabilityText: String {
+        guard let chanceResult else {
+            return "待计算"
+        }
+        return chanceResult.adjustedProbability.formatted(.percent.precision(.fractionLength(1)))
+    }
+
+    private var planningBucketText: String {
+        guard let chanceResult else {
+            return "先计算"
+        }
+        switch chanceResult.bucket {
+        case .blocked:
+            return "门槛未满足"
+        case .reach, .target, .likely:
+            return chanceResult.bucket.rawValue
         }
     }
 }

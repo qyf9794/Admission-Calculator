@@ -18,6 +18,7 @@ struct AppView: View {
     @State private var completedResultAnimationDates: Set<Date> = []
     @State private var completedSchoolSetupAnimationIDs: Set<String> = []
     @State private var completedAutomaticSummaryAnimationIDs: Set<String> = []
+    @State private var generatedReports: [GeneratedReportPDF] = []
     @State private var stage: AdmissionFlowStage = .hero
     @State private var profileInitialCardIndex = 0
     @State private var schoolInitialCardIndex = 0
@@ -89,6 +90,7 @@ struct AppView: View {
                 case .report:
                     ReportView(
                         result: latestResult,
+                        generatedReports: $generatedReports,
                         purchaseState: purchaseState,
                         isStale: resultIsStale,
                         onBackToResults: {

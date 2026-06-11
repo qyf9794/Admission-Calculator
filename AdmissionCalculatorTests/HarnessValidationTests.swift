@@ -7,7 +7,13 @@ final class HarnessValidationTests: XCTestCase {
         var profile = StudentProfile.sample
         profile.round = .regularDecision
         let result = ChanceEngine().evaluate(profile: profile, selectedCollegeIDs: Set(["bu", "mit"]))
-        let report = ReportService.makeReport(result: result)
+        let report = ReportService.makeReport(result: result) + """
+
+        | 学校 | 概率 | 分类 |
+        | --- | --- | --- |
+        | Boston University | 50% | 目标 |
+        | MIT | 2% | 争取 |
+        """
         let url = try ReportPDFRenderer.write(
             text: report,
             result: result,
@@ -27,6 +33,8 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(extractedText.contains("美本录取计算器"))
         XCTAssertTrue(extractedText.contains("Admission Report"))
         XCTAssertTrue(extractedText.contains("Boston University"))
+        XCTAssertTrue(extractedText.contains("分类"))
+        XCTAssertFalse(extractedText.contains("| --- |"))
 
         let firstPage = try XCTUnwrap(document.page(at: 0))
         let renderedPage = firstPage.thumbnail(of: CGSize(width: 595, height: 842), for: .mediaBox)
@@ -604,15 +612,19 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(prompt.contains("客户端已插入"))
         XCTAssertFalse(prompt.contains("## 本地基础报告"))
         XCTAssertTrue(prompt.contains("总长度控制在 5000 个中文字以内"))
-        XCTAssertTrue(prompt.contains("只输出 5 个标题"))
-        XCTAssertTrue(prompt.contains("学生画像及背景分析"))
-        XCTAssertTrue(prompt.contains("概率分析结果解读"))
-        XCTAssertTrue(prompt.contains("逐校差距与优势分析"))
-        XCTAssertTrue(prompt.contains("综合分析"))
-        XCTAssertTrue(prompt.contains("下一步优化提升方向"))
-        XCTAssertTrue(prompt.contains("概率分析必须点到每一所学校"))
+        XCTAssertTrue(prompt.contains("输出 5-7 个自然语言标题"))
+        XCTAssertTrue(prompt.contains("画像判断"))
+        XCTAssertTrue(prompt.contains("组合策略"))
+        XCTAssertTrue(prompt.contains("材料优先级"))
+        XCTAssertTrue(prompt.contains("不要机械照搬客户端章节"))
+        XCTAssertTrue(prompt.contains("概率分析必须覆盖每一所学校"))
         XCTAssertTrue(prompt.contains("学生条件与目标校平均/内部基准"))
         XCTAssertTrue(prompt.contains("不要重建表格"))
+        XCTAssertTrue(prompt.contains("顾问式判断"))
+        XCTAssertTrue(prompt.contains("策略取舍"))
+        XCTAssertTrue(prompt.contains("优先级排序"))
+        XCTAssertTrue(prompt.contains("家庭决策建议"))
+        XCTAssertTrue(prompt.contains("哪些目标短期难改变、哪些可以快速补强"))
         XCTAssertTrue(prompt.contains("硬门槛"))
         XCTAssertTrue(prompt.contains("极强、强、中、弱、极弱"))
         XCTAssertTrue(prompt.contains("不得修改、重算、覆盖或美化"))
@@ -653,6 +665,14 @@ final class HarnessValidationTests: XCTestCase {
 
         XCTAssertTrue(merged.contains("概率分析结果"))
         XCTAssertTrue(merged.contains("每所学校差距和优势比较"))
+        XCTAssertTrue(merged.contains("待补资料"))
+        XCTAssertTrue(merged.contains("提高申请数量对概率的影响"))
+        XCTAssertTrue(merged.contains("自动推荐提示"))
+        XCTAssertTrue(merged.contains("自动推荐依据"))
+        XCTAssertTrue(merged.contains("逐校策略摘要"))
+        XCTAssertTrue(merged.contains("当前为手动选校，未触发自动推荐缺口判断。"))
+        XCTAssertTrue(merged.contains("当前为手动选校；报告仍展示逐校概率和组合概率"))
+        XCTAssertTrue(merged.contains("边际收益测算"))
         XCTAssertFalse(merged.contains("重复学校"))
         XCTAssertTrue(merged.contains("Boston University：保留非重复策略。"))
     }
@@ -677,6 +697,7 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(prompt.contains("不要展开系统缺失数据、来源审计或置信度说明"))
         XCTAssertTrue(prompt.contains("单校概率、学校价值和同层相关性边际折扣"))
         XCTAssertTrue(prompt.contains("不要暴露内部调整值、权重、参数或公式"))
+        XCTAssertTrue(prompt.contains("待补资料、提高申请数量对概率的影响、自动推荐提示和依据、逐校策略摘要"))
     }
 
     func testCalculationFlowDocumentsApproximationAndSharedT10Correlation() throws {
