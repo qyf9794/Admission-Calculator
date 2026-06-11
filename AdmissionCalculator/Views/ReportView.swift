@@ -15,7 +15,7 @@ struct ReportView: View {
     @State private var pdfErrorMessage: String?
     @State private var isPaymentInProgress = false
     @State private var isGenerating = false
-    @State private var generationStartedAt: Date?
+    @State private var generationPhase: ReportGenerationPhase?
     @State private var errorMessage: String?
     @State private var showingDataSources = false
     @State private var showingPaymentSheet = false
@@ -55,7 +55,7 @@ struct ReportView: View {
                             purchaseState: purchaseState,
                             isStale: isStale,
                             isGenerating: isGenerating,
-                            generationStartedAt: generationStartedAt,
+                            generationPhase: generationPhase,
                             errorMessage: errorMessage,
                             pdfErrorMessage: pdfErrorMessage,
                             onGenerate: { showingPaymentSheet = true },
@@ -131,6 +131,7 @@ struct ReportView: View {
             return
         }
         isPaymentInProgress = true
+        generationPhase = nil
         errorMessage = nil
         pdfErrorMessage = nil
 
@@ -140,12 +141,19 @@ struct ReportView: View {
                 await MainActor.run {
                     isPaymentInProgress = false
                     isGenerating = true
-                    generationStartedAt = Date()
+                    generationPhase = .paymentVerified
                     showingPaymentSheet = false
                 }
                 let prompt = ReportService.makeOpenAIReportPrompt(result: result)
+                await MainActor.run {
+                    generationPhase = .modelRequestStarted
+                }
                 let generated = try await client.generateReport(prompt: prompt, transaction: transaction)
+                await MainActor.run {
+                    generationPhase = .modelReturned
+                }
                 let merged = ReportService.mergeGeneratedReport(generated, result: result)
+                var previewURL: URL?
                 await MainActor.run {
                     do {
                         let url = try writePDF(text: merged, result: result)
@@ -157,27 +165,40 @@ struct ReportView: View {
                             selectedAtLeastOne: result.selectedAtLeastOne
                         )
                         generatedReports.insert(report, at: 0)
+                        previewURL = url
                         pdfErrorMessage = nil
+                        generationPhase = .pdfWritten
                     } catch {
                         pdfErrorMessage = "PDF 预览生成失败：\(error.localizedDescription)"
                     }
                     purchaseState.markReportGenerated()
-                    isGenerating = false
-                    generationStartedAt = nil
+                }
+                if let previewURL {
+                    try? await Task.sleep(nanoseconds: 220_000_000)
+                    await MainActor.run {
+                        pdfPreviewDocument = ReportPDFDocument(url: previewURL)
+                        isGenerating = false
+                        generationPhase = nil
+                    }
+                } else {
+                    await MainActor.run {
+                        isGenerating = false
+                        generationPhase = nil
+                    }
                 }
             } catch let error as ReportPurchaseError where error == .userCancelled {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
                     isPaymentInProgress = false
                     isGenerating = false
-                    generationStartedAt = nil
+                    generationPhase = nil
                 }
             } catch {
                 await MainActor.run {
                     errorMessage = "报告生成失败。如已完成支付，本次支付凭证会保留在本机，可稍后重试：\(error.localizedDescription)"
                     isPaymentInProgress = false
                     isGenerating = false
-                    generationStartedAt = nil
+                    generationPhase = nil
                 }
             }
         }
@@ -379,7 +400,7 @@ private struct ReportActionCard: View {
     @ObservedObject var purchaseState: ReportPurchaseState
     let isStale: Bool
     let isGenerating: Bool
-    let generationStartedAt: Date?
+    let generationPhase: ReportGenerationPhase?
     let errorMessage: String?
     let pdfErrorMessage: String?
     let onGenerate: () -> Void
@@ -427,7 +448,7 @@ private struct ReportActionCard: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.74))
             if isGenerating {
-                ReportGenerationProgressView(startedAt: generationStartedAt ?? Date())
+                ReportGenerationProgressView(phase: generationPhase ?? .paymentVerified)
             }
             if result.schoolResults.isEmpty {
                 Label("当前没有进入计算的学校，请先选择学校并重新计算。", systemImage: "exclamationmark.triangle")
@@ -449,20 +470,11 @@ private struct ReportActionCard: View {
 }
 
 private struct ReportGenerationProgressView: View {
-    let startedAt: Date
-
-    private let steps = [
-        "核验支付凭证",
-        "整理测算事实",
-        "生成分析正文",
-        "生成 PDF 预览"
-    ]
+    let phase: ReportGenerationPhase
 
     var body: some View {
-        TimelineView(.periodic(from: startedAt, by: 0.35)) { timeline in
-            let elapsed = max(0, timeline.date.timeIntervalSince(startedAt))
-            let stage = stage(for: elapsed)
-
+        TimelineView(.periodic(from: .now, by: 0.35)) { timeline in
+            let pulse = timeline.date.timeIntervalSinceReferenceDate
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center, spacing: 12) {
                     ZStack {
@@ -478,8 +490,8 @@ private struct ReportGenerationProgressView: View {
                                 ),
                                 style: StrokeStyle(lineWidth: 5, lineCap: .round)
                             )
-                            .rotationEffect(.degrees(elapsed * 120))
-                        Image(systemName: stage.symbolName)
+                            .rotationEffect(.degrees(pulse * 120))
+                        Image(systemName: phase.symbolName)
                             .font(.system(size: 17, weight: .black))
                             .foregroundStyle(.white)
                     }
@@ -487,11 +499,13 @@ private struct ReportGenerationProgressView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 4) {
-                            Text(stage.title)
+                            Text(phase.title)
                                 .font(.subheadline.weight(.black))
-                            LoadingDots(elapsed: elapsed)
+                            if phase != .pdfWritten {
+                                LoadingDots(elapsed: pulse)
+                            }
                         }
-                        Text(stage.detail)
+                        Text(phase.detail)
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.70))
                             .fixedSize(horizontal: false, vertical: true)
@@ -499,7 +513,7 @@ private struct ReportGenerationProgressView: View {
 
                     Spacer(minLength: 8)
 
-                    Text(elapsedText(elapsed))
+                    Text(phase.percentText)
                         .font(.caption.monospacedDigit().weight(.bold))
                         .foregroundStyle(.white.opacity(0.76))
                         .padding(.horizontal, 9)
@@ -507,18 +521,19 @@ private struct ReportGenerationProgressView: View {
                         .background(Color.white.opacity(0.12), in: Capsule())
                 }
 
-                AnimatedProgressBar(progress: progress(for: elapsed), elapsed: elapsed)
+                AnimatedProgressBar(progress: phase.progress, elapsed: pulse)
+                    .animation(.spring(response: 0.34, dampingFraction: 0.82), value: phase.progress)
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
-                    ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    ForEach(Array(ReportGenerationPhase.allCases.enumerated()), id: \.element) { _, step in
                         HStack(spacing: 7) {
-                            Image(systemName: iconName(for: index, currentStep: stage.stepIndex))
+                            Image(systemName: iconName(for: step, currentPhase: phase))
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(index <= stage.stepIndex ? .white : .white.opacity(0.42))
+                                .foregroundStyle(step.rawValue <= phase.rawValue ? .white : .white.opacity(0.42))
                                 .frame(width: 15)
-                            Text(step)
-                                .font(.caption2.weight(index == stage.stepIndex ? .bold : .medium))
-                                .foregroundStyle(index <= stage.stepIndex ? .white.opacity(0.86) : .white.opacity(0.48))
+                            Text(step.stepTitle)
+                                .font(.caption2.weight(step == phase ? .bold : .medium))
+                                .foregroundStyle(step.rawValue <= phase.rawValue ? .white.opacity(0.86) : .white.opacity(0.48))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.82)
                         }
@@ -533,48 +548,95 @@ private struct ReportGenerationProgressView: View {
                     .stroke(Color.white.opacity(0.14), lineWidth: 1)
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("报告生成中，\(stage.title)，已等待 \(elapsedText(elapsed))")
+            .accessibilityLabel("报告生成中，\(phase.title)，进度 \(phase.percentText)")
         }
     }
 
-    private func stage(for elapsed: TimeInterval) -> ReportGenerationStage {
-        switch elapsed {
-        case 0..<12:
-            return ReportGenerationStage(stepIndex: 0, title: "正在核验支付", detail: "确认本次购买凭证，完成后继续生成报告。", symbolName: "checkmark.seal.fill")
-        case 12..<45:
-            return ReportGenerationStage(stepIndex: 1, title: "正在整理事实包", detail: "压缩学生画像、逐校概率和差距优势。", symbolName: "doc.text.magnifyingglass")
-        case 45..<220:
-            return ReportGenerationStage(stepIndex: 2, title: "正在生成分析", detail: "模型正在撰写逐校解释、综合判断和提升方向。", symbolName: "sparkles")
-        default:
-            return ReportGenerationStage(stepIndex: 2, title: "仍在等待模型", detail: "复杂报告可能较慢；请保持页面打开，完成后会自动预览 PDF。", symbolName: "hourglass")
-        }
-    }
-
-    private func progress(for elapsed: TimeInterval) -> Double {
-        min(0.94, 0.10 + elapsed / 260 * 0.84)
-    }
-
-    private func iconName(for index: Int, currentStep: Int) -> String {
-        if index < currentStep {
+    private func iconName(for step: ReportGenerationPhase, currentPhase: ReportGenerationPhase) -> String {
+        if step.rawValue < currentPhase.rawValue {
             return "checkmark.circle.fill"
         }
-        if index == currentStep {
+        if step == currentPhase {
             return "circle.dotted"
         }
         return "circle"
     }
-
-    private func elapsedText(_ elapsed: TimeInterval) -> String {
-        let totalSeconds = Int(elapsed.rounded(.down))
-        return "\(totalSeconds / 60):\(String(format: "%02d", totalSeconds % 60))"
-    }
 }
 
-private struct ReportGenerationStage {
-    let stepIndex: Int
-    let title: String
-    let detail: String
-    let symbolName: String
+enum ReportGenerationPhase: Int, CaseIterable {
+    case paymentVerified
+    case modelRequestStarted
+    case modelReturned
+    case pdfWritten
+
+    var progress: Double {
+        switch self {
+        case .paymentVerified:
+            return 0.20
+        case .modelRequestStarted:
+            return 0.35
+        case .modelReturned:
+            return 0.85
+        case .pdfWritten:
+            return 1.00
+        }
+    }
+
+    var percentText: String {
+        "\(Int((progress * 100).rounded()))%"
+    }
+
+    var stepTitle: String {
+        switch self {
+        case .paymentVerified:
+            return "支付成功"
+        case .modelRequestStarted:
+            return "请求模型"
+        case .modelReturned:
+            return "模型返回"
+        case .pdfWritten:
+            return "PDF 完成"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .paymentVerified:
+            return "支付成功"
+        case .modelRequestStarted:
+            return "正在请求模型"
+        case .modelReturned:
+            return "模型已返回"
+        case .pdfWritten:
+            return "PDF 已生成"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .paymentVerified:
+            return "支付凭证已验证，准备整理报告事实包。"
+        case .modelRequestStarted:
+            return "已发起模型请求，正在生成逐校解释和组合策略。"
+        case .modelReturned:
+            return "模型正文已返回，正在合并概率校验并写入 PDF。"
+        case .pdfWritten:
+            return "PDF 已写入完成，即将自动打开报告预览。"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .paymentVerified:
+            return "checkmark.seal.fill"
+        case .modelRequestStarted:
+            return "paperplane.fill"
+        case .modelReturned:
+            return "sparkles"
+        case .pdfWritten:
+            return "doc.richtext.fill"
+        }
+    }
 }
 
 struct GeneratedReportPDF: Identifiable, Hashable {

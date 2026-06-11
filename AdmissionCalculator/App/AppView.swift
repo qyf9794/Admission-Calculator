@@ -93,6 +93,7 @@ struct AppView: View {
                         generatedReports: $generatedReports,
                         purchaseState: purchaseState,
                         isStale: resultIsStale,
+                        generatedReports: $generatedReports,
                         onBackToResults: {
                             stage = .results
                         },
@@ -143,6 +144,7 @@ struct AppView: View {
         completedResultAnimationDates = []
         completedSchoolSetupAnimationIDs = []
         completedAutomaticSummaryAnimationIDs = []
+        generatedReports = []
         profileInitialCardIndex = 0
         schoolInitialCardIndex = 0
         purchaseState.resetForNewCalculation()
