@@ -10,19 +10,31 @@ final class ReportPurchaseState: ObservableObject {
 
     let productID = "admission_calculator_ai_report"
     private var product: Product?
+    private var transactionUpdatesTask: Task<Void, Never>?
     private var pendingToken: ReportPurchaseToken? {
         didSet {
             hasPendingPaidReport = pendingToken != nil
             persistPendingToken()
         }
     }
+    private var consumedTransactionIDs: Set<String> {
+        didSet {
+            persistConsumedTransactionIDs()
+        }
+    }
 
     init() {
         pendingToken = Self.restorePendingToken()
+        consumedTransactionIDs = Self.restoreConsumedTransactionIDs()
         hasPendingPaidReport = pendingToken != nil
         if hasPendingPaidReport {
             statusText = "已有已支付但未完成的报告生成凭证，可继续生成"
         }
+        listenForTransactionUpdates()
+    }
+
+    deinit {
+        transactionUpdatesTask?.cancel()
     }
 
     func canUnlockReport(isStale: Bool) -> Bool {
@@ -53,15 +65,10 @@ final class ReportPurchaseState: ObservableObject {
         let result = try await product.purchase()
         switch result {
         case .success(let verification):
-            let signedTransactionInfo = verification.jwsRepresentation
-            let transaction = try checkVerified(verification)
-            guard transaction.productID == productID else {
-                throw ReportPurchaseError.productMismatch
-            }
-            let token = ReportPurchaseToken(transaction: transaction, signedTransactionInfo: signedTransactionInfo)
+            let token = try pendingReportToken(from: verification)
             pendingToken = token
             statusText = "支付已验证，正在生成报告"
-            await transaction.finish()
+            await finishTransaction(withID: token.transactionID, verification: verification)
             return token
         case .pending:
             statusText = "支付待确认，请稍后重试"
@@ -76,6 +83,9 @@ final class ReportPurchaseState: ObservableObject {
 
     func markReportGenerated() {
         isUnlocked = true
+        if let pendingToken {
+            consumedTransactionIDs.insert(pendingToken.transactionID)
+        }
         pendingToken = nil
         statusText = "本次付费报告已生成"
     }
@@ -95,6 +105,55 @@ final class ReportPurchaseState: ObservableObject {
             throw ReportPurchaseError.productUnavailable
         }
         return product
+    }
+
+    private func listenForTransactionUpdates() {
+        transactionUpdatesTask?.cancel()
+        transactionUpdatesTask = Task { [weak self] in
+            for await verification in Transaction.updates {
+                await self?.handleTransactionUpdate(verification)
+            }
+        }
+    }
+
+    private func handleTransactionUpdate(_ verification: VerificationResult<StoreKit.Transaction>) async {
+        do {
+            let token = try pendingReportToken(from: verification)
+            guard !consumedTransactionIDs.contains(token.transactionID) else {
+                await finishTransaction(withID: token.transactionID, verification: verification)
+                return
+            }
+            if pendingToken?.transactionID != token.transactionID {
+                pendingToken = token
+                isUnlocked = false
+                statusText = "检测到已支付但未完成的报告生成凭证，可继续生成"
+            }
+            await finishTransaction(withID: token.transactionID, verification: verification)
+        } catch ReportPurchaseError.productMismatch {
+            return
+        } catch {
+            statusText = "检测到未验证的支付更新，请稍后重试"
+        }
+    }
+
+    private func pendingReportToken(from verification: VerificationResult<StoreKit.Transaction>) throws -> ReportPurchaseToken {
+        let signedTransactionInfo = verification.jwsRepresentation
+        let transaction = try checkVerified(verification)
+        guard transaction.productID == productID else {
+            throw ReportPurchaseError.productMismatch
+        }
+        return ReportPurchaseToken(transaction: transaction, signedTransactionInfo: signedTransactionInfo)
+    }
+
+    private func finishTransaction(
+        withID transactionID: String,
+        verification: VerificationResult<StoreKit.Transaction>
+    ) async {
+        guard let transaction = try? checkVerified(verification),
+              String(transaction.id) == transactionID else {
+            return
+        }
+        await transaction.finish()
     }
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
@@ -122,7 +181,25 @@ final class ReportPurchaseState: ObservableObject {
         return try? JSONDecoder().decode(ReportPurchaseToken.self, from: data)
     }
 
+    private func persistConsumedTransactionIDs() {
+        let key = Self.consumedTransactionIDsStorageKey
+        guard let data = try? JSONEncoder().encode(Array(consumedTransactionIDs)) else {
+            UserDefaults.standard.removeObject(forKey: key)
+            return
+        }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+
+    private static func restoreConsumedTransactionIDs() -> Set<String> {
+        guard let data = UserDefaults.standard.data(forKey: consumedTransactionIDsStorageKey),
+              let ids = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+        return Set(ids)
+    }
+
     private static let pendingTokenStorageKey = "AdmissionCalculator.pendingReportPurchaseToken"
+    private static let consumedTransactionIDsStorageKey = "AdmissionCalculator.consumedReportTransactionIDs"
 }
 
 struct ReportPurchaseToken: Codable {

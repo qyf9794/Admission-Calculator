@@ -11,14 +11,16 @@ struct ReportView: View {
     var client = ReportProxyClient()
 
     @State private var reportText: String?
-    @State private var pdfURL: URL?
+    @State private var generatedReports: [GeneratedReportPDF] = []
     @State private var pdfPreviewDocument: ReportPDFDocument?
     @State private var pdfErrorMessage: String?
+    @State private var isPaymentInProgress = false
     @State private var isGenerating = false
     @State private var generationStartedAt: Date?
     @State private var errorMessage: String?
     @State private var showingDataSources = false
     @State private var showingPaymentSheet = false
+    @State private var showingGeneratedReports = false
 
     var body: some View {
         ZStack {
@@ -31,7 +33,7 @@ struct ReportView: View {
                     onSwipeBack: onBackToResults,
                     onSwipeForward: {},
                     previousPreview: {
-                        ResultsSnapshotCard(result: result, onStartOver: onStartOver, showsSubtitle: false)
+                        ResultsFixedSnapshotContent(result: result)
                     },
                     nextPreview: {
                         EmptyView()
@@ -56,14 +58,17 @@ struct ReportView: View {
                             isGenerating: isGenerating,
                             generationStartedAt: generationStartedAt,
                             errorMessage: errorMessage,
-                            pdfURL: pdfURL,
+                            primaryPreviewsPDF: hasCurrentResultPDF(for: result),
                             pdfErrorMessage: pdfErrorMessage,
                             onGenerate: { showingPaymentSheet = true },
-                            onPreviewPDF: { previewGeneratedPDF() },
+                            onPreviewReport: { previewCurrentResultReport(for: result) },
                             onShowDataSources: { showingDataSources = true }
                         )
 
-                        ReportFrameworkPreview()
+                        ReportFrameworkPreview(
+                            reportCount: generatedReports.count,
+                            onPreviewReports: { showingGeneratedReports = true }
+                        )
                     }
                 }
                 .padding()
@@ -91,6 +96,7 @@ struct ReportView: View {
                 ReportPaymentSheet(
                     priceText: purchaseState.priceText,
                     hasPendingPaidReport: purchaseState.hasPendingPaidReport,
+                    isPaymentInProgress: isPaymentInProgress,
                     isGenerating: isGenerating,
                     errorMessage: errorMessage,
                     onCancel: { showingPaymentSheet = false },
@@ -98,6 +104,13 @@ struct ReportView: View {
                 )
                 .presentationDetents([.medium])
             }
+        }
+        .sheet(isPresented: $showingGeneratedReports) {
+            GeneratedReportsSheet(
+                reports: generatedReports,
+                onPreview: { previewGeneratedReport($0) },
+                onDelete: { deleteGeneratedReports(at: $0) }
+            )
         }
         .sheet(item: $pdfPreviewDocument) { document in
             ReportPDFPreviewSheet(document: document)
@@ -109,6 +122,7 @@ struct ReportView: View {
 
     private func completePaymentAndGenerate(for result: PortfolioResult) {
         guard !isStale else {
+            errorMessage = "当前参数或选校已变化。请先回到计算页重新计算，再为新的结果生成报告。"
             return
         }
         guard result.profileSnapshot.round == .regularDecision else {
@@ -119,17 +133,17 @@ struct ReportView: View {
             errorMessage = "报告生成服务尚未配置。请先配置 REPORT_PROXY_URL 或 Info.plist 的 ReportProxyURL。"
             return
         }
-        isGenerating = true
-        generationStartedAt = Date()
+        isPaymentInProgress = true
         errorMessage = nil
-        pdfURL = nil
-        pdfPreviewDocument = nil
         pdfErrorMessage = nil
 
         Task {
             do {
                 let transaction = try await purchaseState.purchaseOrUsePendingToken()
                 await MainActor.run {
+                    isPaymentInProgress = false
+                    isGenerating = true
+                    generationStartedAt = Date()
                     showingPaymentSheet = false
                 }
                 let prompt = ReportService.makeOpenAIReportPrompt(result: result)
@@ -139,12 +153,17 @@ struct ReportView: View {
                     reportText = merged
                     do {
                         let url = try writePDF(text: merged, result: result)
-                        pdfURL = url
+                        let report = GeneratedReportPDF(
+                            url: url,
+                            resultGeneratedAt: result.generatedAt,
+                            createdAt: Date(),
+                            schoolCount: result.schoolResults.count,
+                            selectedAtLeastOne: result.selectedAtLeastOne
+                        )
+                        generatedReports.insert(report, at: 0)
                         pdfPreviewDocument = ReportPDFDocument(url: url)
                         pdfErrorMessage = nil
                     } catch {
-                        pdfURL = nil
-                        pdfPreviewDocument = nil
                         pdfErrorMessage = "PDF 预览生成失败：\(error.localizedDescription)"
                     }
                     purchaseState.markReportGenerated()
@@ -154,14 +173,14 @@ struct ReportView: View {
             } catch let error as ReportPurchaseError where error == .userCancelled {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
+                    isPaymentInProgress = false
                     isGenerating = false
                     generationStartedAt = nil
                 }
             } catch {
                 await MainActor.run {
-                    pdfURL = nil
-                    pdfPreviewDocument = nil
                     errorMessage = "报告生成失败。如已完成支付，本次支付凭证会保留在本机，可稍后重试：\(error.localizedDescription)"
+                    isPaymentInProgress = false
                     isGenerating = false
                     generationStartedAt = nil
                 }
@@ -169,10 +188,21 @@ struct ReportView: View {
         }
     }
 
+    private func hasCurrentResultPDF(for result: PortfolioResult) -> Bool {
+        currentResultReport(for: result) != nil
+    }
+
     private func exportPDF(text: String, result: PortfolioResult) {
         do {
             let url = try writePDF(text: text, result: result)
-            pdfURL = url
+            let report = GeneratedReportPDF(
+                url: url,
+                resultGeneratedAt: result.generatedAt,
+                createdAt: Date(),
+                schoolCount: result.schoolResults.count,
+                selectedAtLeastOne: result.selectedAtLeastOne
+            )
+            generatedReports.insert(report, at: 0)
             pdfPreviewDocument = ReportPDFDocument(url: url)
             pdfErrorMessage = nil
         } catch {
@@ -188,11 +218,40 @@ struct ReportView: View {
         )
     }
 
-    private func previewGeneratedPDF() {
-        guard let pdfURL else {
+    private func currentResultReport(for result: PortfolioResult) -> GeneratedReportPDF? {
+        guard !isStale else {
+            return nil
+        }
+        return generatedReports.first { $0.resultGeneratedAt == result.generatedAt }
+    }
+
+    private func previewCurrentResultReport(for result: PortfolioResult) {
+        guard let report = currentResultReport(for: result) else {
+            showingPaymentSheet = true
             return
         }
-        pdfPreviewDocument = ReportPDFDocument(url: pdfURL)
+        previewGeneratedReport(report)
+    }
+
+    private func previewGeneratedReport(_ report: GeneratedReportPDF) {
+        showingGeneratedReports = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            pdfPreviewDocument = ReportPDFDocument(url: report.url)
+        }
+    }
+
+    private func deleteGeneratedReports(at offsets: IndexSet) {
+        for index in offsets {
+            guard generatedReports.indices.contains(index) else {
+                continue
+            }
+            let report = generatedReports[index]
+            try? FileManager.default.removeItem(at: report.url)
+        }
+        generatedReports.remove(atOffsets: offsets)
+        if generatedReports.isEmpty {
+            showingGeneratedReports = false
+        }
     }
 
     private static let pdfDateFormatter: DateFormatter = {
@@ -202,7 +261,43 @@ struct ReportView: View {
     }()
 }
 
+struct ReportPageSnapshotContent: View {
+    let result: PortfolioResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ResultsSnapshotCard(result: result, showsSubtitle: false)
+            AdmissionGradientCard(
+                title: "报告生成",
+                subtitle: "报告会围绕逐校概率、组合概率、差距优势和提升路径展开。",
+                systemImage: "sparkles",
+                colors: AdmissionStyle.pinkMist
+            ) {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.open")
+                    Text("付费生成报告")
+                }
+                .font(.subheadline.weight(.bold))
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(colors: AdmissionStyle.blackGlass, startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: Capsule()
+                )
+                Text("综合报告未付费生成")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.74))
+            }
+            ReportFrameworkPreview(reportCount: 0, onPreviewReports: {})
+        }
+    }
+}
+
 private struct ReportFrameworkPreview: View {
+    let reportCount: Int
+    let onPreviewReports: () -> Void
+
     private let sections = [
         ("测算摘要", "组合概率、风险层级、是否存在硬门槛阻断。"),
         ("逐校解释", "每所已选学校的概率、主要加分项和主要扣分项。"),
@@ -212,11 +307,32 @@ private struct ReportFrameworkPreview: View {
     ]
 
     var body: some View {
-        AdmissionGradientCard(
-            title: "报告包含内容",
-            systemImage: "list.bullet.rectangle",
-            colors: AdmissionStyle.mintNight
-        ) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "list.bullet.rectangle")
+                    .font(.headline.weight(.bold))
+                    .frame(width: 30, height: 30)
+                    .foregroundStyle(AdmissionStyle.textPrimary)
+                    .background(AdmissionStyle.textPrimary.opacity(0.14), in: Circle())
+                Text("报告包含内容")
+                    .font(AdmissionStyle.sectionFont())
+                    .foregroundStyle(AdmissionStyle.textPrimary)
+
+                Spacer(minLength: 8)
+
+                if reportCount > 0 {
+                    Button {
+                        onPreviewReports()
+                    } label: {
+                        Label("预览报告", systemImage: "doc.richtext")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+                    }
+                    .buttonStyle(AdmissionQuietButtonStyle())
+                    .accessibilityLabel("预览已生成报告")
+                }
+            }
+
             ForEach(sections, id: \.0) { section in
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
@@ -231,12 +347,27 @@ private struct ReportFrameworkPreview: View {
                 }
             }
         }
+        .font(AdmissionStyle.bodyFont())
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: AdmissionStyle.mintNight, startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: AdmissionStyle.cornerRadius, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AdmissionStyle.cornerRadius, style: .continuous)
+                .stroke(AdmissionStyle.hairline, lineWidth: 1)
+        )
+        .foregroundStyle(AdmissionStyle.textPrimary)
+        .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 8)
+        .environment(\.colorScheme, .dark)
     }
 }
 
 private struct ReportPaymentSheet: View {
     let priceText: String
     let hasPendingPaidReport: Bool
+    let isPaymentInProgress: Bool
     let isGenerating: Bool
     let errorMessage: String?
     let onCancel: () -> Void
@@ -263,7 +394,7 @@ private struct ReportPaymentSheet: View {
                 HStack(spacing: 10) {
                     Button("取消", action: onCancel)
                         .buttonStyle(AdmissionQuietButtonStyle(foreground: .black))
-                        .disabled(isGenerating)
+                        .disabled(isPaymentInProgress || isGenerating)
                     Button(action: onPayAndGenerate) {
                         HStack(spacing: 8) {
                             if isGenerating {
@@ -277,7 +408,7 @@ private struct ReportPaymentSheet: View {
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
-                    .disabled(isGenerating)
+                    .disabled(isPaymentInProgress || isGenerating)
                 }
             }
             .padding(18)
@@ -292,10 +423,10 @@ private struct ReportActionCard: View {
     let isGenerating: Bool
     let generationStartedAt: Date?
     let errorMessage: String?
-    let pdfURL: URL?
+    let primaryPreviewsPDF: Bool
     let pdfErrorMessage: String?
     let onGenerate: () -> Void
-    let onPreviewPDF: () -> Void
+    let onPreviewReport: () -> Void
     let onShowDataSources: () -> Void
 
     var body: some View {
@@ -312,7 +443,11 @@ private struct ReportActionCard: View {
             }
             HStack(spacing: 10) {
                 Button {
-                    onGenerate()
+                    if primaryPreviewsPDF {
+                        onPreviewReport()
+                    } else {
+                        onGenerate()
+                    }
                 } label: {
                     HStack(spacing: 8) {
                         if isGenerating {
@@ -320,24 +455,14 @@ private struct ReportActionCard: View {
                                 .controlSize(.small)
                                 .tint(.white)
                         } else {
-                            Image(systemName: purchaseState.hasPendingPaidReport ? "checkmark.seal.fill" : (purchaseState.isUnlocked ? "creditcard.fill" : "lock.open"))
+                            Image(systemName: purchaseState.hasPendingPaidReport ? "checkmark.seal.fill" : "lock.open")
                         }
-                        Text(isGenerating ? "正在生成" : (purchaseState.hasPendingPaidReport ? "继续生成报告" : (purchaseState.isUnlocked ? "再次付费生成报告" : "付费生成报告")))
+                        Text(isGenerating ? "正在生成" : (purchaseState.hasPendingPaidReport ? "继续生成报告" : "付费生成报告"))
                     }
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
-                .disabled(isGenerating || isStale || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)
-
-                if pdfURL != nil {
-                    Button {
-                        onPreviewPDF()
-                    } label: {
-                        Label("预览 PDF", systemImage: "doc.richtext")
-                    }
-                    .buttonStyle(AdmissionQuietButtonStyle())
-                    .disabled(isGenerating)
-                }
+                .disabled(isGenerating || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)
 
                 Button {
                     onShowDataSources()
@@ -498,6 +623,78 @@ private struct ReportGenerationStage {
     let title: String
     let detail: String
     let symbolName: String
+}
+
+private struct GeneratedReportPDF: Identifiable, Hashable {
+    let id = UUID()
+    let url: URL
+    let resultGeneratedAt: Date
+    let createdAt: Date
+    let schoolCount: Int
+    let selectedAtLeastOne: Double
+}
+
+private struct GeneratedReportsSheet: View {
+    let reports: [GeneratedReportPDF]
+    let onPreview: (GeneratedReportPDF) -> Void
+    let onDelete: (IndexSet) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if reports.isEmpty {
+                    ContentUnavailableView("暂无已生成报告", systemImage: "doc.text.magnifyingglass", description: Text("完成报告生成后会出现在这里。"))
+                } else {
+                    ForEach(Array(reports.enumerated()), id: \.element.id) { index, report in
+                        Button {
+                            onPreview(report)
+                        } label: {
+                            HStack(alignment: .center, spacing: 12) {
+                                Image(systemName: index == 0 ? "doc.richtext.fill" : "doc.richtext")
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(index == 0 ? AdmissionStyle.controlBlue : Color.secondary)
+                                    .frame(width: 28)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(index == 0 ? "最新生成报告" : "已生成报告")
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(Color.primary)
+                                    Text(report.createdAt.formatted(date: .numeric, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundStyle(Color.secondary)
+                                    Text("\(report.schoolCount) 所学校 · 至少一所 \(report.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))")
+                                        .font(.caption2.weight(.medium))
+                                        .foregroundStyle(Color.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Color.secondary.opacity(0.62))
+                            }
+                            .padding(.vertical, 6)
+                        }
+                    }
+                    .onDelete(perform: onDelete)
+                }
+            }
+            .navigationTitle("预览报告")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    EditButton()
+                        .disabled(reports.isEmpty)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
 }
 
 private struct LoadingDots: View {

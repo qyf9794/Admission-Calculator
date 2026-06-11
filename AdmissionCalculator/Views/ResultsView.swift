@@ -25,16 +25,11 @@ struct ResultsView: View {
                     onSwipeBack: onBackToSchools,
                     onSwipeForward: onAnalyze,
                     previousPreview: {
-                        SchoolListSnapshotCard(result: result)
+                        SchoolSelectionSnapshotContent(result: result)
                     },
                     nextPreview: {
                         if showAnalyzeButton && !isStale {
-                            AdmissionPreviewCard(
-                                title: "分析报告",
-                                subtitle: "进入报告页查看逐校差距和提升建议。",
-                                systemImage: "doc.text.magnifyingglass",
-                                colors: AdmissionStyle.pinkMist
-                            )
+                            ReportPageSnapshotContent(result: result)
                         }
                     }
                 ) {
@@ -235,6 +230,37 @@ struct SchoolListSnapshotCard: View {
                         .foregroundStyle(AdmissionStyle.darkTextSecondary)
                 }
             }
+        }
+    }
+}
+
+struct SchoolSelectionSnapshotContent: View {
+    let result: PortfolioResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Label("选校列表", systemImage: "building.columns")
+                    .font(.headline.weight(.black))
+                Spacer()
+                Text("\(result.schoolResults.count) 所")
+                    .font(.caption.weight(.bold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.black.opacity(0.08), in: Capsule())
+            }
+            .foregroundStyle(AdmissionStyle.darkTextPrimary)
+            .padding(.horizontal, 4)
+
+            SchoolListSnapshotCard(result: result)
+
+            Button {
+            } label: {
+                Label("计算概率", systemImage: "chart.bar.xaxis")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
+            .allowsHitTesting(false)
         }
     }
 }
