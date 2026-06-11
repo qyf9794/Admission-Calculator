@@ -802,6 +802,12 @@ enum ReportPDFRenderer {
     private static func drawLogo(in rect: CGRect) {
         let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
         if let image = UIImage(named: "AppLogo") {
+            guard let cgContext = UIGraphicsGetCurrentContext() else {
+                image.draw(in: rect)
+                return
+            }
+            cgContext.saveGState()
+            defer { cgContext.restoreGState() }
             UIColor.white.setFill()
             path.fill()
             path.addClip()

@@ -27,6 +27,11 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(extractedText.contains("美本录取计算器"))
         XCTAssertTrue(extractedText.contains("Admission Report"))
         XCTAssertTrue(extractedText.contains("Boston University"))
+
+        let firstPage = try XCTUnwrap(document.page(at: 0))
+        let renderedPage = firstPage.thumbnail(of: CGSize(width: 595, height: 842), for: .mediaBox)
+        let nonWhitePixels = try renderedPage.nonWhitePixelCount(in: CGRect(x: 40, y: 120, width: 515, height: 190))
+        XCTAssertGreaterThan(nonWhitePixels, 1_000, "The PDF should render visible text or probability cards outside the logo area.")
     }
 
     func testGeneratedDataSnapshotHasMetadataAndSources() {
@@ -734,5 +739,48 @@ final class HarnessValidationTests: XCTestCase {
             return
         }
         XCTAssertEqual(early + rd, total, collegeID)
+    }
+}
+
+private extension UIImage {
+    func nonWhitePixelCount(in rect: CGRect) throws -> Int {
+        guard let cgImage else {
+            return 0
+        }
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return 0
+        }
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        let xRange = max(0, Int(rect.minX))..<min(width, Int(rect.maxX))
+        let yRange = max(0, Int(rect.minY))..<min(height, Int(rect.maxY))
+        var count = 0
+        for y in yRange {
+            for x in xRange {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                let red = pixels[offset]
+                let green = pixels[offset + 1]
+                let blue = pixels[offset + 2]
+                let alpha = pixels[offset + 3]
+                if alpha > 0 && (red < 245 || green < 245 || blue < 245) {
+                    count += 1
+                }
+            }
+        }
+        return count
     }
 }
