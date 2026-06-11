@@ -393,40 +393,17 @@ enum ReportService {
             return "综合报告仅支持 RD 轮次。当前结果为 \(profile.round.rawValue) 轮次，只提供本轮逐校概率和组合概率，不生成综合报告。"
         }
         let blocked = result.schoolResults.filter { !$0.gateResult.passed }
-        let schoolStrategyDigest = result.schoolResults.isEmpty
-            ? "尚未选择学校。"
-            : result.schoolResults.map { schoolStrategyDigestLine(for: $0, profile: profile) }.joined(separator: "\n")
         let gates = blocked.isEmpty
             ? "未发现已选学校的硬门槛失败项。"
             : blocked.map { "\($0.college.name)：\($0.gateResult.failedRules.map(Self.gateRuleSummary).joined(separator: "；"))" }.joined(separator: "\n")
         let selectionNotes = result.selectionWarnings.isEmpty
             ? "当前组合内学校均已纳入本次计算。"
             : result.selectionWarnings.joined(separator: "\n")
-        let missingInputNotes = missingInputSummary(profile: profile, selectedCollegeIDs: result.calculatedCollegeIDs)
-        let applicationCountImpact = applicationCountImpactSummary(result: result)
         let factorHighlights = factorHighlightSummary(result: result)
         let improvementPlan = comprehensiveImprovementPlan(result: result)
         let deficitSummary = coreDeficitSummary(result: result)
         let requiredSections = makeRequiredReportSections(result: result)
-        let recommendationNotes: String
-        switch result.selectionSource {
-        case .automatic:
-            if !result.recommendationSteps.isEmpty {
-                recommendationNotes = result.recommendationWarnings.isEmpty
-                    ? "自动推荐数量与计划选择数量一致。"
-                    : result.recommendationWarnings.joined(separator: "\n")
-            } else if result.schoolResults.isEmpty {
-                recommendationNotes = result.recommendationWarnings.isEmpty
-                    ? "自动推荐没有生成可计算学校。"
-                    : result.recommendationWarnings.joined(separator: "\n")
-            } else {
-                recommendationNotes = "当前组合标记为自动推荐，但学校集合或顺位元数据没有通过当前画像快照校验；报告不会把它视为数量一致的自动推荐结果。"
-            }
-        case .manual:
-            recommendationNotes = "当前为手动选校，未触发自动推荐缺口判断。"
-        case .none:
-            recommendationNotes = "尚未选择学校，未触发自动推荐。"
-        }
+        let planningSupplement = reportPlanningSupplementSections(result: result)
         return """
         综合选校报告
 
@@ -452,26 +429,13 @@ enum ReportService {
         分档规则：争取 <20%，目标 20%-60%，保底 >=60%；保底是相对规划标签，不代表录取保证。
         \(selectionNotes)
 
-        待补资料：
-        \(missingInputNotes)
-
         当前主要不足：
         \(deficitSummary)
 
         目前影响概率较大的因素：
         \(factorHighlights)
 
-        提高申请数量对概率的影响：
-        \(applicationCountImpact)
-
-        自动推荐提示：
-        \(recommendationNotes)
-
-        自动推荐依据：
-        \(recommendationStrategySummary(result: result))
-
-        逐校策略摘要：
-        \(schoolStrategyDigest)
+        \(planningSupplement)
 
         申请策略与提升动作：
         \(improvementPlan)
@@ -516,6 +480,49 @@ enum ReportService {
         """
     }
 
+    private static func reportPlanningSupplementSections(result: PortfolioResult) -> String {
+        let profile = result.profileSnapshot
+        let schoolStrategyDigest = result.schoolResults.isEmpty
+            ? "尚未选择学校。"
+            : result.schoolResults.map { schoolStrategyDigestLine(for: $0, profile: profile) }.joined(separator: "\n")
+        return """
+        待补资料：
+        \(missingInputSummary(profile: profile, selectedCollegeIDs: result.calculatedCollegeIDs))
+
+        提高申请数量对概率的影响分析：
+        \(applicationCountImpactSummary(result: result))
+
+        自动推荐的提示和依据：
+        自动推荐提示：\(reportRecommendationNotes(result: result))
+        自动推荐依据：
+        \(recommendationStrategySummary(result: result))
+
+        逐校策略摘要：
+        \(schoolStrategyDigest)
+        """
+    }
+
+    private static func reportRecommendationNotes(result: PortfolioResult) -> String {
+        switch result.selectionSource {
+        case .automatic:
+            if !result.recommendationSteps.isEmpty {
+                return result.recommendationWarnings.isEmpty
+                    ? "自动推荐数量与计划选择数量一致。"
+                    : result.recommendationWarnings.joined(separator: "\n")
+            }
+            if result.schoolResults.isEmpty {
+                return result.recommendationWarnings.isEmpty
+                    ? "自动推荐没有生成可计算学校。"
+                    : result.recommendationWarnings.joined(separator: "\n")
+            }
+            return "当前组合标记为自动推荐，但学校集合或顺位元数据没有通过当前画像快照校验；报告不会把它视为数量一致的自动推荐结果。"
+        case .manual:
+            return "当前为手动选校，未触发自动推荐缺口判断。"
+        case .none:
+            return "尚未选择学校，未触发自动推荐。"
+        }
+    }
+
     private static func historicalDataVolatilityDisclosure() -> String {
         """
         本报告使用的学校录取率、专业/学院录取口径、学校可比水平和中国学生录取信号，都是对历史公开数据和本地模型校准的参考，不是对未来申请季的预测。近年美国本科申请环境变化很快：经济兴衰会影响家庭申请数量和资助需求，行业景气度与就业市场会改变专业热度，AI 对计算机、商科、传媒、设计等方向的学习路径和职业预期也在持续冲击。学校招生策略、国际生名额、地区偏好、专业容量和申请者行为都可能随之调整，因此同一学校或专业的难度可能出现较大波动。阅读概率时应把它理解为当前资料下的规划估计，用于比较风险和安排优先级，而不是稳定不变的录取结果。
@@ -527,9 +534,12 @@ enum ReportService {
         guard result.profileSnapshot.round == .regularDecision else {
             return generated
         }
+        let planningSupplement = reportPlanningSupplementSections(result: result)
         let cleaned = removeDuplicatedDeterministicSections(from: generated)
         return """
         \(required)
+
+        \(planningSupplement)
 
         AI 详细分析正文：
         \(cleaned)
@@ -541,7 +551,7 @@ enum ReportService {
             return makeReport(result: result)
         }
         return """
-        请基于下面的报告事实包，生成一份自然语言的付费报告分析正文。客户端会在你的正文前自动插入概率图、学生画像、逐校概率表、逐校学术匹配对照表和行动建议表；你不要重建表格，但必须解释这些表格背后的含义。
+        请基于下面的报告事实包，生成一份自然语言的付费报告分析正文。客户端会在你的正文前自动插入概率图、学生画像、逐校概率表、逐校学术匹配对照表、行动建议表、待补资料、提高申请数量对概率的影响分析、自动推荐的提示和依据、逐校策略摘要；你不要重建表格，也不要复制这些确定性段落，但必须解释这些表格和本地规划段落背后的含义。
 
         输出长度与结构：
         - 总长度控制在 \(aiReportTargetCharacters) 个中文字以内。
@@ -549,14 +559,18 @@ enum ReportService {
         - 每个标题下写 1-3 段自然语言；可以少量使用短 bullet，但不要只有 bullet。
         - 概率分析必须点到每一所学校的概率含义；学校较多时可合并同类学校，但不能遗漏硬门槛失败、最高概率、最低概率和边际贡献低的学校。
         - 逐校差距与优势要比较学生条件与目标校平均/内部基准，说明“优势在哪里、差距在哪里、为什么影响概率”。
+        - 必须基于本地规划补充段落展开分析：待补资料、提高申请数量对概率的影响分析、自动推荐的提示和依据、逐校策略摘要。不要只列标题，要说明这些段落对申请动作优先级的影响。
 
         强制约束：
         - 不得修改、重算、覆盖或美化事实包中的概率、分档、硬门槛和学校列表。
         - 不得添加事实包外的学校；不得把建议申请数据范围外学校写成本报告计算的一部分。
+        - 禁止推荐、点名或举例事实包外的具体学校名称；讨论补校时只能使用“更稳健目标校”“保底梯度”“同层争取校”“T50/LAC 目标范围”等类别表达。
+        - 只允许出现事实包“逐校分析事实”中列出的学校名称；即使讨论高中背景、历史录取或补校方向，也不得用未列入事实包的学校举例。
+        - 禁止估算新增学校后的具体组合概率、具体提升百分点、新的录取率，或高中背景校准可能带来的具体百分点变化；提高申请数量只能解释当前已选学校的边际贡献、数量结构和方向性影响。
         - 不得承诺录取，不得把估算说成预测或保证；“保底”也不是保证。
         - 简要说明历史数据只是校准参考，不能代表未来申请季。
         - 不要展开系统缺失数据、来源审计或置信度说明。
-        - 不要重复输出已经由客户端插入的确定性表格；如需引用，只引用表格结论。
+        - 不要重复输出已经由客户端插入的确定性表格或本地规划补充段落；如需引用，只引用结论并进一步解释取舍。
         - 不得评价、排名、描述或暗示用户高中本身的强弱；不要输出具体高中名称，不要写“顶尖高中/一流高中/资源强弱/升学记录”等对用户高中的判断。高中背景只能作为本地模型已使用的校准输入一句带过。
         - 除已计算概率、学校数量、硬门槛结果和事实包里的学生/学校基准值外，不要用数字描述影响强度；影响强度用“极强、强、中、弱、极弱”等档位。
         - 不要暴露内部调整值、权重、参数或公式。
@@ -582,6 +596,8 @@ enum ReportService {
         return """
         ## 事实边界
         所有概率、分档、硬门槛均来自本地离线概率引擎；AI 只能解释，不能改概率或加学校。历史数据只作校准参考，不代表未来录取。
+        AI 不得点名事实包外学校，也不得估算新增学校后的具体组合概率；补校建议只能按梯度和学校类型描述。
+        唯一允许出现的学校名称：\(result.schoolResults.map(\.college.name).joined(separator: "；"))
 
         ## 学生画像
         \(compactStudentProfileFactBlock(profile))
@@ -601,11 +617,14 @@ enum ReportService {
         自动推荐依据：\(oneLine(recommendationStrategySummary(result: result), maxLength: 300))
         选校警示：\(oneLine([selectedWarnings, recommendationWarnings, warningSummary(result: result)].joined(separator: "\n"), maxLength: 260))
 
+        ## 本地规划补充段落
+        \(reportPlanningSupplementSections(result: result))
+
         ## 逐校分析事实
         \(schoolLines)
 
         ## 客户端已插入
-        正文前已有概率图、学生画像、逐校概率表、逐校学术匹配解读、主要差距与提升建议；AI 正文不要重建表格，要用自然语言解释表格含义和行动优先级。
+        正文前已有概率图、学生画像、逐校概率表、逐校学术匹配解读、主要差距与提升建议、待补资料、提高申请数量对概率的影响分析、自动推荐的提示和依据、逐校策略摘要；AI 正文不要重建表格或复述本地规划段落，要用自然语言解释这些结论的含义和行动优先级。
         """
     }
 
@@ -1546,7 +1565,19 @@ enum ReportService {
     }
 
     private static func removeDuplicatedDeterministicSections(from generated: String) -> String {
-        let duplicatedSectionTitles = ["逐校录取概率表", "学校平均/内部基准差距表", "逐校学术匹配解读", "主要差距与提升建议"]
+        let duplicatedSectionTitles = [
+            "逐校录取概率表",
+            "学校平均/内部基准差距表",
+            "逐校学术匹配解读",
+            "主要差距与提升建议",
+            "待补资料",
+            "提高申请数量对概率的影响",
+            "提高申请数量对概率的影响分析",
+            "自动推荐的提示和依据",
+            "自动推荐提示",
+            "自动推荐依据",
+            "逐校策略摘要"
+        ]
         let duplicatedTableHeaders = ["| 学校 | 排名/类型 |", "| 学校 | GPA/学术指数差距 |", "| 学校 | 成绩位置 |"]
         var cleanedLines: [String] = []
         var skippingSection = false

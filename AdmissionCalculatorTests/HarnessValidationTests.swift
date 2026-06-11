@@ -661,6 +661,15 @@ final class HarnessValidationTests: XCTestCase {
 
         XCTAssertTrue(merged.contains("概率分析结果"))
         XCTAssertTrue(merged.contains("每所学校差距和优势比较"))
+        XCTAssertTrue(merged.contains("待补资料"))
+        XCTAssertTrue(merged.contains("提高申请数量对概率的影响分析"))
+        XCTAssertTrue(merged.contains("自动推荐的提示和依据"))
+        XCTAssertTrue(merged.contains("自动推荐提示"))
+        XCTAssertTrue(merged.contains("自动推荐依据"))
+        XCTAssertTrue(merged.contains("逐校策略摘要"))
+        XCTAssertTrue(merged.contains("当前为手动选校，未触发自动推荐缺口判断。"))
+        XCTAssertTrue(merged.contains("当前为手动选校；报告仍展示逐校概率和组合概率"))
+        XCTAssertTrue(merged.contains("边际收益测算"))
         XCTAssertFalse(merged.contains("重复学校"))
         XCTAssertTrue(merged.contains("Boston University：保留非重复策略。"))
     }
@@ -685,6 +694,12 @@ final class HarnessValidationTests: XCTestCase {
         XCTAssertTrue(prompt.contains("不要展开系统缺失数据、来源审计或置信度说明"))
         XCTAssertTrue(prompt.contains("单校概率、学校价值和同层相关性边际折扣"))
         XCTAssertTrue(prompt.contains("不要暴露内部调整值、权重、参数或公式"))
+        XCTAssertTrue(prompt.contains("本地规划补充段落"))
+        XCTAssertTrue(prompt.contains("待补资料、提高申请数量对概率的影响分析、自动推荐的提示和依据、逐校策略摘要"))
+        XCTAssertTrue(prompt.contains("禁止推荐、点名或举例事实包外的具体学校名称"))
+        XCTAssertTrue(prompt.contains("禁止估算新增学校后的具体组合概率"))
+        XCTAssertTrue(prompt.contains("唯一允许出现的学校名称"))
+        XCTAssertTrue(prompt.contains("即使讨论高中背景、历史录取或补校方向，也不得用未列入事实包的学校举例"))
     }
 
     func testCalculationFlowDocumentsApproximationAndSharedT10Correlation() throws {
