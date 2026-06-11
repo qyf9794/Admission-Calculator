@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import QuickLook
 
 struct ReportView: View {
     let result: PortfolioResult?
@@ -11,12 +12,13 @@ struct ReportView: View {
 
     @State private var reportText: String?
     @State private var pdfURL: URL?
+    @State private var pdfPreviewDocument: ReportPDFDocument?
     @State private var pdfErrorMessage: String?
     @State private var isGenerating = false
+    @State private var generationStartedAt: Date?
     @State private var errorMessage: String?
     @State private var showingDataSources = false
     @State private var showingPaymentSheet = false
-    @State private var showingReportSheet = false
 
     var body: some View {
         ZStack {
@@ -52,8 +54,12 @@ struct ReportView: View {
                             purchaseState: purchaseState,
                             isStale: isStale,
                             isGenerating: isGenerating,
+                            generationStartedAt: generationStartedAt,
                             errorMessage: errorMessage,
+                            pdfURL: pdfURL,
+                            pdfErrorMessage: pdfErrorMessage,
                             onGenerate: { showingPaymentSheet = true },
+                            onPreviewPDF: { previewGeneratedPDF() },
                             onShowDataSources: { showingDataSources = true }
                         )
 
@@ -93,27 +99,8 @@ struct ReportView: View {
                 .presentationDetents([.medium])
             }
         }
-        .sheet(isPresented: $showingReportSheet) {
-            if let result, let reportText {
-                NavigationStack {
-                    ReportTextCard(
-                        text: reportText,
-                        pdfURL: pdfURL,
-                        pdfErrorMessage: pdfErrorMessage,
-                        onExportPDF: { exportPDF(text: reportText, result: result) }
-                    )
-                    .padding()
-                    .admissionPage()
-                    .navigationTitle("录取分析报告")
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("完成") {
-                                showingReportSheet = false
-                            }
-                        }
-                    }
-                }
-            }
+        .sheet(item: $pdfPreviewDocument) { document in
+            ReportPDFPreviewSheet(document: document)
         }
         .task {
             await purchaseState.loadProduct()
@@ -133,33 +120,50 @@ struct ReportView: View {
             return
         }
         isGenerating = true
+        generationStartedAt = Date()
         errorMessage = nil
         pdfURL = nil
+        pdfPreviewDocument = nil
         pdfErrorMessage = nil
 
         Task {
             do {
                 let transaction = try await purchaseState.purchaseOrUsePendingToken()
+                await MainActor.run {
+                    showingPaymentSheet = false
+                }
                 let prompt = ReportService.makeOpenAIReportPrompt(result: result)
                 let generated = try await client.generateReport(prompt: prompt, transaction: transaction)
+                let merged = ReportService.mergeGeneratedReport(generated, result: result)
                 await MainActor.run {
-                    reportText = ReportService.mergeGeneratedReport(generated, result: result)
-                    pdfURL = nil
+                    reportText = merged
+                    do {
+                        let url = try writePDF(text: merged, result: result)
+                        pdfURL = url
+                        pdfPreviewDocument = ReportPDFDocument(url: url)
+                        pdfErrorMessage = nil
+                    } catch {
+                        pdfURL = nil
+                        pdfPreviewDocument = nil
+                        pdfErrorMessage = "PDF 预览生成失败：\(error.localizedDescription)"
+                    }
                     purchaseState.markReportGenerated()
                     isGenerating = false
-                    showingPaymentSheet = false
-                    showingReportSheet = true
+                    generationStartedAt = nil
                 }
             } catch let error as ReportPurchaseError where error == .userCancelled {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
                     isGenerating = false
+                    generationStartedAt = nil
                 }
             } catch {
                 await MainActor.run {
                     pdfURL = nil
+                    pdfPreviewDocument = nil
                     errorMessage = "报告生成失败。如已完成支付，本次支付凭证会保留在本机，可稍后重试：\(error.localizedDescription)"
                     isGenerating = false
+                    generationStartedAt = nil
                 }
             }
         }
@@ -167,15 +171,28 @@ struct ReportView: View {
 
     private func exportPDF(text: String, result: PortfolioResult) {
         do {
-            pdfURL = try ReportPDFRenderer.write(
-                text: text,
-                result: result,
-                fileName: "Admission-Report-\(Self.pdfDateFormatter.string(from: result.generatedAt)).pdf"
-            )
+            let url = try writePDF(text: text, result: result)
+            pdfURL = url
+            pdfPreviewDocument = ReportPDFDocument(url: url)
             pdfErrorMessage = nil
         } catch {
             pdfErrorMessage = "PDF 生成失败：\(error.localizedDescription)"
         }
+    }
+
+    private func writePDF(text: String, result: PortfolioResult) throws -> URL {
+        try ReportPDFRenderer.write(
+            text: text,
+            result: result,
+            fileName: "Admission-Report-\(Self.pdfDateFormatter.string(from: result.generatedAt)).pdf"
+        )
+    }
+
+    private func previewGeneratedPDF() {
+        guard let pdfURL else {
+            return
+        }
+        pdfPreviewDocument = ReportPDFDocument(url: pdfURL)
     }
 
     private static let pdfDateFormatter: DateFormatter = {
@@ -232,7 +249,7 @@ private struct ReportPaymentSheet: View {
                 Text("报告支付")
                     .font(AdmissionStyle.titleFont(30))
                     .foregroundStyle(Color.black.opacity(0.88))
-                Text(hasPendingPaidReport ? "检测到本机已有已支付但未完成的报告生成凭证，本次会直接继续生成，不会再次扣费。" : "通过 Apple 内购按次购买完整录取分析报告。报告生成服务只接收本次计算事实包和 Apple 交易凭证，不会改变任何已计算概率。")
+                Text(hasPendingPaidReport ? "检测到本机已有已支付但未完成的报告生成凭证，本次会直接继续生成，不会再次扣费。生成完成后会自动打开 PDF 预览。" : "通过 Apple 内购按次购买完整录取分析报告。付款确认后报告会在后台生成，完成后直接打开 PDF 预览。")
                     .font(.subheadline)
                     .foregroundStyle(Color.black.opacity(0.62))
                 Label(hasPendingPaidReport ? "待生成报告" : priceText, systemImage: hasPendingPaidReport ? "checkmark.seal.fill" : "creditcard.fill")
@@ -255,7 +272,7 @@ private struct ReportPaymentSheet: View {
                             } else {
                                 Image(systemName: "lock.open.fill")
                             }
-                            Text(isGenerating ? "正在生成" : (hasPendingPaidReport ? "继续生成" : "支付并生成"))
+                            Text(isGenerating ? "正在生成" : (hasPendingPaidReport ? "继续生成" : "支付并后台生成"))
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -273,8 +290,12 @@ private struct ReportActionCard: View {
     @ObservedObject var purchaseState: ReportPurchaseState
     let isStale: Bool
     let isGenerating: Bool
+    let generationStartedAt: Date?
     let errorMessage: String?
+    let pdfURL: URL?
+    let pdfErrorMessage: String?
     let onGenerate: () -> Void
+    let onPreviewPDF: () -> Void
     let onShowDataSources: () -> Void
 
     var body: some View {
@@ -308,6 +329,16 @@ private struct ReportActionCard: View {
                 .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
                 .disabled(isGenerating || isStale || result.schoolResults.isEmpty || result.profileSnapshot.round != .regularDecision)
 
+                if pdfURL != nil {
+                    Button {
+                        onPreviewPDF()
+                    } label: {
+                        Label("预览 PDF", systemImage: "doc.richtext")
+                    }
+                    .buttonStyle(AdmissionQuietButtonStyle())
+                    .disabled(isGenerating)
+                }
+
                 Button {
                     onShowDataSources()
                 } label: {
@@ -319,15 +350,7 @@ private struct ReportActionCard: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.74))
             if isGenerating {
-                HStack(spacing: 10) {
-                    ProgressView()
-                    Text("AI 正在整理不足项、申请策略和学校简表，请保持页面打开。")
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.70))
-                }
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
+                ReportGenerationProgressView(startedAt: generationStartedAt ?? Date())
             }
             if result.schoolResults.isEmpty {
                 Label("当前没有进入计算的学校，请先选择学校并重新计算。", systemImage: "exclamationmark.triangle")
@@ -339,6 +362,269 @@ private struct ReportActionCard: View {
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
+            if let pdfErrorMessage {
+                Label(pdfErrorMessage, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+}
+
+private struct ReportGenerationProgressView: View {
+    let startedAt: Date
+
+    private let steps = [
+        "核验支付凭证",
+        "整理测算事实",
+        "生成分析正文",
+        "生成 PDF 预览"
+    ]
+
+    var body: some View {
+        TimelineView(.periodic(from: startedAt, by: 0.35)) { timeline in
+            let elapsed = max(0, timeline.date.timeIntervalSince(startedAt))
+            let stage = stage(for: elapsed)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.18), lineWidth: 5)
+                        Circle()
+                            .trim(from: 0.12, to: 0.82)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.white, .white.opacity(0.36)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                            )
+                            .rotationEffect(.degrees(elapsed * 120))
+                        Image(systemName: stage.symbolName)
+                            .font(.system(size: 17, weight: .black))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 42, height: 42)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Text(stage.title)
+                                .font(.subheadline.weight(.black))
+                            LoadingDots(elapsed: elapsed)
+                        }
+                        Text(stage.detail)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.70))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Text(elapsedText(elapsed))
+                        .font(.caption.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.white.opacity(0.76))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.12), in: Capsule())
+                }
+
+                AnimatedProgressBar(progress: progress(for: elapsed), elapsed: elapsed)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
+                    ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                        HStack(spacing: 7) {
+                            Image(systemName: iconName(for: index, currentStep: stage.stepIndex))
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(index <= stage.stepIndex ? .white : .white.opacity(0.42))
+                                .frame(width: 15)
+                            Text(step)
+                                .font(.caption2.weight(index == stage.stepIndex ? .bold : .medium))
+                                .foregroundStyle(index <= stage.stepIndex ? .white.opacity(0.86) : .white.opacity(0.48))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.82)
+                        }
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.11), in: RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AdmissionStyle.compactRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("报告生成中，\(stage.title)，已等待 \(elapsedText(elapsed))")
+        }
+    }
+
+    private func stage(for elapsed: TimeInterval) -> ReportGenerationStage {
+        switch elapsed {
+        case 0..<12:
+            return ReportGenerationStage(stepIndex: 0, title: "正在核验支付", detail: "确认本次购买凭证，完成后继续生成报告。", symbolName: "checkmark.seal.fill")
+        case 12..<45:
+            return ReportGenerationStage(stepIndex: 1, title: "正在整理事实包", detail: "压缩学生画像、逐校概率和差距优势。", symbolName: "doc.text.magnifyingglass")
+        case 45..<220:
+            return ReportGenerationStage(stepIndex: 2, title: "正在生成分析", detail: "模型正在撰写逐校解释、综合判断和提升方向。", symbolName: "sparkles")
+        default:
+            return ReportGenerationStage(stepIndex: 2, title: "仍在等待模型", detail: "复杂报告可能较慢；请保持页面打开，完成后会自动预览 PDF。", symbolName: "hourglass")
+        }
+    }
+
+    private func progress(for elapsed: TimeInterval) -> Double {
+        min(0.94, 0.10 + elapsed / 260 * 0.84)
+    }
+
+    private func iconName(for index: Int, currentStep: Int) -> String {
+        if index < currentStep {
+            return "checkmark.circle.fill"
+        }
+        if index == currentStep {
+            return "circle.dotted"
+        }
+        return "circle"
+    }
+
+    private func elapsedText(_ elapsed: TimeInterval) -> String {
+        let totalSeconds = Int(elapsed.rounded(.down))
+        return "\(totalSeconds / 60):\(String(format: "%02d", totalSeconds % 60))"
+    }
+}
+
+private struct ReportGenerationStage {
+    let stepIndex: Int
+    let title: String
+    let detail: String
+    let symbolName: String
+}
+
+private struct LoadingDots: View {
+    let elapsed: TimeInterval
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(Color.white.opacity(0.84))
+                    .frame(width: 4, height: 4)
+                    .scaleEffect(dotScale(index: index))
+            }
+        }
+        .frame(width: 22, height: 8)
+        .accessibilityHidden(true)
+    }
+
+    private func dotScale(index: Int) -> CGFloat {
+        let wave = sin((elapsed * 5.2) - Double(index) * 0.75)
+        return 0.72 + CGFloat(max(0, wave)) * 0.46
+    }
+}
+
+private struct AnimatedProgressBar: View {
+    let progress: Double
+    let elapsed: TimeInterval
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let fillWidth = max(24, width * progress)
+            let highlightWidth = max(38, width * 0.20)
+            let highlightOffset = (elapsed.truncatingRemainder(dividingBy: 1.8) / 1.8) * (fillWidth + highlightWidth) - highlightWidth
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.16))
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.50),
+                                Color.white.opacity(0.88),
+                                Color.white.opacity(0.56)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: fillWidth)
+                    .overlay(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.55))
+                            .frame(width: highlightWidth)
+                            .offset(x: highlightOffset)
+                            .blur(radius: 5)
+                    }
+                    .clipShape(Capsule())
+            }
+        }
+        .frame(height: 8)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct ReportPDFDocument: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private struct ReportPDFPreviewSheet: View {
+    let document: ReportPDFDocument
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            QuickLookPDFPreview(url: document.url)
+                .navigationTitle("录取分析报告")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        ShareLink(item: document.url) {
+                            Label("分享", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("完成") {
+                            dismiss()
+                        }
+                    }
+                }
+        }
+    }
+}
+
+private struct QuickLookPDFPreview: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController()
+        controller.dataSource = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ controller: QLPreviewController, context: Context) {
+        context.coordinator.url = url
+        controller.reloadData()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url)
+    }
+
+    final class Coordinator: NSObject, QLPreviewControllerDataSource {
+        var url: URL
+
+        init(url: URL) {
+            self.url = url
+        }
+
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+            1
+        }
+
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            url as NSURL
         }
     }
 }
@@ -482,23 +768,59 @@ enum ReportPDFRenderer {
     }
 
     private static func drawHeader(result: PortfolioResult, in pageRect: CGRect, margin: CGFloat) -> CGFloat {
-        let title = "Admission Report"
-        let subtitle = "Generated \(result.generatedAt.formatted(date: .abbreviated, time: .shortened)) · \(result.schoolResults.count) schools · At least one \(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))"
+        let logoRect = CGRect(x: margin, y: margin - 2, width: 42, height: 42)
+        drawLogo(in: logoRect)
+
+        let title = "美本录取计算器"
+        let subtitle = "Admission Report · 录取分析报告"
+        let detail = "Generated \(result.generatedAt.formatted(date: .abbreviated, time: .shortened)) · \(result.schoolResults.count) schools · At least one \(result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))))"
+        let textX = logoRect.maxX + 12
         (title as NSString).draw(
-            at: CGPoint(x: margin, y: margin),
+            at: CGPoint(x: textX, y: margin - 1),
             withAttributes: [
-                .font: UIFont.systemFont(ofSize: 22, weight: .bold),
+                .font: UIFont.systemFont(ofSize: 20, weight: .bold),
                 .foregroundColor: UIColor.black
             ]
         )
         (subtitle as NSString).draw(
-            in: CGRect(x: margin, y: margin + 28, width: pageRect.width - margin * 2, height: 24),
+            in: CGRect(x: textX, y: margin + 23, width: pageRect.width - textX - margin, height: 16),
             withAttributes: [
-                .font: UIFont.systemFont(ofSize: 9.5, weight: .regular),
+                .font: UIFont.systemFont(ofSize: 9.5, weight: .semibold),
                 .foregroundColor: UIColor.darkGray
             ]
         )
-        return margin + 66
+        (detail as NSString).draw(
+            in: CGRect(x: margin, y: margin + 50, width: pageRect.width - margin * 2, height: 18),
+            withAttributes: [
+                .font: UIFont.systemFont(ofSize: 8.8, weight: .regular),
+                .foregroundColor: UIColor.darkGray
+            ]
+        )
+        return margin + 82
+    }
+
+    private static func drawLogo(in rect: CGRect) {
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
+        if let image = UIImage(named: "AppLogo") {
+            UIColor.white.setFill()
+            path.fill()
+            path.addClip()
+            image.draw(in: rect)
+        } else {
+            UIColor(red: 0.88, green: 0.13, blue: 0.50, alpha: 1).setFill()
+            path.fill()
+            let symbol = "A+"
+            (symbol as NSString).draw(
+                in: rect.insetBy(dx: 7, dy: 10),
+                withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 16, weight: .black),
+                    .foregroundColor: UIColor.white
+                ]
+            )
+        }
+        UIColor(white: 0, alpha: 0.08).setStroke()
+        path.lineWidth = 0.8
+        path.stroke()
     }
 
     private static func drawProbabilityCards(result: PortfolioResult, in pageRect: CGRect, margin: CGFloat, y: CGFloat) -> CGFloat {
@@ -507,7 +829,7 @@ enum ReportPDFRenderer {
         let leftWidth: CGFloat = 178
         let rightWidth = contentWidth - leftWidth - gap
         let smallWidth = (rightWidth - gap) / 2
-        let smallHeight: CGFloat = 42
+        let smallHeight: CGFloat = 50
         let totalHeight = smallHeight * 3 + gap * 2
 
         drawCard(
@@ -515,17 +837,17 @@ enum ReportPDFRenderer {
             title: "全部已选至少一所",
             value: result.selectedAtLeastOne.formatted(.percent.precision(.fractionLength(0))),
             detail: "\(result.schoolResults.count) 所学校 · \(result.selectionSource.rawValue)",
-            fill: UIColor(red: 0.04, green: 0.05, blue: 0.07, alpha: 1),
+            fill: UIColor(red: 0.88, green: 0.13, blue: 0.50, alpha: 1),
             valueSize: 34
         )
 
-        let metrics: [(String, String, String)] = [
-            ("综大 T10", result.t10AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 10, result: result)) 所"),
-            ("综大 T11-T30", result.t11T30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, minRankExclusive: 10, maxRank: 30, result: result)) 所"),
-            ("综大 T30", result.t30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 30, result: result)) 所"),
-            ("综大 T50", result.t50AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 50, result: result)) 所"),
-            ("文理 T10", result.liberalArtsT10AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .liberalArtsCollege, maxRank: 10, result: result)) 所"),
-            ("文理 T30", result.liberalArtsT30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .liberalArtsCollege, maxRank: 30, result: result)) 所")
+        let metrics: [(String, String, String, UIColor)] = [
+            ("综大 T10", result.t10AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 10, result: result)) 所", UIColor(red: 0.50, green: 0.18, blue: 0.82, alpha: 1)),
+            ("综大 T11-T30", result.t11T30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, minRankExclusive: 10, maxRank: 30, result: result)) 所", UIColor(red: 0.27, green: 0.30, blue: 0.86, alpha: 1)),
+            ("综大 T30", result.t30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 30, result: result)) 所", UIColor(red: 0.10, green: 0.34, blue: 0.95, alpha: 1)),
+            ("综大 T50", result.t50AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .nationalUniversity, maxRank: 50, result: result)) 所", UIColor(red: 0.03, green: 0.50, blue: 0.52, alpha: 1)),
+            ("文理 T10", result.liberalArtsT10AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .liberalArtsCollege, maxRank: 10, result: result)) 所", UIColor(red: 0.85, green: 0.44, blue: 0.84, alpha: 1)),
+            ("文理 T30", result.liberalArtsT30AtLeastOne.formatted(.percent.precision(.fractionLength(0))), "\(tierCount(category: .liberalArtsCollege, maxRank: 30, result: result)) 所", UIColor(red: 0.95, green: 0.43, blue: 0.48, alpha: 1))
         ]
 
         for (index, metric) in metrics.enumerated() {
@@ -542,8 +864,8 @@ enum ReportPDFRenderer {
                 title: metric.0,
                 value: metric.1,
                 detail: metric.2,
-                fill: UIColor(red: 0.11 + CGFloat(row) * 0.03, green: 0.13 + CGFloat(column) * 0.04, blue: 0.18 + CGFloat(index) * 0.012, alpha: 1),
-                valueSize: 17
+                fill: metric.3,
+                valueSize: 15
             )
         }
 

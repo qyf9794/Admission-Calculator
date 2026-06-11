@@ -10,7 +10,6 @@
     "check": "node --check index.mjs"
   },
   "dependencies": {
-    "@apple/app-store-server-library": "*",
-    "tablestore": "*"
+    "@apple/app-store-server-library": "*"
   }
 }

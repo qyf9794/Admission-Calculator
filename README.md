@@ -50,6 +50,7 @@ The v1 model is intentionally transparent:
 - The app tracks whether a portfolio is empty, manually selected, or auto-recommended so recommendation warnings do not appear on hand-built lists.
 - AI reports focus on per-school probability, application-count impact, key probability drivers, student-vs-school gaps/advantages, improvement actions, and portfolio strategy.
 - Paid AI report generation is wired through a server-side report proxy. Debug builds can point `REPORT_PROXY_URL` at an HTTPS endpoint, while production should set the `ReportProxyURL` Info.plist value. The app never embeds an LLM API key.
+- For TestFlight or App Store archives, pass the Aliyun Function Compute HTTPS trigger URL as the `REPORT_PROXY_URL` build setting; the generated Info.plist writes it into `ReportProxyURL`. Release builds fail fast if this value is empty or not HTTPS, so a broken paid-report build is not uploaded by accident.
 - Complete reports are not generated or shown before payment. Local deterministic report material is used only to build the AI context/fact packet and required probability guardrails; it is not exposed as a free customer-facing report.
 - If Apple charges the per-report purchase but AI generation fails, the signed transaction is kept on device so the user can retry generation without another purchase.
 - Results and AI reports are tied to the submitted profile snapshot; if the live form changes afterward, the app flags the displayed result as stale.

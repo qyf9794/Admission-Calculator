@@ -1,26 +1,31 @@
 import crypto from "node:crypto";
 import http from "node:http";
-import TableStore from "tablestore";
 import {
   Environment,
   SignedDataVerifier
 } from "@apple/app-store-server-library";
+
+const dashscopeModel = normalizeDashScopeModel(process.env.DASHSCOPE_MODEL);
+const dashscopeApiMode = dashscopeModeForModel(dashscopeModel);
 
 const config = {
   productId: requiredEnv("REPORT_PRODUCT_ID", "admission_calculator_ai_report"),
   bundleId: requiredEnv("APPLE_BUNDLE_ID"),
   appAppleId: optionalIntegerEnv("APPLE_APPLE_ID"),
   appleEnvironment: appleEnvironment(),
-  transactionSecret: requiredEnv("TRANSACTION_HMAC_SECRET"),
   dashscopeApiKey: requiredEnv("DASHSCOPE_API_KEY"),
-  dashscopeBaseUrl: process.env.DASHSCOPE_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  dashscopeModel: process.env.DASHSCOPE_MODEL || "qwen-plus",
-  otsTableName: process.env.OTS_TABLE_NAME || "admission_report_transactions",
-  pendingTimeoutMs: Number(process.env.PENDING_TIMEOUT_MS || 10 * 60 * 1000),
+  dashscopeBaseUrl: dashscopeBaseUrl(dashscopeApiMode),
+  dashscopeApiMode,
+  dashscopeModel,
+  dashscopeTimeoutMs: safeDashScopeTimeoutMs(),
+  dashscopeMaxTokens: Number(process.env.DASHSCOPE_MAX_TOKENS || 3500),
+  dashscopeMaxRetries: Number(process.env.DASHSCOPE_MAX_RETRIES || 0),
+  dashscopeRetryBaseDelayMs: Number(process.env.DASHSCOPE_RETRY_BASE_DELAY_MS || 800),
+  maxInstructionCharacters: Number(process.env.MAX_INSTRUCTION_CHARACTERS || 2500),
+  maxInputCharacters: Number(process.env.MAX_INPUT_CHARACTERS || 20_000),
+  maxReportCharacters: Number(process.env.MAX_REPORT_CHARACTERS || 10_000),
   skipAppleVerification: process.env.SKIP_APPLE_VERIFY_FOR_LOCAL_DEV === "true"
 };
-
-const tableStoreClient = createTableStoreClient();
 
 export async function handler(event) {
   const startedAt = Date.now();
@@ -28,6 +33,12 @@ export async function handler(event) {
 
   try {
     const request = parseHTTPEvent(event);
+    if ((request.method === "GET" || request.method === "HEAD") && request.path === "/health") {
+      return jsonResponse(200, healthPayload());
+    }
+    if (request.method === "GET" && request.path === "/diagnostics/dashscope") {
+      return diagnoseDashScope(requestId);
+    }
     if (request.method && request.method !== "POST") {
       return jsonResponse(405, { error: "method_not_allowed", requestId });
     }
@@ -35,49 +46,11 @@ export async function handler(event) {
     const body = parseJSONBody(request.body);
     validateBody(body);
 
-    const transaction = await verifyAppleTransaction(body.transaction);
-    const transactionHash = hmac(transaction.transactionId);
-    const originalTransactionHash = hmac(transaction.originalTransactionId || transaction.transactionId);
-
-    const existing = await getTransaction(transactionHash);
-    if (existing?.status === "used") {
-      return jsonResponse(409, { error: "transaction_already_used", requestId });
-    }
-    if (existing?.status === "pending" && Date.now() - Number(existing.updated_at || 0) < config.pendingTimeoutMs) {
-      return jsonResponse(409, { error: "transaction_pending", requestId });
-    }
-
-    await putOrUpdateTransaction({
-      transactionHash,
-      originalTransactionHash,
-      productId: transaction.productId,
-      status: "pending",
+    await verifyAppleTransaction(body.transaction);
+    const reportText = await generateReport({
+      instructions: body.instructions,
+      input: body.input,
       requestId
-    });
-
-    let reportText;
-    try {
-      reportText = await generateReport({
-        instructions: body.instructions,
-        input: body.input,
-        requestId
-      });
-    } catch (error) {
-      await updateTransaction(transactionHash, {
-        status: "failed",
-        request_id: requestId,
-        failure_code: error.code || "llm_request_failed",
-        updated_at: Date.now()
-      });
-      throw error;
-    }
-
-    await updateTransaction(transactionHash, {
-      status: "used",
-      provider: "dashscope",
-      model: config.dashscopeModel,
-      request_id: requestId,
-      updated_at: Date.now()
     });
 
     return jsonResponse(200, {
@@ -92,7 +65,8 @@ export async function handler(event) {
     console.error("report-proxy-error", {
       requestId,
       code,
-      message: error.message
+      message: error.message,
+      cause: error.cause?.message
     });
     return jsonResponse(status, {
       error: code,
@@ -142,153 +116,379 @@ async function verifyAppleTransaction(transaction) {
 }
 
 async function generateReport({ instructions, input, requestId }) {
-  const response = await fetch(`${config.dashscopeBaseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${config.dashscopeApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: config.dashscopeModel,
-      messages: [
-        { role: "system", content: instructions },
-        { role: "user", content: input }
-      ],
-      temperature: 0.3
-    })
+  const boundedInstructions = limitText(instructions, config.maxInstructionCharacters);
+  const boundedInput = limitText(input, config.maxInputCharacters);
+  const payload = dashscopePayload({
+    instructions: boundedInstructions,
+    input: boundedInput
   });
-
-  const text = await response.text();
-  if (!response.ok) {
-    throw publicError(502, "llm_request_failed", `模型服务调用失败：${response.status}`, {
-      providerStatus: response.status,
-      providerRequestId: requestId
-    });
-  }
+  const { text, elapsedMs, providerRequestId } = await requestDashScopeWithRetries({
+    payload,
+    requestId,
+    instructionCharacters: boundedInstructions.length,
+    inputCharacters: boundedInput.length
+  });
 
   let data;
   try {
     data = JSON.parse(text);
   } catch {
+    console.error("dashscope-invalid-json", {
+      requestId,
+      providerRequestId,
+      elapsedMs,
+      preview: text.slice(0, 500)
+    });
     throw publicError(502, "llm_invalid_json", "模型服务返回格式无法解析。");
   }
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content || typeof content !== "string") {
+  const content = dashscopeContent(data);
+  if (!content) {
+    console.error("dashscope-empty-response", {
+      requestId,
+      providerRequestId,
+      elapsedMs,
+      finishReason: dashscopeFinishReason(data),
+      preview: text.slice(0, 500)
+    });
     throw publicError(502, "llm_empty_response", "模型服务没有返回报告正文。");
   }
-  return content;
-}
-
-async function getTransaction(transactionHash) {
-  if (!tableStoreClient) {
-    return undefined;
-  }
-  const result = await otsCall("getRow", {
-    tableName: config.otsTableName,
-    primaryKey: [{ transaction_hash: transactionHash }]
+  const boundedContent = limitText(content, config.maxReportCharacters);
+  console.log("dashscope-success", {
+    requestId,
+    providerRequestId,
+    elapsedMs,
+    outputCharacters: boundedContent.length,
+    truncated: boundedContent.length !== content.length,
+    finishReason: dashscopeFinishReason(data)
   });
-  const columns = result?.row?.attributes || [];
-  if (!columns.length) {
-    return undefined;
-  }
-  return Object.fromEntries(columns.map((column) => [column.columnName, column.columnValue]));
+  return boundedContent;
 }
 
-async function putOrUpdateTransaction(row) {
-  const now = Date.now();
-  const attributes = {
-    original_transaction_hash: row.originalTransactionHash,
-    product_id: row.productId,
-    status: row.status,
-    provider: "dashscope",
-    model: config.dashscopeModel,
-    request_id: row.requestId,
-    created_at: now,
-    updated_at: now
-  };
+async function requestDashScopeWithRetries({ payload, requestId, instructionCharacters, inputCharacters }) {
+  let lastError;
+  const maxAttempts = Math.max(1, config.dashscopeMaxRetries + 1);
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const startedAt = Date.now();
+    const controller = new AbortController();
+    let timer;
+    try {
+      console.log("dashscope-request", {
+        requestId,
+        attempt,
+        model: config.dashscopeModel,
+        apiMode: config.dashscopeApiMode,
+        instructionCharacters,
+        inputCharacters,
+        maxTokens: config.dashscopeMaxTokens
+      });
+      const { response, text, providerRequestId } = await withHardTimeout((async () => {
+        const response = await fetch(config.dashscopeBaseUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${config.dashscopeApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        const text = await response.text();
+        return {
+          response,
+          text,
+          providerRequestId: providerRequestIdFrom(response)
+        };
+      })(), {
+        timeoutMs: config.dashscopeTimeoutMs,
+        onTimeout: () => controller.abort(),
+        setTimer: (value) => {
+          timer = value;
+        }
+      });
+      const elapsedMs = Date.now() - startedAt;
+      if (response.ok) {
+        return { text, elapsedMs, providerRequestId };
+      }
 
-  if (!tableStoreClient) {
-    return;
+      const providerMessage = providerErrorMessage(text);
+      console.error("dashscope-error", {
+        requestId,
+        attempt,
+        status: response.status,
+        providerRequestId,
+        elapsedMs,
+        providerMessage
+      });
+      lastError = publicError(
+        response.status === 429 ? 429 : 502,
+        "llm_request_failed",
+        `模型服务调用失败：HTTP ${response.status}${providerMessage ? `，${providerMessage}` : ""}`,
+        {
+          providerStatus: response.status,
+          providerRequestId
+        }
+      );
+
+      if (!isRetryableProviderStatus(response.status) || attempt >= maxAttempts) {
+        throw lastError;
+      }
+    } catch (error) {
+      const elapsedMs = Date.now() - startedAt;
+      if (error?.name === "AbortError") {
+        lastError = publicError(504, "llm_request_timeout", `模型服务调用超过 ${config.dashscopeTimeoutMs}ms。`);
+      } else if (error?.httpStatus) {
+        lastError = error;
+      } else {
+        const message = error?.message || error?.name || "unknown network error";
+        console.error("dashscope-network-error", {
+          requestId,
+          attempt,
+          elapsedMs,
+          name: error?.name,
+          message
+        });
+        lastError = publicError(502, "llm_network_failed", `模型服务网络请求失败：${message}`, {
+          cause: error
+        });
+      }
+
+      if (attempt >= maxAttempts || !isRetryableProxyError(lastError)) {
+        throw lastError;
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+    await sleep(config.dashscopeRetryBaseDelayMs * attempt);
   }
+  throw lastError || publicError(502, "llm_request_failed", "模型服务调用失败。");
+}
+
+function dashscopePayload({ instructions, input }) {
+  if (config.dashscopeApiMode === "multimodal") {
+    return {
+      model: config.dashscopeModel,
+      input: {
+        messages: [
+          { role: "system", content: [{ text: instructions }] },
+          { role: "user", content: [{ text: input }] }
+        ]
+      },
+      parameters: {
+        result_format: "message",
+        temperature: 0.3,
+        max_tokens: config.dashscopeMaxTokens,
+        enable_thinking: false,
+        thinking_budget: 0
+      }
+    };
+  }
+  return {
+    model: config.dashscopeModel,
+    messages: [
+      { role: "system", content: instructions },
+      { role: "user", content: input }
+    ],
+    temperature: 0.3,
+    max_tokens: config.dashscopeMaxTokens
+  };
+}
+
+function dashscopeContent(data) {
+  if (config.dashscopeApiMode === "multimodal") {
+    return textFromMessageContent(data?.output?.choices?.[0]?.message?.content)
+      || textFromMessageContent(data?.output?.choices?.[0]?.message?.content?.[0])
+      || textFromMessageContent(data?.output?.text);
+  }
+  return textFromMessageContent(data?.choices?.[0]?.message?.content);
+}
+
+function textFromMessageContent(content) {
+  if (Array.isArray(content)) {
+    return content.map(textFromMessageContent).join("").trim();
+  }
+  if (typeof content === "string") {
+    return content.trim();
+  }
+  if (content && typeof content === "object") {
+    return textFromMessageContent(content.text || content.content || content.output_text || "");
+  }
+  return "";
+}
+
+function dashscopeFinishReason(data) {
+  if (config.dashscopeApiMode === "multimodal") {
+    return data?.output?.choices?.[0]?.finish_reason || data?.output?.finish_reason;
+  }
+  return data?.choices?.[0]?.finish_reason;
+}
+
+function limitText(value, maxCharacters) {
+  const text = String(value || "");
+  if (!Number.isFinite(maxCharacters) || maxCharacters <= 0 || text.length <= maxCharacters) {
+    return text;
+  }
+  return `${text.slice(0, maxCharacters)}\n\n[内容已截断以控制报告生成时间]`;
+}
+
+function healthPayload() {
+  return {
+    ok: true,
+    service: "admission-report-proxy",
+    model: config.dashscopeModel,
+    apiMode: config.dashscopeApiMode,
+    dashscopeTimeoutMs: config.dashscopeTimeoutMs,
+    dashscopeMaxTokens: config.dashscopeMaxTokens,
+    dashscopeMaxRetries: config.dashscopeMaxRetries,
+    maxInstructionCharacters: config.maxInstructionCharacters,
+    maxInputCharacters: config.maxInputCharacters,
+    maxReportCharacters: config.maxReportCharacters,
+    transactionLedgerEnabled: false,
+    tableStoreConfigured: false,
+    appleEnvironment: process.env.APPLE_ENVIRONMENT || "Production",
+    skipAppleVerification: config.skipAppleVerification
+  };
+}
+
+async function diagnoseDashScope(requestId) {
+  if (process.env.ENABLE_DASHSCOPE_DIAGNOSTICS !== "true") {
+    return jsonResponse(404, { error: "diagnostics_disabled", requestId });
+  }
+
+  const startedAt = Date.now();
+  const timeoutMs = Number(process.env.DASHSCOPE_DIAGNOSTIC_TIMEOUT_MS || 20_000);
+  const controller = new AbortController();
+  let timer;
   try {
-    await otsCall("putRow", {
-      tableName: config.otsTableName,
-      condition: new TableStore.Condition(TableStore.RowExistenceExpectation.EXPECT_NOT_EXIST, null),
-      primaryKey: [{ transaction_hash: row.transactionHash }],
-      attributeColumns: otsAttributes(attributes)
+    const payload = dashscopePayload({
+      instructions: "你是连通性诊断助手。只输出 dashscope-ok。",
+      input: "请只回复 dashscope-ok"
+    });
+    const { response, text, providerRequestId } = await withHardTimeout((async () => {
+      const response = await fetch(config.dashscopeBaseUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${config.dashscopeApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      const text = await response.text();
+      return {
+        response,
+        text,
+        providerRequestId: providerRequestIdFrom(response)
+      };
+    })(), {
+      timeoutMs,
+      onTimeout: () => controller.abort(),
+      setTimer: (value) => {
+        timer = value;
+      }
+    });
+
+    let output = "";
+    try {
+      output = dashscopeContent(JSON.parse(text));
+    } catch {}
+
+    return jsonResponse(response.ok ? 200 : 502, {
+      ok: response.ok,
+      requestId,
+      providerRequestId,
+      status: response.status,
+      elapsedMs: Date.now() - startedAt,
+      model: config.dashscopeModel,
+      apiMode: config.dashscopeApiMode,
+      outputPreview: output.slice(0, 80),
+      providerError: response.ok ? undefined : providerErrorMessage(text)
     });
   } catch (error) {
-    await updateTransaction(row.transactionHash, {
-      status: "pending",
-      request_id: row.requestId,
-      updated_at: now
+    return jsonResponse(error.httpStatus || 502, {
+      ok: false,
+      requestId,
+      error: error.code || "dashscope_diagnostic_failed",
+      message: error.publicMessage || error.message,
+      elapsedMs: Date.now() - startedAt
     });
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-async function updateTransaction(transactionHash, attributes) {
-  if (!tableStoreClient) {
-    return;
-  }
-  await otsCall("updateRow", {
-    tableName: config.otsTableName,
-    condition: new TableStore.Condition(TableStore.RowExistenceExpectation.IGNORE, null),
-    primaryKey: [{ transaction_hash: transactionHash }],
-    updateOfAttributeColumns: [
-      {
-        PUT: otsAttributes(attributes)
-      }
-    ]
-  });
+function providerRequestIdFrom(response) {
+  return response.headers.get("x-request-id")
+    || response.headers.get("x-acs-request-id")
+    || response.headers.get("request-id")
+    || undefined;
 }
 
-function createTableStoreClient() {
-  const endpoint = process.env.OTS_ENDPOINT;
-  const instanceName = process.env.OTS_INSTANCE_NAME;
-  if (!endpoint || !instanceName) {
+function providerErrorMessage(text) {
+  if (!text) {
     return undefined;
   }
-  return new TableStore.Client({
-    accessKeyId: process.env.ALIBABA_CLOUD_ACCESS_KEY_ID,
-    secretAccessKey: process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET,
-    stsToken: process.env.ALIBABA_CLOUD_SECURITY_TOKEN,
-    endpoint,
-    instancename: instanceName
-  });
+  try {
+    const data = JSON.parse(text);
+    const code = data.code || data.error?.code || data.output?.code;
+    const message = data.message || data.error?.message || data.output?.message;
+    return [code, message].filter(Boolean).join(": ").slice(0, 500);
+  } catch {
+    return text.slice(0, 500);
+  }
 }
 
-function otsCall(method, params) {
+function isRetryableProviderStatus(status) {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+function isRetryableProxyError(error) {
+  return ["llm_network_failed", "llm_request_failed"].includes(error?.code)
+    && error?.httpStatus !== 400
+    && error?.httpStatus !== 401
+    && error?.httpStatus !== 403;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function withHardTimeout(promise, { timeoutMs, onTimeout, setTimer }) {
   return new Promise((resolve, reject) => {
-    tableStoreClient[method](params, (error, data) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(data);
-      }
-    });
-  });
-}
+    const timer = setTimeout(() => {
+      try {
+        onTimeout?.();
+      } catch {}
+      reject(publicError(504, "llm_request_timeout", `模型服务调用超过 ${timeoutMs}ms。`));
+    }, timeoutMs);
+    setTimer?.(timer);
 
-function otsAttributes(attributes) {
-  return Object.entries(attributes)
-    .filter(([, value]) => value !== undefined && value !== null)
-    .map(([columnName, columnValue]) => ({ [columnName]: columnValue }));
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
 }
 
 function parseHTTPEvent(event) {
   if (event && typeof event === "object" && "body" in event) {
     return {
       method: event.httpMethod || event.requestContext?.http?.method,
+      path: event.path || event.rawPath || event.requestContext?.http?.path || "/",
       body: event.isBase64Encoded ? Buffer.from(event.body || "", "base64").toString("utf8") : event.body
     };
   }
   if (Buffer.isBuffer(event)) {
-    return { body: event.toString("utf8") };
+    return { path: "/", body: event.toString("utf8") };
   }
   if (typeof event === "string") {
-    return { body: event };
+    return { path: "/", body: event };
   }
-  return { body: JSON.stringify(event || {}) };
+  return { path: "/", body: JSON.stringify(event || {}) };
 }
 
 function parseJSONBody(body) {
@@ -311,13 +511,6 @@ function validateBody(body) {
   }
 }
 
-function hmac(value) {
-  return crypto
-    .createHmac("sha256", config.transactionSecret)
-    .update(String(value))
-    .digest("hex");
-}
-
 function appleRootCertificates() {
   const encoded = process.env.APPLE_ROOT_CERTIFICATES_PEM || "";
   const certificates = encoded
@@ -336,11 +529,54 @@ function appleEnvironment() {
   return value === "sandbox" ? Environment.SANDBOX : Environment.PRODUCTION;
 }
 
+function normalizeDashScopeModel(value) {
+  if (!value) {
+    return "qwen-plus";
+  }
+  return String(value).trim().toLowerCase().replace(/\s+/g, "");
+}
+
+function dashscopeModeForModel(model) {
+  if ((process.env.DASHSCOPE_API_MODE || "").toLowerCase() === "openai") {
+    return "openai";
+  }
+  if ((process.env.DASHSCOPE_API_MODE || "").toLowerCase() === "multimodal") {
+    return "multimodal";
+  }
+  return model.startsWith("qwen3.7") ? "multimodal" : "openai";
+}
+
+function dashscopeBaseUrl(mode) {
+  const override = process.env.DASHSCOPE_BASE_URL;
+  if (mode === "multimodal") {
+    if (override && !override.includes("/compatible-mode/")) {
+      return override;
+    }
+    return "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
+  }
+  if (override?.endsWith("/chat/completions")) {
+    return override;
+  }
+  return override
+    ? `${override.replace(/\/$/, "")}/chat/completions`
+    : "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+}
+
+function safeDashScopeTimeoutMs() {
+  const configured = Number(process.env.DASHSCOPE_TIMEOUT_MS || 240_000);
+  const safeMaximum = Number(process.env.DASHSCOPE_SAFE_TIMEOUT_MS || 240_000);
+  if (!Number.isFinite(configured) || configured <= 0) {
+    return safeMaximum;
+  }
+  return Math.min(configured, safeMaximum);
+}
+
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
     headers: {
-      "Content-Type": "application/json; charset=utf-8"
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store"
     },
     body: JSON.stringify(body)
   };
@@ -371,20 +607,35 @@ function optionalIntegerEnv(name) {
   return Number(value);
 }
 
-if (process.env.LOCAL_DEV_SERVER === "true") {
-  const port = Number(process.env.PORT || 8787);
-  http.createServer(async (request, response) => {
+function startHTTPServer({ host, port }) {
+  const server = http.createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) {
       chunks.push(chunk);
     }
     const result = await handler({
       httpMethod: request.method,
+      path: new URL(request.url || "/", `http://${request.headers.host || host}`).pathname,
       body: Buffer.concat(chunks).toString("utf8")
     });
     response.writeHead(result.statusCode, result.headers);
     response.end(result.body);
-  }).listen(port, () => {
-    console.log(`report proxy listening on http://127.0.0.1:${port}`);
+  });
+  server.timeout = 0;
+  server.keepAliveTimeout = 0;
+  server.listen(port, host, () => {
+    console.log(`report proxy listening on http://${host}:${port}`);
+  });
+}
+
+if (process.env.LOCAL_DEV_SERVER === "true") {
+  startHTTPServer({
+    host: "127.0.0.1",
+    port: Number(process.env.PORT || 8787)
+  });
+} else if (import.meta.url === `file://${process.argv[1]}`) {
+  startHTTPServer({
+    host: "0.0.0.0",
+    port: Number(process.env.FC_SERVER_PORT || process.env.CA_PORT || process.env.PORT || 9000)
   });
 }

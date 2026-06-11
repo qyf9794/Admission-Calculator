@@ -189,11 +189,11 @@ enum ReportProxyError: LocalizedError {
 }
 
 struct ReportProxyClient {
-    static let defaultTimeout: TimeInterval = 180
+    static let defaultTimeout: TimeInterval = 300
     static let defaultSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = defaultTimeout
-        configuration.timeoutIntervalForResource = defaultTimeout + 60
+        configuration.timeoutIntervalForResource = defaultTimeout + 30
         configuration.waitsForConnectivity = true
         return URLSession(configuration: configuration)
     }()
@@ -294,13 +294,15 @@ enum GateRuleDisplay {
 }
 
 enum ReportService {
+    private static let aiReportTargetCharacters = 5_000
+
     static let openAIInstructions = """
     你是美国本科申请规划顾问，专门解释一个离线概率引擎已经算出的结果。你必须遵守：
     - 不得修改、重算、覆盖或美化输入中的概率、分档和硬门槛。
     - 不得承诺录取，不得把估算称为预测或保证。
     - 必须明确所有概率都是估算；组合概率是“当前选择学校中至少被一所录取”的概率。
-    - 必须说明历史录取数据只作为校准参考；近年经济周期、行业景气度、就业市场、AI 冲击和专业热度变化会使录取难度出现较大波动。
-    - 报告重点必须放在当前不足、补救优先级和申请策略上；逐校内容保持简洁，不展开系统缺失数据、来源审计或置信度说明。
+    - 输出必须是自然语言分析，正文控制在 \(aiReportTargetCharacters) 个中文字以内；不要写成模板填空。
+    - 报告重点必须放在学生画像、逐校概率含义、逐校差距/优势、综合优劣势和下一步优化方向；不要展开系统缺失数据、来源审计或置信度说明。
     - 避免重复：同一概率、差距或行动建议只解释一次；如果确定性表格已经列出，不要在正文重新造表或逐项复述。
     - 除已计算概率、学校数量和硬门槛结果外，不要用数值描述影响强度；影响强弱用“极强、强、中、弱、极弱”等档位表达。
     - 不得添加输入中没有的学校；不得建议学生申请数据范围外学校作为本报告计算的一部分。
@@ -414,17 +416,25 @@ enum ReportService {
             return "当前为 \(result.profileSnapshot.round.rawValue) 轮次；综合报告表格仅在 RD 综合报告中展示。"
         }
         return """
+        学生画像及背景情况：
+        \(studentProfileFactBlock(result.profileSnapshot))
+
         历史数据与外部环境说明：
         \(historicalDataVolatilityDisclosure())
 
-        逐校录取概率表：
+        概率分析结果：
+        说明：下表列出当前选择或自动推荐组合中的每一所学校。单校概率来自本地概率引擎；组合概率已考虑同层学校结果相关性，不能把单校概率简单相加。
         \(schoolProbabilityTable(result: result))
 
-        逐校学术匹配解读：
+        每所学校差距和优势比较：
         说明：这里的“可比水平”是本地模型可用的学校平均/内部参考线，用来帮助判断相对位置；它不是录取保证，也不应被理解为官方最低门槛。
         \(benchmarkGapTable(result: result))
 
-        主要差距与提升建议：
+        综合分析：整体优势、劣势与主要差距：
+        \(coreDeficitSummary(result: result))
+        \(factorHighlightSummary(result: result))
+
+        下一步需要优化提升的方向：
         \(structuredGapActionSummary(result: result))
         """
     }
@@ -454,34 +464,29 @@ enum ReportService {
             return makeReport(result: result)
         }
         return """
-        请基于下面的完整事实包，生成一份更有针对性、更人性化、更专业的付费版完整选校报告。
+        请基于下面的报告事实包，生成一份自然语言的付费报告分析正文。客户端会在你的正文前自动插入概率图、学生画像、逐校概率表、逐校学术匹配对照表和行动建议表；你不要重建表格，但必须解释这些表格背后的含义。
 
-        你不是在做模板填空。请把事实包当作唯一事实来源，综合学生画像、逐校概率、综合概率、学校平均/内部基准比较、提高申请概率的影响因子、硬门槛、警示和行动建议，在大体框架下自由组织语言和段落。程序会在你的正文前自动插入逐校概率表、逐校学术匹配解读、主要差距与提升建议，所以正文不要重建这些表格，也不要逐行复述表格内容。可以调整标题和顺序，但必须覆盖这些内容：
-        - 执行摘要：整体风险、最重要不足、最优先策略，并说明概率是估算，不是录取承诺。
-        - 历史数据说明：必须用一段通俗但书面的语言说明，历史录取率、专业录取率、学校内部基准和中国录取信号只作为校准参考；近年经济兴衰、行业景气度、就业市场、AI 冲击、家庭申请偏好和学校招生策略变化很快，热门专业与国际生录取难度可能明显波动。
-        - 画像诊断：学生当前最强证据和最薄弱证据，不要泛泛鼓励。
-        - 测算结果总览：原样保留综合大学 T10/T11-T30/T30/T50、文理学院 T10/T30、全部已选至少一所概率；解释同层相关性折扣。
-        - 当前不足优先级：按“必须立即处理、明显拖累概率、材料优化项”归纳，不要机械逐校重复。
-        - 测算表格说明：不要重新输出逐校录取概率表或逐校学术匹配解读；只用 1 段用通俗但书面的语言解释读表方法和最关键结论。
-        - 逐校策略：每所学校只写最值得家长和学生关注的判断，优先合并共性问题；不要把每所大学写成长篇百科，也不要重复概率表中的数字。
-        - 提升方案：按“问题 -> 影响学校/概率路径 -> 证据差距 -> 具体动作 -> 优先级”结构化表达；再按 0-1 个月、1-3 个月、3-6 个月列行动，并说明影响路径，例如硬门槛、学术匹配、画像分、专业竞争、轮次/资助、选校结构。
-        - 选校组合策略：说明保底/目标/争取/阻断结构、申请数量对至少一所概率的方向性影响、当前学校的边际收益测算，以及为什么精力有限时不是越多越好。
-        - 家庭沟通版结论：克制、清楚、可执行，不制造焦虑。
+        输出长度与结构：
+        - 总长度控制在 \(aiReportTargetCharacters) 个中文字以内。
+        - 只输出 5 个标题：学生画像及背景分析、概率分析结果解读、逐校差距与优势分析、综合分析、下一步优化提升方向。
+        - 每个标题下写 1-3 段自然语言；可以少量使用短 bullet，但不要只有 bullet。
+        - 概率分析必须点到每一所学校的概率含义；学校较多时可合并同类学校，但不能遗漏硬门槛失败、最高概率、最低概率和边际贡献低的学校。
+        - 逐校差距与优势要比较学生条件与目标校平均/内部基准，说明“优势在哪里、差距在哪里、为什么影响概率”。
 
         强制约束：
         - 不得修改、重算、覆盖或美化事实包中的概率、分档、硬门槛和学校列表。
         - 不得添加事实包外的学校；不得把建议申请数据范围外学校写成本报告计算的一部分。
         - 不得承诺录取，不得把估算说成预测或保证；“保底”也不是保证。
-        - 不得把历史数据表述为未来结果；外部环境变化必须作为概率不确定性的核心原因之一。
+        - 简要说明历史数据只是校准参考，不能代表未来申请季。
         - 不要展开系统缺失数据、来源审计或置信度说明。
         - 不要重复输出已经由客户端插入的确定性表格；如需引用，只引用表格结论。
         - 不得评价、排名、描述或暗示用户高中本身的强弱；不要输出具体高中名称，不要写“顶尖高中/一流高中/资源强弱/升学记录”等对用户高中的判断。高中背景只能作为本地模型已使用的校准输入一句带过。
         - 除已计算概率、学校数量、硬门槛结果和事实包里的学生/学校基准值外，不要用数字描述影响强度；影响强度用“极强、强、中、弱、极弱”等档位。
         - 不要暴露内部调整值、权重、参数或公式。
-        - 禁止使用空泛表达，例如“继续努力”“全面提升”“增强综合实力”；每条建议都必须指出具体材料、具体动作、对应概率路径或影响学校类型。
-        - 如果事实包中同一信息在本地报告和结构化事实里重复，以结构化事实包为准。
+        - 禁止使用空泛表达；每条建议都必须指出具体材料、具体动作、对应概率路径或影响学校类型。
+        - 下一步建议要中肯：既说明可以提升的路径，也提醒哪些短板短期难以完全弥补，避免制造虚假确定性。
 
-        完整事实包如下：
+        报告事实包如下：
 
         \(makeOpenAIReportFactPacket(result: result))
         """
@@ -496,61 +501,72 @@ enum ReportService {
             ? (result.recommendationWarnings.isEmpty ? "自动推荐未产生额外数量/范围警示。" : result.recommendationWarnings.joined(separator: "\n"))
             : "当前不是自动推荐组合。"
 
+        let schoolLines = compactSchoolFactLines(result: result)
         return """
-        ## 事实包总原则
-        - 所有学校、概率、分档和硬门槛均来自本地离线概率引擎。
-        - AI 服务只能解释和组织这些事实，不能重新计算概率。
-        - 报告应更像专业顾问写给家庭的分析，而不是逐项模板填空。
+        ## 事实边界
+        所有概率、分档、硬门槛均来自本地离线概率引擎；AI 只能解释，不能改概率或加学校。历史数据只作校准参考，不代表未来录取。
 
-        ## 学生画像快照
-        \(studentProfileFactBlock(profile))
+        ## 学生画像
+        \(compactStudentProfileFactBlock(profile))
 
-        ## 组合概率与结构
+        ## 组合摘要
         生成时间：\(generatedAtText(result.generatedAt))
-        选校来源：\(result.selectionSource.rawValue)
-        当前计算学校数：\(result.schoolResults.count) 所
-        保底/目标/争取/阻断：\(result.selectedBucketCounts.likely)/\(result.selectedBucketCounts.target)/\(result.selectedBucketCounts.reach)/\(result.selectedBucketCounts.blocked)
-        综合大学 T10 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, maxRank: 10)) 所）：\(percent(result.t10AtLeastOne))
-        综合大学 T11-T30 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, minRankExclusive: 10, maxRank: 30)) 所）：\(percent(result.t11T30AtLeastOne))
-        综合大学 T30 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, maxRank: 30)) 所）：\(percent(result.t30AtLeastOne))
-        综合大学 T50 至少一所（当前组合 \(tierCount(in: result, category: .nationalUniversity, maxRank: 50)) 所）：\(percent(result.t50AtLeastOne))
-        文理学院 T10 至少一所（当前组合 \(tierCount(in: result, category: .liberalArtsCollege, maxRank: 10)) 所）：\(percent(result.liberalArtsT10AtLeastOne))
-        文理学院 T30 至少一所（当前组合 \(tierCount(in: result, category: .liberalArtsCollege, maxRank: 30)) 所）：\(percent(result.liberalArtsT30AtLeastOne))
+        来源：\(result.selectionSource.rawValue)；学校数：\(result.schoolResults.count)；保底/目标/争取/阻断：\(result.selectedBucketCounts.likely)/\(result.selectedBucketCounts.target)/\(result.selectedBucketCounts.reach)/\(result.selectedBucketCounts.blocked)
+        综合大学 T10/T11-T30/T30/T50 至少一所：\(percent(result.t10AtLeastOne))/\(percent(result.t11T30AtLeastOne))/\(percent(result.t30AtLeastOne))/\(percent(result.t50AtLeastOne))
+        文理学院 T10/T30 至少一所：\(percent(result.liberalArtsT10AtLeastOne))/\(percent(result.liberalArtsT30AtLeastOne))
         全部已选至少一所：\(percent(result.selectedAtLeastOne))
-        分档规则：争取 <20%，目标 20%-60%，保底 >=60%；保底不是保证。
-        申请数量与边际收益：
-        \(applicationCountImpactSummary(result: result))
 
-        ## 待补资料与警示
-        待补资料：
-        \(missingInputSummary(profile: profile, selectedCollegeIDs: result.calculatedCollegeIDs))
+        ## 需要优先解释
+        待补资料：\(oneLine(missingInputSummary(profile: profile, selectedCollegeIDs: result.calculatedCollegeIDs), maxLength: 280))
+        主要不足：\(oneLine(coreDeficitSummary(result: result), maxLength: 360))
+        主要概率驱动：\(oneLine(factorHighlightSummary(result: result), maxLength: 220))
+        数量/组合影响：\(oneLine(applicationCountImpactSummary(result: result), maxLength: 260))
+        自动推荐依据：\(oneLine(recommendationStrategySummary(result: result), maxLength: 300))
+        选校警示：\(oneLine([selectedWarnings, recommendationWarnings, warningSummary(result: result)].joined(separator: "\n"), maxLength: 260))
 
-        选校范围警示：
-        \(selectedWarnings)
+        ## 逐校分析事实
+        \(schoolLines)
 
-        自动推荐警示：
-        \(recommendationWarnings)
-
-        逐校计算警示：
-        \(warningSummary(result: result))
-
-        ## 当前不足与概率驱动
-        当前主要不足：
-        \(coreDeficitSummary(result: result))
-
-        提高申请概率的主要影响因子：
-        \(factorHighlightSummary(result: result))
-
-        自动推荐/组合策略依据：
-        \(recommendationStrategySummary(result: result))
-
-        ## 逐校计算事实
-        比较说明：高于可比水平、接近可比水平、低于可比水平、暂无可比参考线或不适用。
-        \(schoolFactBlocks(result: result))
-
-        ## 客户端固定插入内容
-        最终报告正文前会自动插入逐校录取概率表、逐校学术匹配解读、主要差距与提升建议。你可以用这些事实做判断，但不要在 AI 正文中重新输出这些表格。
+        ## 客户端已插入
+        正文前已有概率图、学生画像、逐校概率表、逐校学术匹配解读、主要差距与提升建议；AI 正文不要重建表格，要用自然语言解释表格含义和行动优先级。
         """
+    }
+
+    private static func compactStudentProfileFactBlock(_ profile: StudentProfile) -> String {
+        let english = [
+            profile.toefl.map { "TOEFL \($0)" },
+            profile.ielts.map { "IELTS \($0.formatted(.number.precision(.fractionLength(1))))" }
+        ].compactMap { $0 }.joined(separator: "，")
+        let testing: String
+        if profile.testOptional {
+            testing = "Test Optional"
+        } else {
+            let sat = profile.sat.map(String.init) ?? "未填"
+            let act = profile.act.map(String.init) ?? "未填"
+            testing = "SAT \(sat)，ACT \(act)"
+        }
+        return "\(profile.applicantStatus.rawValue)，\(profile.curriculum.rawValue)，\(profile.major.rawValue)，\(profile.round.rawValue)；成绩：\(gradeFact(profile))，排名前 \(formatNumber(profile.classRankPercentile))%，课程难度 \(profile.rigor)/5；\(testing)；英语：\(english.isEmpty ? "未填" : english)；活动/项目/奖项/文书/推荐：\(profile.activities)/\(profile.research)/\(profile.honors)/\(profile.essay)/\(profile.recommendations)。"
+    }
+
+    private static func compactSchoolFactLines(result: PortfolioResult) -> String {
+        guard !result.schoolResults.isEmpty else {
+            return "尚未选择学校。"
+        }
+        let lines = result.schoolResults.map { school in
+            compactSchoolFactLine(school, profile: result.profileSnapshot)
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func compactSchoolFactLine(_ school: ChanceResult, profile: StudentProfile) -> String {
+        let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
+        let gate = school.gateResult.passed
+            ? "门槛通过"
+            : "门槛未过：\(school.gateResult.failedRules.map(\.title).joined(separator: "、"))"
+        let gap = primaryGapSummary(profile: profile, school: school, benchmark: benchmark)
+        let action = primaryActionSummary(profile: profile, school: school, benchmark: benchmark)
+        let fit = academicFitSummary(for: school)
+        return "- \(school.college.name)：#\(school.college.rank) \(school.college.category.rawValue)，\(percent(school.adjustedProbability))，\(school.bucket.rawValue)，\(gate)；匹配：\(oneLine(fit, maxLength: 120))；差距：\(gap)；动作：\(action)"
     }
 
     private static func studentProfileFactBlock(_ profile: StudentProfile) -> String {
@@ -689,6 +705,20 @@ enum ReportService {
     private static func signed(_ value: Double) -> String {
         let sign = value >= 0 ? "+" : ""
         return "\(sign)\(value.formatted(.number.precision(.fractionLength(2))))"
+    }
+
+    private static func oneLine(_ text: String, maxLength: Int) -> String {
+        let collapsed = text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard collapsed.count > maxLength else {
+            return collapsed
+        }
+        guard let end = collapsed.index(collapsed.startIndex, offsetBy: maxLength, limitedBy: collapsed.endIndex) else {
+            return collapsed
+        }
+        return String(collapsed[..<end]) + "..."
     }
 
     private static func impactBand(_ value: Double) -> String {

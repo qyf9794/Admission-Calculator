@@ -17,16 +17,32 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.qyf9794.AdmissionCalculator
         PRODUCT_NAME: AdmissionCalculator
+        DEVELOPMENT_TEAM: W7ZK75R9AV
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: 1.0
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Admit Chance
-        INFOPLIST_KEY_ReportProxyURL: ""
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UIRequiresFullScreen: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: AdmissionCalculator/Info.plist
+        REPORT_PROXY_URL: "https://admissirt-proxy-tyciujgowo.cn-beijing.fcapp.run"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    preBuildScripts:
+      - name: Validate Report Proxy URL
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ "${CONFIGURATION}" = "Release" ]; then
+            value="${REPORT_PROXY_URL:-}"
+            if [ -z "${value}" ] || [ "${value}" = "\$(REPORT_PROXY_URL)" ]; then
+              echo "error: REPORT_PROXY_URL must be set to the HTTPS Aliyun report proxy trigger URL for Release/TestFlight builds." >&2
+              echo "error: Example: xcodebuild -project AdmissionCalculator.xcodeproj -scheme AdmissionCalculator -configuration Release REPORT_PROXY_URL=https://your-function-trigger-url archive" >&2
+              exit 1
+            fi
+            case "${value}" in
+              https://*) ;;
+              *)
+                echo "error: REPORT_PROXY_URL must start with https:// for Release/TestFlight builds." >&2
+                exit 1
+                ;;
+            esac
+          fi
     dependencies:
       - sdk: StoreKit.framework
   AdmissionCalculatorTests:
