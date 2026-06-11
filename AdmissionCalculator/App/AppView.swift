@@ -93,7 +93,6 @@ struct AppView: View {
                         generatedReports: $generatedReports,
                         purchaseState: purchaseState,
                         isStale: resultIsStale,
-                        generatedReports: $generatedReports,
                         onBackToResults: {
                             stage = .results
                         },
