@@ -541,7 +541,7 @@ enum ReportService {
 
         \(planningSupplement)
 
-        AI 详细分析正文：
+        总结：
         \(cleaned)
         """
     }
