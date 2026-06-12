@@ -79,7 +79,7 @@ struct CollegePickerView: View {
                                 },
                                 previousPreview: {
                                     if cardIndex > 0 {
-                                        selectionCard(at: cardIndex - 1)
+                                        selectionCard(at: cardIndex - 1, isTransitionPreview: true)
                                     } else {
                                         ProfileSelectionSettingsCard(
                                             profile: $profile,
@@ -91,7 +91,7 @@ struct CollegePickerView: View {
                                 },
                                 nextPreview: {
                                     if cardIndex < cardCount - 1 {
-                                        selectionCard(at: cardIndex + 1)
+                                        selectionCard(at: cardIndex + 1, isTransitionPreview: true)
                                     } else if let currentResult {
                                         ResultsFixedSnapshotContent(result: currentResult)
                                     }
@@ -134,7 +134,7 @@ struct CollegePickerView: View {
     }
 
     @ViewBuilder
-    private func selectionCard(at index: Int) -> some View {
+    private func selectionCard(at index: Int, isTransitionPreview: Bool = false) -> some View {
         if index == 0 {
             SchoolSetupCard(
                 selectedCount: selectedCollegeIDs.count,
@@ -156,7 +156,8 @@ struct CollegePickerView: View {
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
                         filter = .selected
                     }
-                }
+                },
+                isTransitionPreview: isTransitionPreview
             )
         } else {
             AdmissionGradientCard(
@@ -348,6 +349,7 @@ struct SchoolSetupCard: View {
     let hasCompletedCountAnimation: Bool
     let onCountAnimationCompleted: (String) -> Void
     let onAutoRecommend: () -> Void
+    var isTransitionPreview = false
 
     @State private var showsSelectionNotes = false
 
@@ -370,6 +372,10 @@ struct SchoolSetupCard: View {
         )
     }
 
+    private var notesAreVisible: Bool {
+        isTransitionPreview || showsSelectionNotes || hasCompletedCountAnimation
+    }
+
     var body: some View {
         AdmissionGradientCard(
             title: "选校设置",
@@ -382,8 +388,12 @@ struct SchoolSetupCard: View {
                     value: selectedCount,
                     font: .system(size: 58, weight: .black, design: .rounded),
                     foreground: .white,
-                    animates: !hasCompletedCountAnimation,
+                    animates: !isTransitionPreview && !hasCompletedCountAnimation,
                     onSettled: {
+                        guard !isTransitionPreview else {
+                            showsSelectionNotes = true
+                            return
+                        }
                         withAnimation(.easeOut(duration: 0.28)) {
                             showsSelectionNotes = true
                         }
@@ -391,7 +401,7 @@ struct SchoolSetupCard: View {
                     }
                 )
                 .id(selectionResetID)
-                if showsSelectionNotes {
+                if notesAreVisible {
                     Text("已选学校数量")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white.opacity(0.78))
@@ -408,7 +418,7 @@ struct SchoolSetupCard: View {
             .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.mintNight))
             .disabled(requestedSchoolCount == 0)
 
-            if showsSelectionNotes {
+            if notesAreVisible {
                 VStack(alignment: .leading, spacing: 6) {
                     if selectedColleges.isEmpty {
                         Text("下一张卡片默认显示已选学校；尚未选择时列表为空，可切换到全部学校。")
@@ -433,10 +443,10 @@ struct SchoolSetupCard: View {
             }
         }
         .onAppear {
-            showsSelectionNotes = hasCompletedCountAnimation
+            showsSelectionNotes = isTransitionPreview || hasCompletedCountAnimation
         }
         .onChange(of: selectionResetID) { _, _ in
-            showsSelectionNotes = hasCompletedCountAnimation
+            showsSelectionNotes = isTransitionPreview || hasCompletedCountAnimation
         }
         .onChange(of: hasCompletedCountAnimation) { _, completed in
             if completed {

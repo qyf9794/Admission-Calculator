@@ -77,7 +77,8 @@ struct CalculatorView: View {
                                                 )
                                             ),
                                             onCountAnimationCompleted: onSchoolSetupAnimationCompleted,
-                                            onAutoRecommend: {}
+                                            onAutoRecommend: {},
+                                            isTransitionPreview: true
                                         )
                                     }
                                 }

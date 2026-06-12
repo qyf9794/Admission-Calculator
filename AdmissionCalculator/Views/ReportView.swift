@@ -16,6 +16,8 @@ struct ReportView: View {
     @State private var isPaymentInProgress = false
     @State private var isGenerating = false
     @State private var generationPhase: ReportGenerationPhase?
+    @State private var generationProgress = 0.0
+    @State private var virtualProgressTask: Task<Void, Never>?
     @State private var errorMessage: String?
     @State private var showingDataSources = false
     @State private var showingPaymentSheet = false
@@ -56,6 +58,7 @@ struct ReportView: View {
                             isStale: isStale,
                             isGenerating: isGenerating,
                             generationPhase: generationPhase,
+                            generationProgress: generationProgress,
                             errorMessage: errorMessage,
                             pdfErrorMessage: pdfErrorMessage,
                             onGenerate: { showingPaymentSheet = true },
@@ -131,7 +134,9 @@ struct ReportView: View {
             return
         }
         isPaymentInProgress = true
+        isGenerating = false
         generationPhase = nil
+        generationProgress = 0
         errorMessage = nil
         pdfErrorMessage = nil
 
@@ -142,7 +147,9 @@ struct ReportView: View {
                     isPaymentInProgress = false
                     isGenerating = true
                     generationPhase = .paymentVerified
+                    generationProgress = 0.20
                     showingPaymentSheet = false
+                    startVirtualReportProgress()
                 }
                 let prompt = ReportService.makeOpenAIReportPrompt(result: result)
                 await MainActor.run {
@@ -156,6 +163,8 @@ struct ReportView: View {
                 var previewURL: URL?
                 await MainActor.run {
                     do {
+                        generationPhase = .pdfWriting
+                        advanceGenerationProgress(to: 0.99)
                         let url = try writePDF(text: merged, result: result)
                         let report = GeneratedReportPDF(
                             url: url,
@@ -168,9 +177,11 @@ struct ReportView: View {
                         previewURL = url
                         pdfErrorMessage = nil
                         generationPhase = .pdfWritten
+                        advanceGenerationProgress(to: 1.00)
                     } catch {
                         pdfErrorMessage = "PDF 预览生成失败：\(error.localizedDescription)"
                     }
+                    stopVirtualReportProgress()
                     purchaseState.markReportGenerated()
                 }
                 if let previewURL {
@@ -188,19 +199,60 @@ struct ReportView: View {
                 }
             } catch let error as ReportPurchaseError where error == .userCancelled {
                 await MainActor.run {
+                    stopVirtualReportProgress()
                     errorMessage = error.localizedDescription
                     isPaymentInProgress = false
                     isGenerating = false
                     generationPhase = nil
+                    generationProgress = 0
                 }
             } catch {
                 await MainActor.run {
+                    stopVirtualReportProgress()
                     errorMessage = "报告生成失败。如已完成支付，本次支付凭证会保留在本机，可稍后重试：\(error.localizedDescription)"
                     isPaymentInProgress = false
                     isGenerating = false
                     generationPhase = nil
+                    generationProgress = 0
                 }
             }
+        }
+    }
+
+    @MainActor
+    private func startVirtualReportProgress() {
+        stopVirtualReportProgress()
+        virtualProgressTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 420_000_000)
+                guard isGenerating, generationPhase != .pdfWritten else {
+                    break
+                }
+                let ceiling = generationPhase == .pdfWriting ? 0.99 : 0.98
+                let remaining = ceiling - generationProgress
+                guard remaining > 0.001 else {
+                    continue
+                }
+                let step = min(0.018, max(0.003, remaining * 0.08))
+                advanceGenerationProgress(to: min(ceiling, generationProgress + step))
+            }
+        }
+    }
+
+    @MainActor
+    private func stopVirtualReportProgress() {
+        virtualProgressTask?.cancel()
+        virtualProgressTask = nil
+    }
+
+    @MainActor
+    private func advanceGenerationProgress(to target: Double) {
+        let clampedTarget = min(1, max(0, target))
+        guard clampedTarget > generationProgress else {
+            return
+        }
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+            generationProgress = clampedTarget
         }
     }
 
@@ -401,6 +453,7 @@ private struct ReportActionCard: View {
     let isStale: Bool
     let isGenerating: Bool
     let generationPhase: ReportGenerationPhase?
+    let generationProgress: Double
     let errorMessage: String?
     let pdfErrorMessage: String?
     let onGenerate: () -> Void
@@ -448,7 +501,7 @@ private struct ReportActionCard: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.74))
             if isGenerating {
-                ReportGenerationProgressView(phase: generationPhase ?? .paymentVerified)
+                ReportGenerationProgressView(phase: generationPhase ?? .paymentVerified, progress: generationProgress)
             }
             if result.schoolResults.isEmpty {
                 Label("当前没有进入计算的学校，请先选择学校并重新计算。", systemImage: "exclamationmark.triangle")
@@ -471,6 +524,15 @@ private struct ReportActionCard: View {
 
 private struct ReportGenerationProgressView: View {
     let phase: ReportGenerationPhase
+    let progress: Double
+
+    private var clampedProgress: Double {
+        min(1, max(0, progress))
+    }
+
+    private var percentText: String {
+        "\(Int((clampedProgress * 100).rounded()))%"
+    }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.35)) { timeline in
@@ -513,7 +575,7 @@ private struct ReportGenerationProgressView: View {
 
                     Spacer(minLength: 8)
 
-                    Text(phase.percentText)
+                    Text(percentText)
                         .font(.caption.monospacedDigit().weight(.bold))
                         .foregroundStyle(.white.opacity(0.76))
                         .padding(.horizontal, 9)
@@ -521,8 +583,8 @@ private struct ReportGenerationProgressView: View {
                         .background(Color.white.opacity(0.12), in: Capsule())
                 }
 
-                AnimatedProgressBar(progress: phase.progress, elapsed: pulse)
-                    .animation(.spring(response: 0.34, dampingFraction: 0.82), value: phase.progress)
+                AnimatedProgressBar(progress: clampedProgress, elapsed: pulse)
+                    .animation(.spring(response: 0.34, dampingFraction: 0.82), value: clampedProgress)
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
                     ForEach(Array(ReportGenerationPhase.allCases.enumerated()), id: \.element) { _, step in
@@ -548,7 +610,7 @@ private struct ReportGenerationProgressView: View {
                     .stroke(Color.white.opacity(0.14), lineWidth: 1)
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("报告生成中，\(phase.title)，进度 \(phase.percentText)")
+            .accessibilityLabel("报告生成中，\(phase.title)，进度 \(percentText)")
         }
     }
 
@@ -567,33 +629,19 @@ enum ReportGenerationPhase: Int, CaseIterable {
     case paymentVerified
     case modelRequestStarted
     case modelReturned
+    case pdfWriting
     case pdfWritten
-
-    var progress: Double {
-        switch self {
-        case .paymentVerified:
-            return 0.20
-        case .modelRequestStarted:
-            return 0.35
-        case .modelReturned:
-            return 0.85
-        case .pdfWritten:
-            return 1.00
-        }
-    }
-
-    var percentText: String {
-        "\(Int((progress * 100).rounded()))%"
-    }
 
     var stepTitle: String {
         switch self {
         case .paymentVerified:
-            return "支付成功"
+            return "支付完成"
         case .modelRequestStarted:
             return "请求模型"
         case .modelReturned:
             return "模型返回"
+        case .pdfWriting:
+            return "写入 PDF"
         case .pdfWritten:
             return "PDF 完成"
         }
@@ -602,11 +650,13 @@ enum ReportGenerationPhase: Int, CaseIterable {
     var title: String {
         switch self {
         case .paymentVerified:
-            return "支付成功"
+            return "支付已完成"
         case .modelRequestStarted:
             return "正在请求模型"
         case .modelReturned:
             return "模型已返回"
+        case .pdfWriting:
+            return "正在写入 PDF"
         case .pdfWritten:
             return "PDF 已生成"
         }
@@ -615,11 +665,13 @@ enum ReportGenerationPhase: Int, CaseIterable {
     var detail: String {
         switch self {
         case .paymentVerified:
-            return "支付凭证已验证，准备整理报告事实包。"
+            return "支付已收起，正在回到报告卡片并整理报告事实包。"
         case .modelRequestStarted:
-            return "已发起模型请求，正在生成逐校解释和组合策略。"
+            return "已发起模型请求，进度会持续前进直到 PDF 写入。"
         case .modelReturned:
-            return "模型正文已返回，正在合并概率校验并写入 PDF。"
+            return "模型正文已返回，正在合并概率校验。"
+        case .pdfWriting:
+            return "正在写入 PDF，完成后会自动打开报告预览。"
         case .pdfWritten:
             return "PDF 已写入完成，即将自动打开报告预览。"
         }
@@ -633,6 +685,8 @@ enum ReportGenerationPhase: Int, CaseIterable {
             return "paperplane.fill"
         case .modelReturned:
             return "sparkles"
+        case .pdfWriting:
+            return "square.and.pencil"
         case .pdfWritten:
             return "doc.richtext.fill"
         }

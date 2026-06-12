@@ -25,7 +25,7 @@ struct ResultsView: View {
                     onSwipeBack: onBackToSchools,
                     onSwipeForward: onAnalyze,
                     previousPreview: {
-                        SchoolSelectionSnapshotContent(result: result)
+                        SchoolListSnapshotCard(result: result)
                     },
                     nextPreview: {
                         if showAnalyzeButton && !isStale {
@@ -230,37 +230,6 @@ struct SchoolListSnapshotCard: View {
                         .foregroundStyle(AdmissionStyle.darkTextSecondary)
                 }
             }
-        }
-    }
-}
-
-struct SchoolSelectionSnapshotContent: View {
-    let result: PortfolioResult
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Label("选校列表", systemImage: "building.columns")
-                    .font(.headline.weight(.black))
-                Spacer()
-                Text("\(result.schoolResults.count) 所")
-                    .font(.caption.weight(.bold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.08), in: Capsule())
-            }
-            .foregroundStyle(AdmissionStyle.darkTextPrimary)
-            .padding(.horizontal, 4)
-
-            SchoolListSnapshotCard(result: result)
-
-            Button {
-            } label: {
-                Label("计算概率", systemImage: "chart.bar.xaxis")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(AdmissionSoftButtonStyle(colors: AdmissionStyle.blackGlass))
-            .allowsHitTesting(false)
         }
     }
 }
