@@ -478,6 +478,7 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
     let canSwipeForward: Bool
     let onSwipeBack: () -> Void
     let onSwipeForward: () -> Void
+    let previewMinHeight: CGFloat?
     let previousPreview: PreviousPreview
     let nextPreview: NextPreview
     let content: Content
@@ -493,6 +494,7 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
         canSwipeForward: Bool,
         onSwipeBack: @escaping () -> Void,
         onSwipeForward: @escaping () -> Void,
+        previewMinHeight: CGFloat? = nil,
         @ViewBuilder previousPreview: () -> PreviousPreview,
         @ViewBuilder nextPreview: () -> NextPreview,
         @ViewBuilder content: () -> Content
@@ -502,6 +504,7 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
         self.canSwipeForward = canSwipeForward
         self.onSwipeBack = onSwipeBack
         self.onSwipeForward = onSwipeForward
+        self.previewMinHeight = previewMinHeight
         self.previousPreview = previousPreview()
         self.nextPreview = nextPreview()
         self.content = content()
@@ -545,9 +548,11 @@ struct AdmissionSwipeableCard<Content: View, PreviousPreview: View, NextPreview:
         let progress = min(1, abs(dragOffset) / max(width * 0.36, 1))
         if dragOffset > 0 {
             previousPreview
+                .frame(maxWidth: .infinity, minHeight: previewMinHeight, alignment: .center)
                 .previewCardStyle(progress: progress)
         } else if dragOffset < 0 {
             nextPreview
+                .frame(maxWidth: .infinity, minHeight: previewMinHeight, alignment: .center)
                 .previewCardStyle(progress: progress)
         }
     }

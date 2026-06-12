@@ -18,7 +18,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.qyf9794.AdmissionCalculator
         PRODUCT_NAME: AdmissionCalculator
         DEVELOPMENT_TEAM: W7ZK75R9AV
-        CURRENT_PROJECT_VERSION: 5
+        CURRENT_PROJECT_VERSION: 6
         MARKETING_VERSION: 1.0
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: AdmissionCalculator/Info.plist

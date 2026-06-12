@@ -25,7 +25,8 @@ struct ResultsView: View {
                     onSwipeBack: onBackToSchools,
                     onSwipeForward: onAnalyze,
                     previousPreview: {
-                        SchoolListSnapshotCard(result: result)
+                        CollegeListPreviewContent(result: result)
+                            .offset(y: CollegePickerView.crossStageCardPreviewYOffset)
                     },
                     nextPreview: {
                         if showAnalyzeButton && !isStale {
@@ -186,111 +187,62 @@ struct ResultsView: View {
     }
 }
 
-struct SchoolListSnapshotCard: View {
+private struct CollegeListPreviewContent: View {
     let result: PortfolioResult
+    @State private var filter: CollegePickerFilter = .selected
 
-    var body: some View {
-        AdmissionGradientCard(
-            title: "学校列表",
-            subtitle: "列表按 U.S. News 排名排列；未选学校可点击加入，已选学校保持选中。",
-            systemImage: "building.columns",
-            colors: AdmissionStyle.softGray,
-            foreground: AdmissionStyle.darkTextPrimary,
-            secondary: AdmissionStyle.darkTextSecondary
-        ) {
-            HStack(spacing: 8) {
-                Label("已选学校", systemImage: "checkmark.seal")
-                    .font(.subheadline.weight(.semibold))
-                Text("\(result.schoolResults.count)")
-                    .font(.caption2.weight(.bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.22), in: Capsule())
+    private var availableColleges: [College] {
+        AdmissionsSeedData.colleges
+            .filter { college in
+                (result.profileSnapshot.includeLiberalArtsColleges || college.category != .liberalArtsCollege) &&
+                    allowsRound(result.profileSnapshot.round, for: college)
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                LinearGradient(colors: [Color.green, .black.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                in: Capsule()
-            )
-            .overlay(Capsule().stroke(Color.white.opacity(0.20), lineWidth: 1))
+            .sorted(by: collegeRankSort)
+    }
 
-            if result.schoolResults.isEmpty {
-                Text("尚未选择学校。")
-                    .font(.caption)
-                    .foregroundStyle(AdmissionStyle.darkTextSecondary)
-            } else {
-                ForEach(Array(result.schoolResults.prefix(5).enumerated()), id: \.element.college.id) { index, schoolResult in
-                    SchoolListSnapshotRow(index: index + 1, result: schoolResult)
-                }
-                if result.schoolResults.count > 5 {
-                    Text("另有 \(result.schoolResults.count - 5) 所学校。")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AdmissionStyle.darkTextSecondary)
-                }
-            }
+    private var filteredColleges: [College] {
+        availableColleges.filter { college in
+            filter.includes(college: college, selectedIDs: result.selectedCollegeIDs)
         }
-    }
-}
-
-private struct SchoolListSnapshotRow: View {
-    let index: Int
-    let result: ChanceResult
-
-    private var rankAndBucketText: String {
-        "#\(result.college.rank) · \(result.bucket.rawValue)"
-    }
-
-    private var probabilityText: String {
-        result.adjustedProbability.formatted(.percent.precision(.fractionLength(0)))
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text("\(index)")
-                .font(.caption.weight(.black))
-                .frame(width: 24, height: 24)
-                .background(Color.white.opacity(0.14), in: Circle())
-                .foregroundStyle(.white)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(result.college.name)
-                    .font(.subheadline.weight(.bold))
-                    .lineLimit(1)
-                Text(rankAndBucketText)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.68))
-            }
-
-            Spacer()
-
-            Text(probabilityText)
-                .font(.headline.monospacedDigit().weight(.black))
-        }
-        .padding(10)
-        .background(
-            LinearGradient(colors: [tierColor.opacity(0.98), Color.black.opacity(0.76)], startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-        )
-        .foregroundStyle(.white)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.34), lineWidth: 1)
+        CollegeListCard(
+            filter: $filter,
+            availableColleges: availableColleges,
+            filteredColleges: filteredColleges,
+            selectedCollegeIDs: result.selectedCollegeIDs,
+            includeLiberalArtsColleges: result.profileSnapshot.includeLiberalArtsColleges,
+            currentResult: result,
+            select: { _ in },
+            remove: { _ in }
         )
     }
 
-    private var tierColor: Color {
-        switch result.college.rank {
-        case ...10:
-            return .purple
-        case 11...30:
-            return .blue
-        case 31...50:
-            return .teal
-        default:
-            return .secondary
+    private func allowsRound(_ round: ApplicationRound, for college: College) -> Bool {
+        let rules = AdmissionsSeedData.gateRules.filter { $0.collegeID == college.id && $0.type == .round }
+        guard !rules.isEmpty else {
+            return round == .regularDecision
         }
+        return rules.contains { rule in
+            if !rule.allowedRounds.isEmpty {
+                return rule.allowedRounds.contains(round)
+            }
+            if let requiredRound = rule.requiredRound {
+                return requiredRound == round
+            }
+            return round == .regularDecision
+        }
+    }
+
+    private func collegeRankSort(_ lhs: College, _ rhs: College) -> Bool {
+        if lhs.rank != rhs.rank {
+            return lhs.rank < rhs.rank
+        }
+        if lhs.category != rhs.category {
+            return lhs.category == .nationalUniversity
+        }
+        return lhs.name < rhs.name
     }
 }
 

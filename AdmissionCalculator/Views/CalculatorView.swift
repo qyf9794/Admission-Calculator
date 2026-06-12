@@ -80,6 +80,7 @@ struct CalculatorView: View {
                                             onAutoRecommend: {},
                                             isTransitionPreview: true
                                         )
+                                        .offset(y: CollegePickerView.crossStageCardPreviewYOffset)
                                     }
                                 }
                             ) {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CollegePickerView: View {
     static let lastCardIndex = 1
+    static let crossStageCardPreviewYOffset: CGFloat = 190
 
     let initialCardIndex: Int
     @Binding var profile: StudentProfile
@@ -77,6 +78,7 @@ struct CollegePickerView: View {
                                         onShowExistingResults()
                                     }
                                 },
+                                previewMinHeight: proxy.size.height,
                                 previousPreview: {
                                     if cardIndex > 0 {
                                         selectionCard(at: cardIndex - 1, isTransitionPreview: true)
@@ -160,36 +162,16 @@ struct CollegePickerView: View {
                 isTransitionPreview: isTransitionPreview
             )
         } else {
-            AdmissionGradientCard(
-                title: "学校列表",
-                subtitle: "列表按 U.S. News 排名排列；未选学校可点击加入，其他标签页中的已选学校可取消。",
-                systemImage: "building.columns",
-                colors: AdmissionStyle.softGray,
-                foreground: AdmissionStyle.darkTextPrimary,
-                secondary: AdmissionStyle.darkTextSecondary
-            ) {
-                CollegeFilterBar(
-                    filter: $filter,
-                    colleges: availableColleges,
-                    selectedIDs: selectedCollegeIDs,
-                    includeLiberalArtsColleges: includeLiberalArtsColleges
-                )
-
-                if filteredColleges.isEmpty {
-                    ContentUnavailableView("没有匹配学校", systemImage: "magnifyingglass", description: Text("调整搜索词、筛选范围或申请轮次。"))
-                }
-
-                ForEach(filteredColleges) { college in
-                    CollegeSelectionCard(
-                        college: college,
-                        chanceResult: currentResult?.schoolResults.first { $0.college.id == college.id },
-                        isSelected: selectedCollegeIDs.contains(college.id),
-                        allowsRemoval: filter != .selected,
-                        select: { select(college.id) },
-                        remove: { remove(college.id) }
-                    )
-                }
-            }
+            CollegeListCard(
+                filter: $filter,
+                availableColleges: availableColleges,
+                filteredColleges: filteredColleges,
+                selectedCollegeIDs: selectedCollegeIDs,
+                includeLiberalArtsColleges: includeLiberalArtsColleges,
+                currentResult: currentResult,
+                select: { select($0) },
+                remove: { remove($0) }
+            )
         }
     }
 
@@ -256,7 +238,7 @@ struct CollegePickerView: View {
     }
 }
 
-private enum CollegePickerFilter: String, CaseIterable, Identifiable {
+enum CollegePickerFilter: String, CaseIterable, Identifiable {
     case selected = "已选学校"
     case all = "全部学校"
     case nationalUniversities = "只看综合大学"
@@ -308,6 +290,50 @@ private enum CollegePickerFilter: String, CaseIterable, Identifiable {
             return college.category == .nationalUniversity
         case .liberalArtsColleges:
             return college.category == .liberalArtsCollege
+        }
+    }
+}
+
+struct CollegeListCard: View {
+    @Binding var filter: CollegePickerFilter
+    let availableColleges: [College]
+    let filteredColleges: [College]
+    let selectedCollegeIDs: Set<String>
+    let includeLiberalArtsColleges: Bool
+    let currentResult: PortfolioResult?
+    let select: (String) -> Void
+    let remove: (String) -> Void
+
+    var body: some View {
+        AdmissionGradientCard(
+            title: "学校列表",
+            subtitle: "列表按 U.S. News 排名排列；未选学校可点击加入，其他标签页中的已选学校可取消。",
+            systemImage: "building.columns",
+            colors: AdmissionStyle.softGray,
+            foreground: AdmissionStyle.darkTextPrimary,
+            secondary: AdmissionStyle.darkTextSecondary
+        ) {
+            CollegeFilterBar(
+                filter: $filter,
+                colleges: availableColleges,
+                selectedIDs: selectedCollegeIDs,
+                includeLiberalArtsColleges: includeLiberalArtsColleges
+            )
+
+            if filteredColleges.isEmpty {
+                ContentUnavailableView("没有匹配学校", systemImage: "magnifyingglass", description: Text("调整搜索词、筛选范围或申请轮次。"))
+            }
+
+            ForEach(filteredColleges) { college in
+                CollegeSelectionCard(
+                    college: college,
+                    chanceResult: currentResult?.schoolResults.first { $0.college.id == college.id },
+                    isSelected: selectedCollegeIDs.contains(college.id),
+                    allowsRemoval: filter != .selected,
+                    select: { select(college.id) },
+                    remove: { remove(college.id) }
+                )
+            }
         }
     }
 }
