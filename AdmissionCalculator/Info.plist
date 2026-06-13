@@ -18,6 +18,8 @@
 		<string>$(CURRENT_PROJECT_VERSION)</string>
 		<key>ReportProxyURL</key>
 		<string>$(REPORT_PROXY_URL)</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
