@@ -338,7 +338,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qyf9794.AdmissionCalculatorTests;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AdmissionCalculator.app/AdmissionCalculator";
 			};
 			name = Debug;
@@ -348,7 +348,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = W7ZK75R9AV;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AdmissionCalculator/Info.plist;
@@ -361,7 +361,7 @@
 				PRODUCT_NAME = AdmissionCalculator;
 				REPORT_PROXY_URL = "https://admissirt-proxy-tyciujgowo.cn-beijing.fcapp.run";
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -378,7 +378,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qyf9794.AdmissionCalculatorTests;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AdmissionCalculator.app/AdmissionCalculator";
 			};
 			name = Release;
@@ -388,7 +388,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = W7ZK75R9AV;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AdmissionCalculator/Info.plist;
@@ -401,7 +401,7 @@
 				PRODUCT_NAME = AdmissionCalculator;
 				REPORT_PROXY_URL = "https://admissirt-proxy-tyciujgowo.cn-beijing.fcapp.run";
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};

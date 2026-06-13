@@ -18,8 +18,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.qyf9794.AdmissionCalculator
         PRODUCT_NAME: AdmissionCalculator
         DEVELOPMENT_TEAM: W7ZK75R9AV
-        CURRENT_PROJECT_VERSION: 6
+        CURRENT_PROJECT_VERSION: 7
         MARKETING_VERSION: 1.0
+        TARGETED_DEVICE_FAMILY: 1
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: AdmissionCalculator/Info.plist
         REPORT_PROXY_URL: "https://admissirt-proxy-tyciujgowo.cn-beijing.fcapp.run"
@@ -56,3 +57,4 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.qyf9794.AdmissionCalculatorTests
         GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: 1
