@@ -33,7 +33,7 @@ https://admission-calculator-vercel-report.vercel.app/api/report
 
 The production project is `admission-calculator-vercel-report-proxy` in the `qyf9794's projects` team. Its health endpoint is `https://admission-calculator-vercel-report.vercel.app/api/health`. Set the report URL in the app's `ReportProxyURL` Info.plist build setting for production.
 
-The production domain is live. Until the required environment variables below are configured in the Vercel project, report requests return HTTP 503; the health endpoint only confirms that the function is running.
+The production domain is live. Until the required environment variables below are configured in the Vercel project, report requests return HTTP 503. The health endpoint confirms that the function is running and that the Apple root certificates parse; it does not verify a transaction or generate a report.
 
 ## Environment Variables
 
@@ -44,7 +44,8 @@ Start from `.env.example`. Keep `.env.local` local and out of source control.
 | `REPORT_PRODUCT_ID` | StoreKit report product ID | No |
 | `APPLE_BUNDLE_ID` | iOS bundle identifier | No |
 | `APPLE_APPLE_ID` | Numeric App Store Connect app ID for production verification | No |
-| `APPLE_ROOT_CERTIFICATES_PEM` | Apple transaction-verification root certificates | Yes |
+| `APPLE_ROOT_CERTIFICATES_BASE64` | Preferred: single-line Base64 encoding of concatenated Apple root certificate PEM files | Yes |
+| `APPLE_ROOT_CERTIFICATES_PEM` | Legacy multiline Apple root certificate bundle; used only when Base64 is absent | Yes |
 | `TRANSACTION_HMAC_SECRET` | HMAC key for transaction identifiers | Yes |
 | `OPENAI_API_KEY` | OpenAI API project key | Yes |
 | `OPENAI_MODEL` | API model ID; defaults to `gpt-6-luna` | No |

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vercel dev",
-    "check": "node --check api/report.mjs && node --check api/health.mjs"
+    "check": "node --check api/report.mjs && node --check api/health.mjs && node --check lib/apple-roots.mjs"
   },
   "dependencies": {
     "@apple/app-store-server-library": "3.1.0",

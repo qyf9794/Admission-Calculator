@@ -6,6 +6,7 @@ import {
   VerificationException,
   VerificationStatus
 } from "@apple/app-store-server-library";
+import { appleRootCertificates } from "../lib/apple-roots.mjs";
 
 const config = {
   productId: configuredEnv("REPORT_PRODUCT_ID", "admission_calculator_ai_report"),
@@ -146,7 +147,12 @@ async function verifyAppleTransaction(transaction, requestId) {
     };
   }
 
-  const rootCertificates = appleRootCertificates();
+  let rootCertificates;
+  try {
+    rootCertificates = appleRootCertificates();
+  } catch {
+    throw publicError(503, "invalid_apple_roots", "服务端 Apple 根证书配置无效，请稍后重试。");
+  }
   const transactionEnvironment = signedTransactionEnvironment(transaction.signedTransactionInfo);
   // The unverified claim selects the verifier only; Apple signature verification below validates it.
   const verifier = new SignedDataVerifier(
@@ -426,19 +432,6 @@ function hmac(value) {
     .digest("hex");
 }
 
-function appleRootCertificates() {
-  const encoded = process.env.APPLE_ROOT_CERTIFICATES_PEM || "";
-  const certificates = encoded
-    .split("-----END CERTIFICATE-----")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => Buffer.from(`${part}\n-----END CERTIFICATE-----`));
-  if (!certificates.length) {
-    throw publicError(500, "missing_apple_roots", "服务端未配置 Apple 根证书。");
-  }
-  return certificates;
-}
-
 function appleCertificateChainDiagnostics(signedTransactionInfo, trustedRootBuffers) {
   try {
     const [encodedHeader] = signedTransactionInfo.split(".");
@@ -542,7 +535,7 @@ function hasRequiredReportConfiguration() {
     config.bundleId &&
     config.transactionSecret &&
     config.openAIKey &&
-    process.env.APPLE_ROOT_CERTIFICATES_PEM?.trim() &&
+    (process.env.APPLE_ROOT_CERTIFICATES_BASE64?.trim() || process.env.APPLE_ROOT_CERTIFICATES_PEM?.trim()) &&
     hasProductionAppId
   );
 }
