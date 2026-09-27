@@ -169,7 +169,11 @@ async function verifyAppleTransaction(transaction, requestId) {
       statusCode: verificationError?.status,
       causeName: cause instanceof Error ? cause.name : undefined,
       causeCode: cause?.code,
-      causeMessage: cause instanceof Error ? cause.message.slice(0, 200) : undefined
+      causeMessage: cause instanceof Error ? cause.message.slice(0, 200) : undefined,
+      certificateChain: appleCertificateChainDiagnostics(
+        transaction.signedTransactionInfo,
+        rootCertificates
+      )
     });
     throw publicError(400, "invalid_transaction_signature", "Apple 交易签名验证失败。");
   }
@@ -433,6 +437,52 @@ function appleRootCertificates() {
     throw publicError(500, "missing_apple_roots", "服务端未配置 Apple 根证书。");
   }
   return certificates;
+}
+
+function appleCertificateChainDiagnostics(signedTransactionInfo, trustedRootBuffers) {
+  try {
+    const [encodedHeader] = signedTransactionInfo.split(".");
+    const header = JSON.parse(Buffer.from(encodedHeader, "base64url").toString("utf8"));
+    const chain = Array.isArray(header?.x5c) ? header.x5c : [];
+    if (chain.length < 2) {
+      return { presentedCertificateCount: chain.length };
+    }
+
+    const leaf = new crypto.X509Certificate(Buffer.from(chain[0], "base64"));
+    const intermediate = new crypto.X509Certificate(Buffer.from(chain[1], "base64"));
+    const trustedRoots = trustedRootBuffers.map((root) => new crypto.X509Certificate(root));
+    const intermediateIssuerMatchesRoot = trustedRoots.filter((root) => intermediate.issuer === root.subject);
+
+    return {
+      presentedCertificateCount: chain.length,
+      trustedRootCount: trustedRoots.length,
+      leafIssuerMatchesIntermediate: leaf.issuer === intermediate.subject,
+      leafSignatureValid: leaf.verify(intermediate.publicKey),
+      intermediateIsCA: intermediate.ca,
+      intermediateIssuerMatchesTrustedRoot: intermediateIssuerMatchesRoot.length > 0,
+      intermediateSignatureValidForTrustedRoot: intermediateIssuerMatchesRoot.some((root) => intermediate.verify(root.publicKey)),
+      leafHasAppleSigningOID: certificateHasObjectIdentifier(leaf, "1.2.840.113635.100.6.11.1"),
+      intermediateHasAppleIntermediateOID: certificateHasObjectIdentifier(intermediate, "1.2.840.113635.100.6.2.1")
+    };
+  } catch (error) {
+    return { diagnosticErrorName: error instanceof Error ? error.name : "UnknownError" };
+  }
+}
+
+function certificateHasObjectIdentifier(certificate, oid) {
+  const arcs = oid.split(".").map(Number);
+  const encodedArcs = [arcs[0] * 40 + arcs[1], ...arcs.slice(2)];
+  const encodedBody = Buffer.concat(encodedArcs.map(encodeObjectIdentifierArc));
+  const encodedIdentifier = Buffer.concat([Buffer.from([0x06, encodedBody.length]), encodedBody]);
+  return certificate.raw.includes(encodedIdentifier);
+}
+
+function encodeObjectIdentifierArc(value) {
+  const bytes = [value & 0x7f];
+  for (value = Math.floor(value / 128); value > 0; value = Math.floor(value / 128)) {
+    bytes.unshift(0x80 | (value & 0x7f));
+  }
+  return Buffer.from(bytes);
 }
 
 function signedTransactionEnvironment(signedTransactionInfo) {
