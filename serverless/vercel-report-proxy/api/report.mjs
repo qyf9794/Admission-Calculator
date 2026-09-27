@@ -2,7 +2,9 @@ import crypto from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import {
   Environment,
-  SignedDataVerifier
+  SignedDataVerifier,
+  VerificationException,
+  VerificationStatus
 } from "@apple/app-store-server-library";
 
 const config = {
@@ -73,7 +75,7 @@ async function processReport(event) {
     }
     await ensureTransactionLedger(ledgerClient);
 
-    const transaction = await verifyAppleTransaction(body.transaction);
+    const transaction = await verifyAppleTransaction(body.transaction, requestId);
     const transactionHash = hmac(transaction.transactionId);
     const originalTransactionHash = hmac(transaction.originalTransactionId || transaction.transactionId);
 
@@ -135,7 +137,7 @@ async function processReport(event) {
   }
 }
 
-async function verifyAppleTransaction(transaction) {
+async function verifyAppleTransaction(transaction, requestId) {
   if (config.skipAppleVerification) {
     return {
       transactionId: transaction.transactionID || transaction.transactionId,
@@ -157,7 +159,18 @@ async function verifyAppleTransaction(transaction) {
   let decoded;
   try {
     decoded = await verifier.verifyAndDecodeTransaction(transaction.signedTransactionInfo);
-  } catch {
+  } catch (error) {
+    const verificationError = error instanceof VerificationException ? error : undefined;
+    const cause = verificationError?.cause;
+    console.error("apple-transaction-verification-failed", {
+      requestId,
+      environment: transactionEnvironment,
+      status: verificationError ? VerificationStatus[verificationError.status] : undefined,
+      statusCode: verificationError?.status,
+      causeName: cause instanceof Error ? cause.name : undefined,
+      causeCode: cause?.code,
+      causeMessage: cause instanceof Error ? cause.message.slice(0, 200) : undefined
+    });
     throw publicError(400, "invalid_transaction_signature", "Apple 交易签名验证失败。");
   }
   if (decoded.environment !== transactionEnvironment) {
