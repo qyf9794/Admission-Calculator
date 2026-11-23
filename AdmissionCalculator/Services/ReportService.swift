@@ -563,6 +563,7 @@ enum ReportService {
 
         强制约束：
         - 不得修改、重算、覆盖或美化事实包中的概率、分档、硬门槛和学校列表。
+        - 英语资格待核实不是已达标，也不是硬门槛失败；不得把竞争性参考分数当作最低门槛。
         - 不得添加事实包外的学校；不得把建议申请数据范围外学校写成本报告计算的一部分。
         - 禁止推荐、点名或举例事实包外的具体学校名称；讨论补校时只能使用“更稳健目标校”“保底梯度”“同层争取校”“T50/LAC 目标范围”等类别表达。
         - 只允许出现事实包“逐校分析事实”中列出的学校名称；即使讨论高中背景、历史录取或补校方向，也不得用未列入事实包的学校举例。
@@ -628,11 +629,24 @@ enum ReportService {
         """
     }
 
+    private static func englishProfileFacts(_ profile: StudentProfile) -> String {
+        let facts: [String?] = [
+            profile.toefl.map { "旧制 TOEFL iBT \($0)/120（\(profile.toeflLegacyTiming?.rawValue ?? "考试日期未确认")）" },
+            profile.toeflBand.map { "新版 TOEFL iBT \($0.formatted(.number.precision(.fractionLength(1))))/6" },
+            profile.ielts.map { "IELTS \($0.formatted(.number.precision(.fractionLength(1))))（\(profile.ieltsKind?.rawValue ?? "类别未确认")）" },
+            profile.duolingoEnglishTest.map { "DET \($0)" },
+            profile.hasOtherEnglishEvidence == true ? "其他证明待校方核实" : nil
+        ]
+        return facts.compactMap { $0 }.joined(separator: "，")
+    }
+
+    private static func englishSchoolFact(_ gate: GateResult) -> String {
+        guard let assessment = gate.englishEligibility else { return "" }
+        return "英语资格：\(assessment.status.rawValue)。\(assessment.detail)"
+    }
+
     private static func compactStudentProfileFactBlock(_ profile: StudentProfile) -> String {
-        let english = [
-            profile.toefl.map { "TOEFL \($0)" },
-            profile.ielts.map { "IELTS \($0.formatted(.number.precision(.fractionLength(1))))" }
-        ].compactMap { $0 }.joined(separator: "，")
+        let english = englishProfileFacts(profile)
         let testing: String
         if profile.testOptional {
             testing = "Test Optional"
@@ -657,12 +671,13 @@ enum ReportService {
     private static func compactSchoolFactLine(_ school: ChanceResult, profile: StudentProfile) -> String {
         let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
         let gate = school.gateResult.passed
-            ? "门槛通过"
+            ? (school.gateResult.englishEligibility?.status == .needsVerification ? "未触发硬门槛，英语待核实" : "门槛通过")
             : "门槛未过：\(school.gateResult.failedRules.map(\.title).joined(separator: "、"))"
+        let english = school.gateResult.englishEligibility.map { "；英语资格：\($0.status.rawValue)" } ?? ""
         let gap = primaryGapSummary(profile: profile, school: school, benchmark: benchmark)
         let action = primaryActionSummary(profile: profile, school: school, benchmark: benchmark)
         let fit = academicFitSummary(for: school)
-        return "- \(school.college.name)：#\(school.college.rank) \(school.college.category.rawValue)，\(percent(school.adjustedProbability))，\(school.bucket.rawValue)，\(gate)；匹配：\(oneLine(fit, maxLength: 120))；差距：\(gap)；动作：\(action)"
+        return "- \(school.college.name)：#\(school.college.rank) \(school.college.category.rawValue)，\(percent(school.adjustedProbability))，\(school.bucket.rawValue)，\(gate)\(english)；匹配：\(oneLine(fit, maxLength: 120))；差距：\(gap)；动作：\(action)"
     }
 
     private static func studentProfileFactBlock(_ profile: StudentProfile) -> String {
@@ -675,10 +690,7 @@ enum ReportService {
             let equivalent = submittedSATEquivalent(profile).map(String.init) ?? "未形成 SAT 等效分"
             testing = "SAT \(sat)，ACT \(act)，采用最强 SAT 等效：\(equivalent)。"
         }
-        let english = [
-            profile.toefl.map { "TOEFL \($0)" },
-            profile.ielts.map { "IELTS \($0.formatted(.number.precision(.fractionLength(1))))" }
-        ].compactMap { $0 }.joined(separator: "，")
+        let english = englishProfileFacts(profile)
 
         return """
         身份：\(profile.applicantStatus.rawValue)
@@ -688,7 +700,7 @@ enum ReportService {
         课程难度：\(profile.rigor)/5
         课程体系成绩证据：\(curriculumEvidenceComment(profile))
         标化策略：\(testing)
-        英语证明：\(english.isEmpty ? "未填写 TOEFL/IELTS" : english)
+        英语证明：\(english.isEmpty ? "未填写英语证明" : english)
         软性画像：活动 \(profile.activities)/5，科研/项目 \(profile.research)/5，奖项 \(profile.honors)/5，文书 \(profile.essay)/5，推荐信 \(profile.recommendations)/5
         高中背景：已作为本地模型校准输入；本报告不输出具体高中名称，也不评价高中本身。
         目标专业：\(profile.major.rawValue)
@@ -727,7 +739,7 @@ enum ReportService {
         let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
         let gateStatus: String
         if school.gateResult.passed {
-            gateStatus = "通过"
+            gateStatus = school.gateResult.englishEligibility?.status == .needsVerification ? "未触发（英语待核实）" : "通过"
         } else {
             gateStatus = "未通过：\(school.gateResult.failedRules.map(gateRuleSummary).joined(separator: "；"))"
         }
@@ -771,6 +783,7 @@ enum ReportService {
         单校调整后概率：\(percent(school.adjustedProbability))
         分档：\(school.bucket.rawValue)
         硬门槛：\(gateStatus)
+        \(englishSchoolFact(school.gateResult))
         与学校平均/内部基准比较：学术 \(academicComparison)，排名 \(rankComparison)，标化 \(testingComparison)，课程难度 \(rigorComparison)
         学术匹配说明：\(academicFitSummary(for: school))
         学校平均/内部基准明细：
@@ -877,7 +890,8 @@ enum ReportService {
 
         let risks = riskLines.isEmpty ? "当前没有单项风险特别突出，重点看材料表达和选校结构。" : riskLines
         let factors = factorLines.isEmpty ? "概率主要由基础率和整体画像共同决定。" : factorLines
-        return "\(school.college.name)：关键风险：\(risks)｜主要驱动：\(factors)｜优先动作：\(actionLines)"
+        let english = school.gateResult.englishEligibility.map { "｜英语资格：\($0.status.rawValue)。\($0.detail)" } ?? ""
+        return "\(school.college.name)：关键风险：\(risks)｜主要驱动：\(factors)｜优先动作：\(actionLines)\(english)"
     }
 
     private static func schoolProbabilityTable(result: PortfolioResult) -> String {
@@ -887,7 +901,9 @@ enum ReportService {
         let header = "| 学校 | 排名/类型 | 单校概率 | 分档 | 硬门槛 | 主要差距 | 优先动作 |\n| --- | --- | ---: | --- | --- | --- | --- |"
         let rows = result.schoolResults.map { school in
             let benchmark = AdmissionsSeedData.academicBenchmarks.first { $0.collegeID == school.college.id }
-            let gate = school.gateResult.passed ? "通过" : "未通过"
+            let gate = school.gateResult.passed
+                ? (school.gateResult.englishEligibility?.status == .needsVerification ? "英语资格待核实" : "通过")
+                : "未通过"
             let gap = primaryGapSummary(profile: result.profileSnapshot, school: school, benchmark: benchmark)
             let action = primaryActionSummary(profile: result.profileSnapshot, school: school, benchmark: benchmark)
             return "| \(school.college.name) | #\(school.college.rank) \(school.college.category.rawValue) | \(percent(school.adjustedProbability)) | \(school.bucket.rawValue) | \(gate) | \(gap) | \(action) |"
@@ -1415,8 +1431,8 @@ enum ReportService {
         if !blocked.isEmpty {
             immediate.append("硬门槛：先处理 \(blocked.count) 所阻断学校的 required 标化、英语、作品集或轮次问题；阻断项未解决前，其他提升不会改变这些学校的 0% 结果。")
         }
-        if profile.applicantStatus.requiresEnglishProof && profile.toefl == nil && profile.ielts == nil {
-            immediate.append("英语证明：补 TOEFL 或 IELTS；这是国际生最典型的硬门槛/材料完整性问题。")
+        if profile.shouldSuggestEnglishProof(for: result.calculatedCollegeIDs) {
+            immediate.append("英语证明：按目标校规则核实授课经历、所需成绩或认可的替代证明。")
         }
         if !profile.testOptional && profile.sat == nil && profile.act == nil {
             immediate.append("标化口径：决定提交 SAT/ACT 还是明确 Test Optional，避免既无成绩又未选择不提交。")
@@ -1502,8 +1518,8 @@ enum ReportService {
         if !blocked.isEmpty {
             mustFix.append("硬门槛：已有 \(blocked.count) 所学校被阻断，必须先处理英语、标化、作品集或轮次要求。")
         }
-        if profile.applicantStatus.requiresEnglishProof && profile.toefl == nil && profile.ielts == nil {
-            mustFix.append("英语证明：未填写 TOEFL/IELTS，会直接影响国际生门槛判断。")
+        if profile.shouldSuggestEnglishProof(for: result.calculatedCollegeIDs) {
+            strategyRisks.append("英语证明：尚未填写；请按目标校规则核实是否必须提交。")
         }
         if !profile.testOptional && profile.sat == nil && profile.act == nil {
             mustFix.append("标化策略：未提交成绩且未选择 Test Optional，短期需要明确。")

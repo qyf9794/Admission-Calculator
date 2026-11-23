@@ -407,6 +407,40 @@ struct MajorSelectivitySignal: Identifiable, Hashable, Codable {
     }
 }
 
+enum EnglishEducationHistory: String, CaseIterable, Identifiable, Codable {
+    case unknown = "未确认"
+    case needsProof = "按目标校规则需要英语证明"
+    case meetsEducationExemption = "按目标校规则符合授课经历豁免"
+    var id: String { rawValue }
+}
+
+enum IELTSKind: String, CaseIterable, Identifiable, Codable {
+    case unknown = "未确认"
+    case academic = "学术类（Academic）"
+    case generalTraining = "培训类（General Training）"
+    var id: String { rawValue }
+}
+
+enum TOEFLegacyTiming: String, CaseIterable, Identifiable, Codable {
+    case unknown = "未确认"
+    case beforeJanuary2026 = "2026 年 1 月前"
+    case january2026OrLater = "2026 年 1 月及以后"
+    var id: String { rawValue }
+}
+
+enum EnglishEligibilityStatus: String, Hashable {
+    case notRequired = "按所填经历无需证明"
+    case met = "所填成绩达到门槛"
+    case needsVerification = "需核实（未判不合格）"
+    case notMet = "所填成绩未达硬门槛"
+}
+
+struct EnglishEligibilityAssessment: Hashable {
+    let status: EnglishEligibilityStatus
+    let detail: String
+    let sourceURL: URL?
+}
+
 struct CollegeGateRule: Identifiable, Hashable, Codable {
     let id: String
     let collegeID: String
@@ -423,6 +457,11 @@ struct CollegeGateRule: Identifiable, Hashable, Codable {
     let earlyDecisionAdjustment: Double?
     let affectedMajor: MajorCategory?
     let minimumStrengthBand: Int?
+    var minimumTOEFLBand: Double? = nil
+    var minimumIELTS: Double? = nil
+    var minimumDET: Int? = nil
+    var requiresAcademicIELTS: Bool? = nil
+    var legacyTOEFLBeforeJanuary2026: Bool? = nil
 }
 
 struct DataSourceRecord: Identifiable, Hashable, Codable {
@@ -491,6 +530,7 @@ struct HighSchoolContext: Identifiable, Hashable, Codable {
 
 struct StudentProfile: Hashable, Codable {
     static let maximumALevelSubjectCount = 5
+    static let reviewedUCEnglishCollegeIDs: Set<String> = ["uc_berkeley", "ucla", "ucsd", "uc_davis", "uc_irvine"]
 
     var applicantStatus: ApplicantStatus
     var gradeScale: GradeScale
@@ -516,6 +556,14 @@ struct StudentProfile: Hashable, Codable {
     var act: Int?
     var toefl: Int?
     var ielts: Double?
+    var englishEducationHistory: EnglishEducationHistory? = nil
+    // A verdict from a legacy profile without this scope is never inherited by another campus.
+    var englishEducationCollegeIDs: Set<String>? = nil
+    var toeflBand: Double? = nil
+    var toeflLegacyTiming: TOEFLegacyTiming? = nil
+    var duolingoEnglishTest: Int? = nil
+    var ieltsKind: IELTSKind? = nil
+    var hasOtherEnglishEvidence: Bool? = nil
     var testOptional: Bool
     var activities: Int
     var research: Int
@@ -681,7 +729,7 @@ struct ProfileCompletionPrompt: Identifiable, Hashable {
 
     var blocksProfileCompletion: Bool {
         switch id {
-        case "english-proof", "standardized-test", "major":
+        case "standardized-test", "major":
             return true
         default:
             return false
@@ -690,6 +738,38 @@ struct ProfileCompletionPrompt: Identifiable, Hashable {
 }
 
 extension StudentProfile {
+    func englishEducationHistory(for collegeID: String) -> EnglishEducationHistory {
+        guard Self.reviewedUCEnglishCollegeIDs.contains(collegeID),
+              englishEducationCollegeIDs?.contains(collegeID) == true else { return .unknown }
+        return englishEducationHistory ?? .unknown
+    }
+
+    mutating func setEnglishEducationHistory(_ history: EnglishEducationHistory, for collegeIDs: Set<String>) {
+        let reviewed = collegeIDs.intersection(Self.reviewedUCEnglishCollegeIDs)
+        if history == .unknown || reviewed.isEmpty {
+            englishEducationHistory = nil
+            englishEducationCollegeIDs = nil
+        } else {
+            englishEducationHistory = history
+            englishEducationCollegeIDs = reviewed
+        }
+    }
+
+    func shouldSuggestEnglishProof(for collegeIDs: Set<String>) -> Bool {
+        guard !hasEnteredEnglishProof else { return false }
+        if collegeIDs.isEmpty { return applicantStatus.requiresEnglishProof }
+        return collegeIDs.contains { collegeID in
+            if Self.reviewedUCEnglishCollegeIDs.contains(collegeID) {
+                return englishEducationHistory(for: collegeID) != .meetsEducationExemption
+            }
+            return applicantStatus.requiresEnglishProof
+        }
+    }
+
+    var hasEnteredEnglishProof: Bool {
+        toefl != nil || toeflBand != nil || ielts != nil || duolingoEnglishTest != nil || hasOtherEnglishEvidence == true
+    }
+
     func completionPrompts(selectedCollegeIDs: Set<String>) -> [ProfileCompletionPrompt] {
         var prompts: [ProfileCompletionPrompt] = []
 
@@ -703,13 +783,13 @@ extension StudentProfile {
             ))
         }
 
-        if applicantStatus.requiresEnglishProof && toefl == nil && ielts == nil {
+        if shouldSuggestEnglishProof(for: selectedCollegeIDs) {
             prompts.append(ProfileCompletionPrompt(
                 id: "english-proof",
-                title: "补充 TOEFL 或 IELTS",
-                detail: "国际生英语硬门槛接受任一语言成绩；缺失时部分学校会被阻断。",
+                title: "补充英语证明",
+                detail: "可补充英语成绩或校方认可的其他证明。是否必须提交以及是否达标，按目标校的规则判断。",
                 systemImage: "textformat.abc",
-                impact: .gate
+                impact: .confidence
             ))
         }
 
@@ -802,6 +882,7 @@ struct GateResult: Hashable {
     let failedRules: [CollegeGateRule]
     let inferredRules: [CollegeGateRule]
     let confidenceImpact: Double
+    var englishEligibility: EnglishEligibilityAssessment? = nil
 }
 
 struct ChanceFactor: Identifiable, Hashable {

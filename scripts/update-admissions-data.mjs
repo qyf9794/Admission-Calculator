@@ -338,12 +338,38 @@ function validate(colleges, gates, highSchools, registry, internationalSignals, 
     }
   }
 
+  const structuredEnglishColleges = new Set();
   for (const gate of gates) {
     if (gate.college_id !== "*" && !ids.has(gate.college_id)) {
       fail(`Gate ${gate.id} targets a school outside approved dataset: ${gate.college_id}`);
     }
     if (gate.is_official === "true" && !gate.source_url) {
       fail(`Official gate ${gate.id} must include source_url.`);
+    }
+    const newEnglishFields = ["minimum_toefl_band", "minimum_ielts", "minimum_det",
+      "requires_academic_ielts", "legacy_toefl_before_january_2026"];
+    if (newEnglishFields.some((key) => String(gate[key] ?? "").trim())) {
+      const label = `Gate ${gate.id}`;
+      if (gate.type !== "english" || gate.is_official !== "true" || gate.college_id === "*" || gate.affected_major ||
+          !gate.source_url?.startsWith("https://") || structuredEnglishColleges.has(gate.college_id)) {
+        fail(`${label} must be a uniquely sourced school-wide official English rule.`);
+      }
+      structuredEnglishColleges.add(gate.college_id);
+      const legacy = optionalInteger(gate, "minimum_toefl", label);
+      const band = optionalNumber(gate, "minimum_toefl_band", label);
+      const ielts = optionalNumber(gate, "minimum_ielts", label);
+      const det = optionalInteger(gate, "minimum_det", label);
+      if ([legacy, band, ielts, det].some((value) => value == null) || !Number.isInteger(band * 2) ||
+          !Number.isInteger(ielts * 2) || det % 5 !== 0) {
+        fail(`${label} requires valid legacy TOEFL, TOEFL band, IELTS and DET thresholds.`);
+      }
+      requireRange(legacy, 0, 120, label);
+      requireRange(band, 1, 6, label);
+      requireRange(ielts, 0, 9, label);
+      requireRange(det, 10, 160, label);
+      for (const key of newEnglishFields.slice(-2)) {
+        if (gate[key] && !["true", "false"].includes(gate[key])) fail(`${label} has an invalid ${key}.`);
+      }
     }
     requireRange(optionalNumber(gate, "early_action_adjustment", `Gate ${gate.id} early_action_adjustment`), -1, 1, `Gate ${gate.id} early_action_adjustment`);
     requireRange(optionalNumber(gate, "early_decision_adjustment", `Gate ${gate.id} early_decision_adjustment`), -1, 1, `Gate ${gate.id} early_decision_adjustment`);
@@ -810,6 +836,12 @@ function renderGateRules(gates) {
 
   return gates.map((gate) => {
     const allowedRounds = swiftEnumArray(gate.allowed_rounds, roundMap, `allowed round for ${gate.id}`);
+    const englishFields = gate.minimum_toefl_band ? `,
+            minimumTOEFLBand: ${swiftOptionalDouble(gate.minimum_toefl_band)},
+            minimumIELTS: ${swiftOptionalDouble(gate.minimum_ielts)},
+            minimumDET: ${swiftOptionalInt(gate.minimum_det)},
+            requiresAcademicIELTS: ${gate.requires_academic_ielts || "nil"},
+            legacyTOEFLBeforeJanuary2026: ${gate.legacy_toefl_before_january_2026 || "nil"}` : "";
     return `        CollegeGateRule(
             id: ${swiftString(gate.id)},
             collegeID: ${swiftString(gate.college_id)},
@@ -825,7 +857,7 @@ function renderGateRules(gates) {
             earlyActionAdjustment: ${swiftOptionalDouble(gate.early_action_adjustment)},
             earlyDecisionAdjustment: ${swiftOptionalDouble(gate.early_decision_adjustment)},
             affectedMajor: ${swiftOptionalEnum(gate.affected_major, majorMap)},
-            minimumStrengthBand: ${swiftOptionalInt(gate.minimum_strength_band)}
+            minimumStrengthBand: ${swiftOptionalInt(gate.minimum_strength_band)}${englishFields}
         )`;
   }).join(",\n");
 }
