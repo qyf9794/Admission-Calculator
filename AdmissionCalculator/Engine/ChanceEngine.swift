@@ -258,6 +258,7 @@ struct ChanceEngine {
 
         guard gate.passed else {
             let warnings = gate.failedRules.map { "未满足\($0.isOfficial ? "官方" : "推断")硬门槛：\($0.title)（\($0.detail)）" }
+                + englishEligibilityWarnings(gate)
             return ChanceResult(
                 college: college,
                 baseRate: baseRate,
@@ -324,11 +325,24 @@ struct ChanceEngine {
     }
 
     func gateResult(for college: College, profile: StudentProfile) -> GateResult {
-        let applicable = gateRules.filter { $0.collegeID == college.id || $0.collegeID == "*" }
+        let candidates = gateRules.filter { $0.collegeID == college.id || $0.collegeID == "*" }
+        let hasOfficialCampusEnglish = candidates.contains {
+            $0.collegeID == college.id && $0.type == .english && $0.isOfficial &&
+                ($0.affectedMajor == nil || $0.affectedMajor == profile.major)
+        }
+        let applicable = candidates.filter { !hasOfficialCampusEnglish || $0.type != .english || $0.collegeID != "*" }
         var failed: [CollegeGateRule] = []
         var inferred: [CollegeGateRule] = []
+        var englishEligibility: EnglishEligibilityAssessment?
 
         for rule in applicable {
+            if rule.type == .english, rule.isOfficial, rule.minimumTOEFLBand != nil,
+               rule.affectedMajor == nil || rule.affectedMajor == profile.major {
+                let assessment = assessReviewedEnglish(rule, profile: profile)
+                englishEligibility = assessment
+                if assessment.status == .notMet { failed.append(rule) }
+                continue
+            }
             guard ruleApplies(rule, to: profile) else {
                 continue
             }
@@ -346,8 +360,17 @@ struct ChanceEngine {
                     }
                 }
             case .english:
-                if profile.applicantStatus.requiresEnglishProof, let minimumTOEFL = rule.minimumTOEFL, !meetsEnglishRequirement(profile, minimumTOEFL: minimumTOEFL) {
-                    failed.append(rule)
+                if profile.applicantStatus.requiresEnglishProof, let minimumTOEFL = rule.minimumTOEFL,
+                   !meetsEnglishRequirement(profile, minimumTOEFL: minimumTOEFL) {
+                    if !rule.isOfficial && rule.collegeID == "*" && hasEnglishEvidenceOutsideInferredRule(profile) {
+                        englishEligibility = EnglishEligibilityAssessment(
+                            status: .needsVerification,
+                            detail: "已填的英语证明超出本校尚未核实的推断规则；请查目标校是否接受该考试、计分方式或其他证明。",
+                            sourceURL: nil
+                        )
+                    } else {
+                        failed.append(rule)
+                    }
                 }
             case .curriculum:
                 if let minimum = rule.minimumStrengthBand, profile.rigor < minimum {
@@ -379,8 +402,78 @@ struct ChanceEngine {
             passed: failed.isEmpty,
             failedRules: failed,
             inferredRules: inferred,
-            confidenceImpact: inferredPenalty + missingOfficialPenalty
+            confidenceImpact: inferredPenalty + missingOfficialPenalty,
+            englishEligibility: englishEligibility
         )
+    }
+
+    private func assessReviewedEnglish(_ rule: CollegeGateRule, profile: StudentProfile) -> EnglishEligibilityAssessment {
+        let competitiveness = rule.collegeID == "ucla"
+            ? " UCLA 另列较高的竞争性参考分数，不作为否决条件。"
+            : ""
+        func result(_ status: EnglishEligibilityStatus, _ detail: String) -> EnglishEligibilityAssessment {
+            EnglishEligibilityAssessment(status: status, detail: detail + competitiveness, sourceURL: rule.sourceURL)
+        }
+        if profile.englishEducationHistory == .meetsEducationExemption {
+            return result(.notRequired, "按你填报的目标校授课经历豁免判断，最终以校方核实为准。")
+        }
+
+        var scoresMet: [String] = []
+        var evaluatedRoutes = 0
+        var unverifiedEvidence = profile.hasOtherEnglishEvidence == true
+        if let score = profile.toefl, let minimum = rule.minimumTOEFL {
+            if !(0...120).contains(score) ||
+                (rule.legacyTOEFLBeforeJanuary2026 == true && profile.toeflLegacyTiming != .beforeJanuary2026) {
+                unverifiedEvidence = true
+            } else {
+                evaluatedRoutes += 1
+                if score >= minimum { scoresMet.append("旧制 TOEFL iBT") }
+            }
+        }
+        if let band = profile.toeflBand, let minimum = rule.minimumTOEFLBand {
+            if (1...6).contains(band) && (band * 2).rounded() == band * 2 {
+                evaluatedRoutes += 1
+                if band >= minimum { scoresMet.append("新版 TOEFL iBT") }
+            } else {
+                unverifiedEvidence = true
+            }
+        }
+        if let score = profile.ielts, let minimum = rule.minimumIELTS {
+            if !(0...9).contains(score) || (score * 2).rounded() != score * 2 ||
+                (rule.requiresAcademicIELTS == true && profile.ieltsKind != .academic) ||
+                profile.ieltsKind == .generalTraining {
+                unverifiedEvidence = true
+            } else {
+                evaluatedRoutes += 1
+                if score >= minimum { scoresMet.append("IELTS") }
+            }
+        }
+        if let score = profile.duolingoEnglishTest, let minimum = rule.minimumDET {
+            if (10...160).contains(score) && score.isMultiple(of: 5) {
+                evaluatedRoutes += 1
+                if score >= minimum { scoresMet.append("DET") }
+            } else {
+                unverifiedEvidence = true
+            }
+        }
+
+        if !scoresMet.isEmpty {
+            let routes = scoresMet.joined(separator: "、")
+            let applicability = profile.englishEducationHistory == .needsProof ? "" : "是否必须提交仍取决于授课经历。"
+            return result(.met, "\(routes) 达到「\(rule.title)」的分数线；请另核对考试日期、有效期、场次要求和提交方式。\(applicability)")
+        }
+        if profile.englishEducationHistory != .needsProof {
+            return result(.needsVerification, "是否必须提供英语证明取决于目标校认可的授课经历，不能按国籍或申请身份判定。\(rule.detail)")
+        }
+        if evaluatedRoutes == 0 || unverifiedEvidence {
+            return result(.needsVerification, "还没有可确认达标的英语证明；请核对考试类别、考试时间或其他校方认可的证明。\(rule.detail)")
+        }
+        return result(.notMet, "按已填且可比较的成绩，没有一项达到「\(rule.title)」。\(rule.detail)")
+    }
+
+    private func englishEligibilityWarnings(_ gate: GateResult) -> [String] {
+        guard let english = gate.englishEligibility, english.status == .needsVerification else { return [] }
+        return ["英语资格待核实（未据此判为 0%）：\(english.detail)"]
     }
 
     private func ruleApplies(_ rule: CollegeGateRule, to profile: StudentProfile) -> Bool {
@@ -1072,7 +1165,7 @@ struct ChanceEngine {
     }
 
     private func warnings(for college: College, profile: StudentProfile, gate: GateResult, internationalSignal: InternationalSignal, chinaSignal: ChinaUndergradAdmissionSignal, benchmark: AcademicBenchmark, majorSelectivitySignal: MajorSelectivitySignal?) -> [String] {
-        var items: [String] = []
+        var items = englishEligibilityWarnings(gate)
         if college.acceptanceRates.contains(where: { $0.rate == nil }) {
             items.append("该校最新年份存在 N/A，已使用最近非空录取率。")
         }
@@ -1251,17 +1344,18 @@ struct ChanceEngine {
         return 52
     }
 
+    private func hasEnglishEvidenceOutsideInferredRule(_ profile: StudentProfile) -> Bool {
+        let hasBand = profile.toeflBand.map { (1...6).contains($0) && ($0 * 2).rounded() == $0 * 2 } == true
+        let hasDET = profile.duolingoEnglishTest.map { (10...160).contains($0) && $0.isMultiple(of: 5) } == true
+        return hasBand || hasDET || profile.hasOtherEnglishEvidence == true
+    }
+
     private func meetsEnglishRequirement(_ profile: StudentProfile, minimumTOEFL: Int) -> Bool {
         guard profile.applicantStatus.requiresEnglishProof else {
             return true
         }
-        if let toefl = profile.toefl {
-            return toefl >= minimumTOEFL
-        }
-        if let ielts = profile.ielts {
-            return ielts >= 6.5
-        }
-        return false
+        return profile.toefl.map { $0 >= minimumTOEFL } == true ||
+            profile.ielts.map { $0 >= 6.5 } == true
     }
 
     private func bestSATEquivalent(_ profile: StudentProfile) -> Int? {

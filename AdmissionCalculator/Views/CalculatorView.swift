@@ -19,6 +19,7 @@ struct CalculatorView: View {
     @State private var maxVisitedCardIndex = 0
     @State private var showingMajorSelection = false
     @State private var showingHighSchoolSearch = false
+    @State private var showingEnglishEvidence = false
     @State private var swipeCommand: AdmissionCardSwipeCommand?
     @State private var hasAppliedInitialCardIndex = false
 
@@ -131,6 +132,9 @@ struct CalculatorView: View {
         .sheet(isPresented: $showingMajorSelection) {
             MajorSelectionSheet(selectedMajor: $profile.major)
         }
+        .sheet(isPresented: $showingEnglishEvidence) {
+            EnglishEvidenceSheet(profile: $profile)
+        }
     }
 
     @ViewBuilder
@@ -186,13 +190,16 @@ struct CalculatorView: View {
                     .tint(AdmissionStyle.controlBlue)
                 ScoreField(title: "SAT", value: $profile.sat, range: 400...1600, disabled: profile.testOptional)
                 ScoreField(title: "ACT", value: $profile.act, range: 1...36, disabled: profile.testOptional)
-                ScoreField(title: "TOEFL", value: $profile.toefl, range: 0...120, disabled: false)
-                DecimalScoreField(title: "IELTS", value: $profile.ielts, range: 0...9.0, step: 0.5)
-                if !profile.applicantStatus.requiresEnglishProof {
-                    Text("当前申请身份通常不触发国际生英语硬门槛；语言成绩仍可作为学术证明。")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.70))
+                TOEFLScoreFields(legacy: legacyTOEFLBinding, band: $profile.toeflBand)
+                DecimalScoreField(title: "IELTS", value: ieltsBinding, range: 0...9.0, step: 0.5)
+                Button {
+                    showingEnglishEvidence = true
+                } label: {
+                    Label("英语授课、IELTS 类型与其他证明", systemImage: "doc.text")
+                        .font(.subheadline)
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("englishEvidenceSettings")
 	                IntArrowInput(title: "课程难度", value: $profile.rigor, range: 1...5, suffix: "/5", isFilled: completionBinding(.rigor))
             }
         case 2:
@@ -235,6 +242,20 @@ struct CalculatorView: View {
                 onAutomaticSummaryAnimationCompleted: onAutomaticSummaryAnimationCompleted
             )
         }
+    }
+
+    private var legacyTOEFLBinding: Binding<Int?> {
+        Binding(get: { profile.toefl }, set: { value in
+            profile.toefl = value
+            if value == nil { profile.toeflLegacyTiming = nil }
+        })
+    }
+
+    private var ieltsBinding: Binding<Double?> {
+        Binding(get: { profile.ielts }, set: { value in
+            profile.ielts = value
+            if value == nil { profile.ieltsKind = nil }
+        })
     }
 
     private var selectedHighSchool: HighSchoolContext {
@@ -328,9 +349,10 @@ struct CalculatorView: View {
                 curriculumEvidenceIsComplete
             ])
         case 1:
+            // English proof depends on the selected campus; missing evidence should
+            // not prevent reaching the school selection needed to evaluate it.
             return completionRatio([
                 profile.testOptional || profile.sat != nil || profile.act != nil,
-                !profile.applicantStatus.requiresEnglishProof || profile.toefl != nil || profile.ielts != nil,
                 completionState.isFilled(.rigor)
             ])
         case 2:
@@ -1522,6 +1544,121 @@ private func midpoint(_ range: ClosedRange<Int>) -> Int {
 
 private func midpoint(_ range: ClosedRange<Double>) -> Double {
     (range.lowerBound + range.upperBound) / 2.0
+}
+
+private struct TOEFLScoreFields: View {
+    @Binding var legacy: Int?
+    @Binding var band: Double?
+    @State private var showBand: Bool
+
+    init(legacy: Binding<Int?>, band: Binding<Double?>) {
+        _legacy = legacy
+        _band = band
+        _showBand = State(initialValue: band.wrappedValue != nil || legacy.wrappedValue == nil)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Picker("TOEFL iBT 分制", selection: $showBand) {
+                Text("新版 1–6").tag(true)
+                Text("旧制 0–120").tag(false)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("toeflScoreScale")
+
+            if showBand {
+                DecimalScoreField(title: "TOEFL", value: $band, range: 1...6, step: 0.5)
+            } else {
+                ScoreField(title: "TOEFL", value: $legacy, range: 0...120, disabled: false)
+            }
+
+            if let legacy, showBand {
+                Text("另有已填旧制成绩：\(legacy)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let band, !showBand {
+                Text("另有已填新版成绩：\(band, specifier: "%.1f")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: legacy) { _, newValue in
+            if newValue != nil, band == nil { showBand = false }
+        }
+        .onChange(of: band) { _, newValue in
+            if newValue != nil, legacy == nil { showBand = true }
+        }
+    }
+}
+
+private struct EnglishEvidenceSheet: View {
+    @Binding var profile: StudentProfile
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("英语授课经历", selection: Binding(
+                        get: { profile.englishEducationHistory ?? .unknown },
+                        set: { profile.englishEducationHistory = $0 }
+                    )) {
+                        Text("尚未确认").tag(EnglishEducationHistory.unknown)
+                        Text("所选 UC 校区均要求证明").tag(EnglishEducationHistory.needsProof)
+                        Text("所选 UC 校区均认可授课豁免").tag(EnglishEducationHistory.meetsEducationExemption)
+                    }
+                } footer: {
+                    Text("是否需要证明取决于各校规则和就学经历，不只看国籍。校区要求不一致，或还没核对时，请选「尚未确认」。")
+                }
+
+                Section {
+                    if profile.toefl != nil {
+                        Picker("旧制 TOEFL 考试月份", selection: Binding(
+                            get: { profile.toeflLegacyTiming ?? .unknown },
+                            set: { profile.toeflLegacyTiming = $0 }
+                        )) {
+                            Text("尚未确认").tag(TOEFLegacyTiming.unknown)
+                            Text("2026 年 1 月前").tag(TOEFLegacyTiming.beforeJanuary2026)
+                            Text("2026 年 1 月起").tag(TOEFLegacyTiming.january2026OrLater)
+                        }
+                    }
+                    Picker("IELTS 考试类型", selection: Binding(
+                        get: { profile.ieltsKind ?? .unknown },
+                        set: { profile.ieltsKind = $0 }
+                    )) {
+                        Text("尚未确认").tag(IELTSKind.unknown)
+                        Text("Academic（学术类）").tag(IELTSKind.academic)
+                        Text("General Training（培训类）").tag(IELTSKind.generalTraining)
+                    }
+                    if let score = profile.duolingoEnglishTest {
+                        Text("Duolingo English Test：\(score)")
+                        Slider(value: Binding(
+                            get: { Double(profile.duolingoEnglishTest ?? 10) },
+                            set: { profile.duolingoEnglishTest = Int($0.rounded()) }
+                        ), in: 10...160, step: 5)
+                        .accessibilityLabel("Duolingo English Test 成绩")
+                        .accessibilityValue("\(score)")
+                        Button("清除 Duolingo 成绩") { profile.duolingoEnglishTest = nil }
+                    } else {
+                        Button("填写 Duolingo English Test 成绩") { profile.duolingoEnglishTest = 10 }
+                    }
+                    Toggle("另有 AP、IB 等英语证明待核对", isOn: Binding(
+                        get: { profile.hasOtherEnglishEvidence == true },
+                        set: { profile.hasOtherEnglishEvidence = $0 ? true : nil }
+                    ))
+                } footer: {
+                    Text("新版 TOEFL 自 2026 年 1 月 21 日采用 1–6 分制。部分学校另外按考试月份区分旧制门槛。同一场考试不用重复填对照分；其他证明以校方确认为准。")
+                }
+            }
+            .navigationTitle("英语资格")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+    }
 }
 
 private struct ScoreField: View {
