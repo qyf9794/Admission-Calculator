@@ -255,7 +255,7 @@ final class ChanceEngineTests: XCTestCase {
         var profile = StudentProfile.sample
         profile.round = .regularDecision
         profile.major = .humanities
-        profile.englishEducationHistory = .needsProof
+        profile.setEnglishEducationHistory(.needsProof, for: StudentProfile.reviewedUCEnglishCollegeIDs)
         profile.toefl = nil
         profile.ielts = nil
         return profile
@@ -327,12 +327,12 @@ final class ChanceEngineTests: XCTestCase {
         profile.hasOtherEnglishEvidence = true
         XCTAssertEqual(reviewedEnglishResult("ucsd", profile).gateResult.englishEligibility?.status, .needsVerification)
         profile.hasOtherEnglishEvidence = nil
-        profile.englishEducationHistory = .unknown
+        profile.setEnglishEducationHistory(.unknown, for: ["ucsd"])
         profile.applicantStatus = .usCitizenAbroad
         XCTAssertEqual(reviewedEnglishResult("ucsd", profile).gateResult.englishEligibility?.status, .needsVerification)
-        profile.englishEducationHistory = .needsProof
+        profile.setEnglishEducationHistory(.needsProof, for: StudentProfile.reviewedUCEnglishCollegeIDs)
         XCTAssertEqual(reviewedEnglishResult("ucsd", profile).gateResult.englishEligibility?.status, .notMet)
-        profile.englishEducationHistory = .meetsEducationExemption
+        profile.setEnglishEducationHistory(.meetsEducationExemption, for: ["ucsd"])
         XCTAssertEqual(reviewedEnglishResult("ucsd", profile).gateResult.englishEligibility?.status, .notRequired)
     }
 
@@ -378,6 +378,66 @@ final class ChanceEngineTests: XCTestCase {
         XCTAssertEqual(decoded.ielts, legacy.ielts)
         XCTAssertNil(decoded.toeflBand)
         XCTAssertNil(decoded.englishEducationHistory)
+    }
+
+    func testEducationVerdictOnlyAppliesToConfirmedReviewedCampusIDs() throws {
+        var profile = reviewedEnglishProfile()
+        profile.setEnglishEducationHistory(.needsProof, for: ["ucsd", "bu"])
+        profile.toeflBand = 4
+        XCTAssertEqual(profile.englishEducationCollegeIDs, Set(["ucsd"]))
+        XCTAssertEqual(reviewedEnglishResult("ucsd", profile).gateResult.englishEligibility?.status, .notMet)
+        let newlyAdded = reviewedEnglishResult("uc_berkeley", profile)
+        XCTAssertEqual(newlyAdded.gateResult.englishEligibility?.status, .needsVerification)
+        XCTAssertGreaterThan(newlyAdded.adjustedProbability, 0)
+
+        profile.setEnglishEducationHistory(.meetsEducationExemption, for: ["ucsd"])
+        let encoded = try JSONEncoder().encode(profile)
+        let restored = try JSONDecoder().decode(StudentProfile.self, from: encoded)
+        XCTAssertEqual(restored.englishEducationCollegeIDs, Set(["ucsd"]))
+        XCTAssertEqual(reviewedEnglishResult("ucsd", restored).gateResult.englishEligibility?.status, .notRequired)
+        XCTAssertEqual(reviewedEnglishResult("ucla", restored).gateResult.englishEligibility?.status, .needsVerification)
+
+        let both = engine.evaluate(profile: restored, selectedCollegeIDs: ["ucsd", "ucla"])
+        let report = ReportService.makeReport(result: both)
+        XCTAssertTrue(report.contains("按所填经历无需证明"))
+        XCTAssertTrue(report.contains("英语资格待核实"))
+        XCTAssertFalse(report.contains("授课经历：按目标校规则符合授课经历豁免"))
+    }
+
+    func testLegacyUnscopedVerdictDecodesButDoesNotApplyToAnyCampus() throws {
+        var profile = reviewedEnglishProfile()
+        profile.toeflBand = 4
+        let scoped = try JSONEncoder().encode(profile)
+        var oldStored = try XCTUnwrap(JSONSerialization.jsonObject(with: scoped) as? [String: Any])
+        oldStored.removeValue(forKey: "englishEducationCollegeIDs")
+        for verdict in [EnglishEducationHistory.needsProof, .meetsEducationExemption] {
+            oldStored["englishEducationHistory"] = verdict.rawValue
+            let decoded = try JSONDecoder().decode(StudentProfile.self, from: JSONSerialization.data(withJSONObject: oldStored))
+            XCTAssertEqual(decoded.englishEducationHistory, verdict)
+            XCTAssertNil(decoded.englishEducationCollegeIDs)
+            XCTAssertEqual(decoded.englishEducationHistory(for: "ucsd"), .unknown)
+            let result = reviewedEnglishResult("ucsd", decoded)
+            XCTAssertEqual(result.gateResult.englishEligibility?.status, .needsVerification)
+            XCTAssertGreaterThan(result.adjustedProbability, 0)
+        }
+    }
+
+    func testUCSDConfirmedEducationSeparatesMissingLowAndPassingDET() {
+        var profile = reviewedEnglishProfile()
+        profile.setEnglishEducationHistory(.needsProof, for: ["ucsd"])
+        let missing = reviewedEnglishResult("ucsd", profile)
+        XCTAssertEqual(missing.gateResult.englishEligibility?.status, .needsVerification)
+        XCTAssertGreaterThan(missing.adjustedProbability, 0)
+
+        profile.duolingoEnglishTest = 10
+        let low = reviewedEnglishResult("ucsd", profile)
+        XCTAssertEqual(low.gateResult.englishEligibility?.status, .notMet)
+        XCTAssertEqual(low.adjustedProbability, 0)
+
+        profile.duolingoEnglishTest = 115
+        let passing = reviewedEnglishResult("ucsd", profile)
+        XCTAssertEqual(passing.gateResult.englishEligibility?.status, .met)
+        XCTAssertGreaterThan(passing.adjustedProbability, 0)
     }
 
     func testNonUCInferredFloorIsPreservedButEitherOldProofMayPass() {

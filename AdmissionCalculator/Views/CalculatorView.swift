@@ -133,7 +133,7 @@ struct CalculatorView: View {
             MajorSelectionSheet(selectedMajor: $profile.major)
         }
         .sheet(isPresented: $showingEnglishEvidence) {
-            EnglishEvidenceSheet(profile: $profile)
+            EnglishEvidenceSheet(profile: $profile, selectedCollegeIDs: selectedCollegeIDs)
         }
     }
 
@@ -1593,22 +1593,48 @@ private struct TOEFLScoreFields: View {
 
 private struct EnglishEvidenceSheet: View {
     @Binding var profile: StudentProfile
+    let selectedCollegeIDs: Set<String>
     @Environment(\.dismiss) private var dismiss
+
+    private var coveredCollegeIDs: Set<String> {
+        selectedCollegeIDs.intersection(StudentProfile.reviewedUCEnglishCollegeIDs)
+    }
+
+    private var coveredCollegeNames: String {
+        AdmissionsSeedData.colleges
+            .filter { coveredCollegeIDs.contains($0.id) }
+            .map(\.name)
+            .joined(separator: "、")
+    }
+
+    private var educationHistory: Binding<EnglishEducationHistory> {
+        Binding(
+            get: {
+                guard let firstID = coveredCollegeIDs.first else { return .unknown }
+                let first = profile.englishEducationHistory(for: firstID)
+                return coveredCollegeIDs.allSatisfy { profile.englishEducationHistory(for: $0) == first }
+                    ? first : .unknown
+            },
+            set: { profile.setEnglishEducationHistory($0, for: coveredCollegeIDs) }
+        )
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("英语授课经历", selection: Binding(
-                        get: { profile.englishEducationHistory ?? .unknown },
-                        set: { profile.englishEducationHistory = $0 }
-                    )) {
+                    Picker("英语授课经历", selection: educationHistory) {
                         Text("尚未确认").tag(EnglishEducationHistory.unknown)
                         Text("所选 UC 校区均要求证明").tag(EnglishEducationHistory.needsProof)
                         Text("所选 UC 校区均认可授课豁免").tag(EnglishEducationHistory.meetsEducationExemption)
                     }
+                    .disabled(coveredCollegeIDs.isEmpty)
                 } footer: {
-                    Text("是否需要证明取决于各校规则和就学经历，不只看国籍。校区要求不一致，或还没核对时，请选「尚未确认」。")
+                    if coveredCollegeIDs.isEmpty {
+                        Text("先选择目标 UC 校区，再确认这些校区是否要求英语证明。未确认不会仅因此判定不合格。")
+                    } else {
+                        Text("本次确认只适用于：\(coveredCollegeNames)。新增校区不会沿用此次确认。校区要求不一致，或还没核对时，请选「尚未确认」。")
+                    }
                 }
 
                 Section {
@@ -1630,18 +1656,14 @@ private struct EnglishEvidenceSheet: View {
                         Text("Academic（学术类）").tag(IELTSKind.academic)
                         Text("General Training（培训类）").tag(IELTSKind.generalTraining)
                     }
-                    if let score = profile.duolingoEnglishTest {
-                        Text("Duolingo English Test：\(score)")
-                        Slider(value: Binding(
-                            get: { Double(profile.duolingoEnglishTest ?? 10) },
-                            set: { profile.duolingoEnglishTest = Int($0.rounded()) }
-                        ), in: 10...160, step: 5)
-                        .accessibilityLabel("Duolingo English Test 成绩")
-                        .accessibilityValue("\(score)")
-                        Button("清除 Duolingo 成绩") { profile.duolingoEnglishTest = nil }
-                    } else {
-                        Button("填写 Duolingo English Test 成绩") { profile.duolingoEnglishTest = 10 }
+                    Picker("Duolingo 成绩", selection: $profile.duolingoEnglishTest) {
+                        Text("未填写").tag(nil as Int?)
+                        ForEach(Array(stride(from: 10, through: 160, by: 5)), id: \.self) { score in
+                            Text("\(score)").tag(Optional(score))
+                        }
                     }
+                    .pickerStyle(.navigationLink)
+                    .accessibilityIdentifier("duolingoEnglishTestScore")
                     Toggle("另有 AP、IB 等英语证明待核对", isOn: Binding(
                         get: { profile.hasOtherEnglishEvidence == true },
                         set: { profile.hasOtherEnglishEvidence = $0 ? true : nil }

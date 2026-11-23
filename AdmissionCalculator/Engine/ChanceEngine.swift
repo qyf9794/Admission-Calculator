@@ -408,13 +408,14 @@ struct ChanceEngine {
     }
 
     private func assessReviewedEnglish(_ rule: CollegeGateRule, profile: StudentProfile) -> EnglishEligibilityAssessment {
+        let educationHistory = profile.englishEducationHistory(for: rule.collegeID)
         let competitiveness = rule.collegeID == "ucla"
             ? " UCLA 另列较高的竞争性参考分数，不作为否决条件。"
             : ""
         func result(_ status: EnglishEligibilityStatus, _ detail: String) -> EnglishEligibilityAssessment {
             EnglishEligibilityAssessment(status: status, detail: detail + competitiveness, sourceURL: rule.sourceURL)
         }
-        if profile.englishEducationHistory == .meetsEducationExemption {
+        if educationHistory == .meetsEducationExemption {
             return result(.notRequired, "按你填报的目标校授课经历豁免判断，最终以校方核实为准。")
         }
 
@@ -459,11 +460,11 @@ struct ChanceEngine {
 
         if !scoresMet.isEmpty {
             let routes = scoresMet.joined(separator: "、")
-            let applicability = profile.englishEducationHistory == .needsProof ? "" : "是否必须提交仍取决于授课经历。"
+            let applicability = educationHistory == .needsProof ? "" : "是否必须提交仍取决于授课经历。"
             return result(.met, "\(routes) 达到「\(rule.title)」的分数线；请另核对考试日期、有效期、场次要求和提交方式。\(applicability)")
         }
-        if profile.englishEducationHistory != .needsProof {
-            return result(.needsVerification, "是否必须提供英语证明取决于目标校认可的授课经历，不能按国籍或申请身份判定。\(rule.detail)")
+        if educationHistory != .needsProof {
+            return result(.needsVerification, "此校区的授课经历判定尚未确认，不能按其他校区的确认、国籍或申请身份判定。\(rule.detail)")
         }
         if evaluatedRoutes == 0 || unverifiedEvidence {
             return result(.needsVerification, "还没有可确认达标的英语证明；请核对考试类别、考试时间或其他校方认可的证明。\(rule.detail)")

@@ -630,13 +630,12 @@ enum ReportService {
     }
 
     private static func englishProfileFacts(_ profile: StudentProfile) -> String {
-        let facts = [
+        let facts: [String?] = [
             profile.toefl.map { "旧制 TOEFL iBT \($0)/120（\(profile.toeflLegacyTiming?.rawValue ?? "考试日期未确认")）" },
             profile.toeflBand.map { "新版 TOEFL iBT \($0.formatted(.number.precision(.fractionLength(1))))/6" },
             profile.ielts.map { "IELTS \($0.formatted(.number.precision(.fractionLength(1))))（\(profile.ieltsKind?.rawValue ?? "类别未确认")）" },
             profile.duolingoEnglishTest.map { "DET \($0)" },
-            profile.hasOtherEnglishEvidence == true ? "其他证明待校方核实" : nil,
-            profile.englishEducationHistory.map { "授课经历：\($0.rawValue)" }
+            profile.hasOtherEnglishEvidence == true ? "其他证明待校方核实" : nil
         ]
         return facts.compactMap { $0 }.joined(separator: "，")
     }
@@ -1432,8 +1431,7 @@ enum ReportService {
         if !blocked.isEmpty {
             immediate.append("硬门槛：先处理 \(blocked.count) 所阻断学校的 required 标化、英语、作品集或轮次问题；阻断项未解决前，其他提升不会改变这些学校的 0% 结果。")
         }
-        if profile.englishEducationHistory != .meetsEducationExemption && !profile.hasEnteredEnglishProof &&
-            (profile.englishEducationHistory == .needsProof || profile.applicantStatus.requiresEnglishProof) {
+        if profile.shouldSuggestEnglishProof(for: result.calculatedCollegeIDs) {
             immediate.append("英语证明：按目标校规则核实授课经历、所需成绩或认可的替代证明。")
         }
         if !profile.testOptional && profile.sat == nil && profile.act == nil {
@@ -1520,8 +1518,7 @@ enum ReportService {
         if !blocked.isEmpty {
             mustFix.append("硬门槛：已有 \(blocked.count) 所学校被阻断，必须先处理英语、标化、作品集或轮次要求。")
         }
-        if profile.englishEducationHistory != .meetsEducationExemption && !profile.hasEnteredEnglishProof &&
-            (profile.englishEducationHistory == .needsProof || profile.applicantStatus.requiresEnglishProof) {
+        if profile.shouldSuggestEnglishProof(for: result.calculatedCollegeIDs) {
             strategyRisks.append("英语证明：尚未填写；请按目标校规则核实是否必须提交。")
         }
         if !profile.testOptional && profile.sat == nil && profile.act == nil {

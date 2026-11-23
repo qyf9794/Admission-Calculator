@@ -530,6 +530,7 @@ struct HighSchoolContext: Identifiable, Hashable, Codable {
 
 struct StudentProfile: Hashable, Codable {
     static let maximumALevelSubjectCount = 5
+    static let reviewedUCEnglishCollegeIDs: Set<String> = ["uc_berkeley", "ucla", "ucsd", "uc_davis", "uc_irvine"]
 
     var applicantStatus: ApplicantStatus
     var gradeScale: GradeScale
@@ -556,6 +557,8 @@ struct StudentProfile: Hashable, Codable {
     var toefl: Int?
     var ielts: Double?
     var englishEducationHistory: EnglishEducationHistory? = nil
+    // A verdict from a legacy profile without this scope is never inherited by another campus.
+    var englishEducationCollegeIDs: Set<String>? = nil
     var toeflBand: Double? = nil
     var toeflLegacyTiming: TOEFLegacyTiming? = nil
     var duolingoEnglishTest: Int? = nil
@@ -735,6 +738,34 @@ struct ProfileCompletionPrompt: Identifiable, Hashable {
 }
 
 extension StudentProfile {
+    func englishEducationHistory(for collegeID: String) -> EnglishEducationHistory {
+        guard Self.reviewedUCEnglishCollegeIDs.contains(collegeID),
+              englishEducationCollegeIDs?.contains(collegeID) == true else { return .unknown }
+        return englishEducationHistory ?? .unknown
+    }
+
+    mutating func setEnglishEducationHistory(_ history: EnglishEducationHistory, for collegeIDs: Set<String>) {
+        let reviewed = collegeIDs.intersection(Self.reviewedUCEnglishCollegeIDs)
+        if history == .unknown || reviewed.isEmpty {
+            englishEducationHistory = nil
+            englishEducationCollegeIDs = nil
+        } else {
+            englishEducationHistory = history
+            englishEducationCollegeIDs = reviewed
+        }
+    }
+
+    func shouldSuggestEnglishProof(for collegeIDs: Set<String>) -> Bool {
+        guard !hasEnteredEnglishProof else { return false }
+        if collegeIDs.isEmpty { return applicantStatus.requiresEnglishProof }
+        return collegeIDs.contains { collegeID in
+            if Self.reviewedUCEnglishCollegeIDs.contains(collegeID) {
+                return englishEducationHistory(for: collegeID) != .meetsEducationExemption
+            }
+            return applicantStatus.requiresEnglishProof
+        }
+    }
+
     var hasEnteredEnglishProof: Bool {
         toefl != nil || toeflBand != nil || ielts != nil || duolingoEnglishTest != nil || hasOtherEnglishEvidence == true
     }
@@ -752,8 +783,7 @@ extension StudentProfile {
             ))
         }
 
-        if englishEducationHistory != .meetsEducationExemption &&
-            (englishEducationHistory == .needsProof || applicantStatus.requiresEnglishProof) && !hasEnteredEnglishProof {
+        if shouldSuggestEnglishProof(for: selectedCollegeIDs) {
             prompts.append(ProfileCompletionPrompt(
                 id: "english-proof",
                 title: "补充英语证明",
